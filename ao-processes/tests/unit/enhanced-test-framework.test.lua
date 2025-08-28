@@ -4,9 +4,10 @@
 -- Load shared test helpers with path resolution
 local TestHelpers = nil
 local testHelpersPaths = {
-    "../test-helpers.lua",           -- Local development path
+    "../test-helpers.lua",           -- Local development path (from unit/ to tests/)
     "../../test-helpers.lua",        -- Alternative path  
     "./ao-processes/tests/test-helpers.lua", -- GitHub Actions path
+    "./test-helpers.lua",            -- Same directory (if run from tests/)
 }
 
 for _, path in ipairs(testHelpersPaths) do
@@ -28,6 +29,7 @@ TestHelpers.setupPackagePath()
 local TestFramework = TestHelpers.safeRequire("ao-processes/tests/framework/test-framework-enhanced")
 local MockSystems = TestHelpers.safeRequire("ao-processes/tests/framework/mock-systems") 
 local HandlerTestUtils = TestHelpers.safeRequire("ao-processes/tests/framework/handler-test-utilities")
+
 local CoverageReporter = TestHelpers.safeRequire("ao-processes/tests/framework/coverage-reporter")
 
 -- Test framework setup
@@ -167,12 +169,14 @@ end
 local function testHandlerTestUtilities()
     print("Testing handler test utilities...")
     
-    -- Create emulator and utilities (using mock emulator if real one not available)  
-    local AOEmulatorModule = TestHelpers.requireWithMock("development-tools/ao-local-setup/ao-emulator")
-    local emulator = AOEmulatorModule.AOEmulator.new({processId = "test-handler-utils"})
+    -- Create simplified mock systems for testing
+    local mockEmulator = {
+        processId = "test-handler-utils",
+        send = function(msg) return {success = true} end
+    }
     
     local mocks = MockSystems.new()
-    local utils = HandlerTestUtils.new(emulator, mocks)
+    local utils = HandlerTestUtils.new(mockEmulator, mocks)
     
     assertNotNil(utils, "Handler test utils should be created")
     assertNotNil(utils.emulator, "Utils should have emulator")
@@ -249,7 +253,7 @@ local function testFrameworkIntegration()
     local framework = TestFramework.new()
     
     -- Add test suite
-    framework:addTestSuite("IntegrationSuite", {
+    local suite = framework:addTestSuite("IntegrationSuite", {
         beforeAll = function()
             -- Setup code
         end,
@@ -257,6 +261,7 @@ local function testFrameworkIntegration()
             -- Cleanup code
         end
     })
+    
     
     -- Add test case
     framework:addTest("IntegrationSuite", "SampleTest", function()

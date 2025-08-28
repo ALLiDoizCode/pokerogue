@@ -463,4 +463,203 @@ function TestFramework:runAll(filter)
     end
 end
 
+-- Static convenience functions for compatibility
+function TestFramework.createTestSuite(name, config)
+    local suite = {
+        name = name,
+        description = config.description or "",
+        timeout = config.timeout or 10000,
+        setup_timeout = config.setup_timeout or 5000,
+        teardown_timeout = config.teardown_timeout or 5000,
+        tests = {},
+        setup = config.setup,
+        teardown = config.teardown
+    }
+    return suite
+end
+
+function TestFramework.addTestToSuite(suite, testName, testFunc)
+    if not suite then
+        error("Suite is nil - make sure to create suite with createTestSuite first")
+    end
+    if not suite.tests then
+        error("Suite.tests is nil - suite may not have been created properly")
+    end
+    table.insert(suite.tests, {
+        name = testName,
+        func = testFunc
+    })
+end
+
+function TestFramework.assert(condition, message)
+    if not condition then
+        error(message or "Assertion failed")
+    end
+end
+
+function TestFramework.executeTestSuite(suite)
+    print("🧪 Running Test Suite: " .. suite.name)
+    print("=" .. string.rep("=", #suite.name + 22))
+    
+    local results = {
+        total_tests = 0,
+        passed_tests = 0,
+        failed_tests = 0,
+        skipped_tests = 0,
+        execution_time = 0,
+        overall_success = true,
+        pass_rate = 0,
+        fail_rate = 0,
+        failed_test_details = {}
+    }
+    
+    local start_time = os.clock()
+    
+    -- Run setup if provided
+    if suite.setup then
+        local success, error_msg = pcall(suite.setup)
+        if not success then
+            print("❌ Setup failed: " .. error_msg)
+            results.overall_success = false
+        end
+    end
+    
+    -- Run tests
+    for _, test in ipairs(suite.tests) do
+        results.total_tests = results.total_tests + 1
+        
+        local test_start = os.clock()
+        local success, error_msg = pcall(test.func)
+        local test_duration = os.clock() - test_start
+        
+        if success then
+            results.passed_tests = results.passed_tests + 1
+            print("  ✅ " .. test.name .. " (" .. string.format("%.3fs", test_duration) .. ")")
+        else
+            results.failed_tests = results.failed_tests + 1
+            results.overall_success = false
+            print("  ❌ " .. test.name .. " - " .. error_msg)
+            table.insert(results.failed_test_details, {
+                test_name = test.name,
+                error_message = error_msg
+            })
+        end
+    end
+    
+    -- Run teardown if provided
+    if suite.teardown then
+        local success, error_msg = pcall(suite.teardown)
+        if not success then
+            print("❌ Teardown failed: " .. error_msg)
+        end
+    end
+    
+    local total_time = os.clock() - start_time
+    results.execution_time = total_time * 1000 -- Convert to milliseconds
+    
+    if results.total_tests > 0 then
+        results.pass_rate = results.passed_tests / results.total_tests
+        results.fail_rate = results.failed_tests / results.total_tests
+    end
+    
+    return results
+end
+
+-- TestSuite compatibility layer for existing tests
+TestFramework.TestSuite = {}
+TestFramework.TestSuite.__index = TestFramework.TestSuite
+
+function TestFramework.TestSuite:new(name, config)
+    local suite = setmetatable({}, TestFramework.TestSuite)
+    suite.name = name or "Unnamed Test Suite"
+    suite.description = (config and config.description) or ""
+    suite.timeout = (config and config.timeout) or 10000
+    suite.tests = {}
+    suite._setUp = nil
+    suite._tearDown = nil
+    return suite
+end
+
+function TestFramework.TestSuite:addTest(testName, testFunc)
+    table.insert(self.tests, {
+        name = testName,
+        func = testFunc
+    })
+end
+
+function TestFramework.TestSuite:setSetUp(setupFunc)
+    self._setUp = setupFunc
+end
+
+function TestFramework.TestSuite:setTearDown(tearDownFunc)
+    self._tearDown = tearDownFunc
+end
+
+function TestFramework.TestSuite:run()
+    local results = {
+        totalTests = #self.tests,
+        totalPassed = 0,
+        totalFailed = 0,
+        details = {}
+    }
+    
+    print("🧪 Running Test Suite: " .. self.name)
+    print("=" .. string.rep("=", #self.name + 22))
+    
+    local start_time = os.clock()
+    
+    -- Run setup if provided
+    if self._setUp then
+        local success, error_msg = pcall(self._setUp)
+        if not success then
+            print("❌ Setup failed: " .. error_msg)
+            results.setupFailed = true
+        end
+    end
+    
+    -- Run tests
+    for _, test in ipairs(self.tests) do
+        local test_start = os.clock()
+        local success, error_msg = pcall(test.func)
+        local test_duration = os.clock() - test_start
+        
+        if success then
+            results.totalPassed = results.totalPassed + 1
+            print("  ✅ " .. test.name .. " (" .. string.format("%.3fs", test_duration) .. ")")
+        else
+            results.totalFailed = results.totalFailed + 1
+            print("  ❌ " .. test.name .. " - " .. tostring(error_msg))
+            table.insert(results.details, {
+                testName = test.name,
+                error = error_msg,
+                passed = false
+            })
+        end
+    end
+    
+    -- Run teardown if provided  
+    if self._tearDown then
+        local success, error_msg = pcall(self._tearDown)
+        if not success then
+            print("❌ Teardown failed: " .. error_msg)
+        end
+    end
+    
+    local total_time = os.clock() - start_time
+    results.executionTime = total_time * 1000 -- Convert to milliseconds
+    
+    print("")
+    print("📊 Test Results:")
+    print(string.format("   Tests: %d/%d passed", results.totalPassed, results.totalTests))
+    print(string.format("   Time: %.3fs", total_time))
+    
+    if results.totalPassed == results.totalTests then
+        print("✅ All tests passed!")
+    else
+        print(string.format("❌ %d tests failed", results.totalFailed))
+    end
+    
+    return results
+end
+
 return TestFramework

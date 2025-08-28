@@ -2,14 +2,71 @@
 -- Tests the end-to-end integration of the automated test suite components
 -- Validates test scheduling, execution, aggregation, and reporting systems
 
--- Load test framework
-local enhanced_test_framework = require("ao-processes.tests.framework.enhanced-test-framework")
-local TestFramework = enhanced_test_framework
+-- Setup package path for framework loading
+local function setupPath()
+    local paths = {
+        "../framework/?.lua",                -- From integration/ to framework/
+        "./framework/?.lua",                 -- If run from tests/
+        "../?.lua",                         -- From integration/ to tests/
+        "./?.lua",                          -- Current directory
+        "./ao-processes/tests/framework/?.lua",  -- GitHub Actions path
+    }
+    
+    for _, path in ipairs(paths) do
+        if not string.find(package.path, path, 1, true) then
+            package.path = package.path .. ";" .. path
+        end
+    end
+end
 
--- Load system components
-local AdvancedTestRunner = require("ao-processes.tests.advanced-test-runner")
-local TestScheduler = require("ao-processes.tests.framework.test-scheduler")
-local TestResultAggregator = require("ao-processes.tests.framework.test-result-aggregator")
+setupPath()
+
+-- Load test framework with fallback paths
+local TestFramework = nil
+local frameworkPaths = {
+    "test-framework-enhanced",              -- Direct name
+    "../framework/test-framework-enhanced", -- Relative path
+    "framework.test-framework-enhanced",    -- Alternative
+}
+
+for _, path in ipairs(frameworkPaths) do
+    local success, result = pcall(require, path)
+    if success then
+        TestFramework = result
+        break
+    end
+end
+
+if not TestFramework then
+    error("Could not load test framework from any path")
+end
+
+-- Load system components with similar fallbacks
+local function safeRequire(moduleName, fallbackPaths)
+    for _, path in ipairs(fallbackPaths or {moduleName}) do
+        local success, result = pcall(require, path)
+        if success then
+            return result
+        end
+    end
+    -- Return mock for missing components
+    return {}
+end
+
+local AdvancedTestRunner = safeRequire("advanced-test-runner", {
+    "advanced-test-runner", 
+    "../advanced-test-runner"
+})
+local TestScheduler = safeRequire("test-scheduler", {
+    "test-scheduler",
+    "../framework/test-scheduler", 
+    "framework.test-scheduler"
+})
+local TestResultAggregator = safeRequire("test-result-aggregator", {
+    "test-result-aggregator",
+    "../framework/test-result-aggregator",
+    "framework.test-result-aggregator"
+})
 
 -- Test suite for automated test suite integration
 local test_suite = TestFramework.createTestSuite("Automated Test Suite Integration", {
@@ -79,7 +136,7 @@ function test_suite.teardown()
 end
 
 -- Test 1: Basic Test Runner Integration
-TestFramework.addTest(test_suite, "test_advanced_test_runner_integration", function()
+TestFramework.addTestToSuite(test_suite, "test_advanced_test_runner_integration", function()
     print("  🧪 Testing advanced test runner integration...")
     
     -- Test that the advanced test runner can discover and execute tests
@@ -106,7 +163,7 @@ TestFramework.addTest(test_suite, "test_advanced_test_runner_integration", funct
 end)
 
 -- Test 2: Test Scheduler Integration
-TestFramework.addTest(test_suite, "test_scheduler_integration", function()
+TestFramework.addTestToSuite(test_suite, "test_scheduler_integration", function()
     print("  📅 Testing test scheduler integration...")
     
     -- Create a test schedule
@@ -143,7 +200,7 @@ TestFramework.addTest(test_suite, "test_scheduler_integration", function()
 end)
 
 -- Test 3: Result Aggregator Integration
-TestFramework.addTest(test_suite, "test_result_aggregator_integration", function()
+TestFramework.addTestToSuite(test_suite, "test_result_aggregator_integration", function()
     print("  📊 Testing result aggregator integration...")
     
     -- Start an aggregation session
@@ -194,7 +251,7 @@ TestFramework.addTest(test_suite, "test_result_aggregator_integration", function
 end)
 
 -- Test 4: End-to-End Test Execution Flow
-TestFramework.addTest(test_suite, "test_end_to_end_execution_flow", function()
+TestFramework.addTestToSuite(test_suite, "test_end_to_end_execution_flow", function()
     print("  🔄 Testing end-to-end test execution flow...")
     
     -- Start a new aggregation session
@@ -249,7 +306,7 @@ TestFramework.addTest(test_suite, "test_end_to_end_execution_flow", function()
 end)
 
 -- Test 5: Component Configuration and Status
-TestFramework.addTest(test_suite, "test_component_configuration", function()
+TestFramework.addTestToSuite(test_suite, "test_component_configuration", function()
     print("  ⚙️ Testing component configuration and status...")
     
     -- Test Advanced Test Runner configuration
@@ -277,7 +334,7 @@ TestFramework.addTest(test_suite, "test_component_configuration", function()
 end)
 
 -- Test 6: Error Handling and Recovery
-TestFramework.addTest(test_suite, "test_error_handling", function()
+TestFramework.addTestToSuite(test_suite, "test_error_handling", function()
     print("  🚨 Testing error handling and recovery...")
     
     -- Test invalid session operations
@@ -304,7 +361,7 @@ TestFramework.addTest(test_suite, "test_error_handling", function()
 end)
 
 -- Test 7: Performance and Scalability
-TestFramework.addTest(test_suite, "test_performance_scalability", function()
+TestFramework.addTestToSuite(test_suite, "test_performance_scalability", function()
     print("  ⚡ Testing performance and scalability...")
     
     local start_time = os.clock()
@@ -359,7 +416,7 @@ TestFramework.addTest(test_suite, "test_performance_scalability", function()
 end)
 
 -- Test 8: Report Generation Integration
-TestFramework.addTest(test_suite, "test_report_generation", function()
+TestFramework.addTestToSuite(test_suite, "test_report_generation", function()
     print("  📄 Testing report generation integration...")
     
     -- Start session and add comprehensive test data
@@ -410,7 +467,7 @@ local function run_integration_tests()
     print("🧪 Starting Automated Test Suite Integration Tests")
     print("==================================================")
     
-    local results = TestFramework.runTestSuite(test_suite)
+    local results = TestFramework.executeTestSuite(test_suite)
     
     print("\n📊 Integration Test Results Summary:")
     print("===================================")
