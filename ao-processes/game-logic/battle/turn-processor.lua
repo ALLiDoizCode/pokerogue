@@ -11,6 +11,20 @@ local BattleConditions = require("game-logic.battle.battle-conditions")
 local BattleRNG = require("game-logic.rng.battle-rng")
 local Enums = require("data.constants.enums")
 
+-- Status effects system dependencies
+local StatusEffects = require("game-logic.pokemon.status-effects")
+local StatusInteractions = require("game-logic.pokemon.status-interactions")
+local StatusHealing = require("game-logic.pokemon.status-healing")
+local StatusImmunities = require("game-logic.pokemon.status-immunities")
+
+-- Weather system dependencies
+local WeatherEffects = require("game-logic.battle.weather-effects")
+local WeatherAbilities = require("game-logic.battle.weather-abilities")
+
+-- Terrain system dependencies
+local TerrainEffects = require("game-logic.battle.terrain-effects")
+local TerrainAbilities = require("game-logic.battle.terrain-abilities")
+
 -- Turn phase enumeration
 TurnProcessor.TurnPhase = {
     COMMAND_SELECTION = 1,
@@ -81,6 +95,15 @@ function TurnProcessor.initializeBattle(battleId, battleSeed, playerParty, enemy
             trickRoom = 0,
             tailwind = {[0] = 0, [1] = 0}
         },
+        -- Weather state using new weather system
+        weather = {
+            type = BattleConditions.WeatherType.NONE,
+            duration = 0,
+            source = "none"
+        },
+        
+        -- Terrain state using new terrain system
+        terrain = TerrainEffects.initializeTerrainState(battleId),
         turnCommands = {},
         battleResult = nil,
         multiTurnData = {}
@@ -88,6 +111,47 @@ function TurnProcessor.initializeBattle(battleId, battleSeed, playerParty, enemy
     
     -- Initialize priority calculator
     PriorityCalculator.init()
+    
+    -- Check for weather-setting abilities at battle start
+    local allStartingPokemon = {}
+    if battleState.playerParty and #battleState.playerParty > 0 then
+        table.insert(allStartingPokemon, battleState.playerParty[1]) -- Active Pokemon
+    end
+    if battleState.enemyParty and #battleState.enemyParty > 0 then
+        table.insert(allStartingPokemon, battleState.enemyParty[1]) -- Active Pokemon
+    end
+    
+    -- Activate weather-setting abilities (highest speed goes first)
+    table.sort(allStartingPokemon, function(a, b) 
+        local speedA = a.stats and a.stats[Enums.Stat.SPEED] or 0
+        local speedB = b.stats and b.stats[Enums.Stat.SPEED] or 0
+        return speedA > speedB
+    end)
+    
+    for _, pokemon in ipairs(allStartingPokemon) do
+        local weatherChange = WeatherAbilities.activateWeatherSettingAbility(pokemon, battleId)
+        if weatherChange then
+            battleState.weather = {
+                type = weatherChange.weather_type,
+                duration = weatherChange.duration,
+                source = weatherChange.source or "ability",
+                source_ability = weatherChange.source_ability,
+                pokemon_name = weatherChange.pokemon_name
+            }
+            -- Only first weather-setting ability activates
+            break
+        end
+    end
+    
+    -- Activate terrain-setting abilities (same speed order as weather abilities)
+    for _, pokemon in ipairs(allStartingPokemon) do
+        local updatedTerrain, activationMessage = TerrainAbilities.processTerrainSurgeAbility(pokemon, battleState.terrain)
+        if activationMessage then
+            battleState.terrain = updatedTerrain
+            -- Only first terrain-setting ability activates
+            break
+        end
+    end
     
     return battleState, nil
 end
@@ -312,6 +376,24 @@ function TurnProcessor.executeMoveAction(battleState, action)
         return result
     end
     
+    -- Check status effects for move prevention
+    if action.pokemon.statusEffect then
+        local movePreventionCheck = StatusEffects.checkMovePreventionEffects(action.pokemon, move, battleState)
+        if not movePreventionCheck.canMove then
+            result.error = "Move prevented by status condition"
+            result.messages = movePreventionCheck.messages or {action.pokemon.name .. " couldn't move due to status condition!"}
+            result.statusPrevention = movePreventionCheck
+            return result
+        end
+        
+        -- Add status change messages if Pokemon recovered
+        if movePreventionCheck.statusChanged then
+            for _, message in ipairs(movePreventionCheck.messages) do
+                table.insert(result.messages, message)
+            end
+        end
+    end
+
     -- Check PP availability
     if action.pokemon.moves and action.pokemon.moves[action.moveId] then
         local pokemonMove = action.pokemon.moves[action.moveId]
@@ -323,8 +405,66 @@ function TurnProcessor.executeMoveAction(battleState, action)
         pokemonMove.pp = pokemonMove.pp - 1
     end
     
+    -- Apply weather effects to move before execution
+    local currentWeather = battleState.weather and battleState.weather.type or BattleConditions.WeatherType.NONE
+    local modifiedMove = WeatherEffects.processWeatherMoveInteractions(move, currentWeather)
+    
+    -- Check if weather blocks the move completely
+    local moveBlocked, blockReason = WeatherEffects.doesWeatherBlockMove(modifiedMove.type, currentWeather)
+    if moveBlocked then
+        result.error = "Move blocked by weather"
+        result.messages = {blockReason}
+        return result
+    end
+    
+    -- Apply weather-based stat modifications for the attacker
+    local weatherStatMods = WeatherAbilities.getWeatherStatModifications(action.pokemon, currentWeather)
+    if weatherStatMods and next(weatherStatMods) then
+        -- Store original stats and apply weather modifications temporarily
+        result.weather_stat_modifications = weatherStatMods
+        table.insert(result.messages, action.pokemon.name .. "'s stats were affected by the weather!")
+    end
+    
+    -- Apply terrain effects to move
+    if battleState.terrain then
+        local attackerGrounded = TerrainEffects.isPokemonGrounded(action.pokemon)
+        local terrainModifier = TerrainEffects.getTerrainMovePowerModifier(modifiedMove, battleState.terrain, attackerGrounded)
+        
+        -- Apply terrain power modifier
+        if terrainModifier ~= 1.0 then
+            modifiedMove.power = (modifiedMove.power or 0) * terrainModifier
+            modifiedMove.terrain_modifier = terrainModifier
+            result.terrain_boost = true
+            table.insert(result.messages, "The terrain boosted " .. action.pokemon.name .. "'s move!")
+        end
+        
+        -- Check if terrain blocks the move (priority moves in Psychic Terrain)
+        local targetGrounded = action.target and TerrainEffects.isPokemonGrounded(action.target) or false
+        local terrainBlocked, terrainBlockReason = TerrainEffects.doesTerrainBlockMove(modifiedMove, battleState.terrain, targetGrounded)
+        if terrainBlocked then
+            result.error = "Move blocked by terrain: " .. terrainBlockReason
+            result.messages = {terrainBlockReason}
+            return result
+        end
+        
+        -- Apply terrain-based stat modifications for abilities like Surge Surfer
+        for statType, _ in pairs(Enums.Stat) do
+            local terrainStatMod = TerrainAbilities.getTerrainAbilityStatModifier(action.pokemon, battleState.terrain, statType)
+            if terrainStatMod ~= 1.0 then
+                if not result.terrain_stat_modifications then
+                    result.terrain_stat_modifications = {}
+                end
+                result.terrain_stat_modifications[statType] = terrainStatMod
+                table.insert(result.messages, action.pokemon.name .. "'s " .. statType .. " was boosted by the terrain!")
+            end
+        end
+    end
+    
     result.success = true
-    result.messages = {action.pokemon.name .. " used " .. move.name .. "!"}
+    result.messages = {action.pokemon.name .. " used " .. (modifiedMove.name or move.name) .. "!"}
+    
+    -- Store modified move for use by move effects system
+    local moveToExecute = modifiedMove
     
     -- Integration with comprehensive move effects system from Stories 3.1-3.4
     local moveEffectsSystem = require("game-logic.battle.move-effects")
@@ -334,9 +474,9 @@ function TurnProcessor.executeMoveAction(battleState, action)
     -- Initialize battle messages system if not already done
     battleMessages.init()
     
-    -- Process move with full effects system integration
+    -- Process move with full effects system integration (using weather-modified move)
     if moveEffectsSystem and moveEffectsSystem.executeMove then
-        local effectResult = moveEffectsSystem.executeMove(battleState, action.pokemon, move, action.target)
+        local effectResult = moveEffectsSystem.executeMove(battleState, action.pokemon, moveToExecute, action.target)
         if effectResult then
             result.damage_dealt = effectResult.damage or 0
             result.effects = effectResult.effects or {}
@@ -494,67 +634,111 @@ function TurnProcessor.processEndOfTurnEffects(battleState)
         duration_updates = {}
     }
     
-    -- Process weather effects
-    if battleState.battleConditions.weather ~= BattleConditions.WeatherType.NONE then
-        local allPokemon = {}
-        for _, pokemon in ipairs(battleState.playerParty) do
-            if pokemon.currentHP > 0 then
-                table.insert(allPokemon, pokemon)
-            end
-        end
-        for _, pokemon in ipairs(battleState.enemyParty) do
-            if pokemon.currentHP > 0 then
-                table.insert(allPokemon, pokemon)
+    -- Process comprehensive weather effects using WeatherEffects system
+    local currentWeatherType = battleState.weather and battleState.weather.type or BattleConditions.WeatherType.NONE
+    if currentWeatherType ~= BattleConditions.WeatherType.NONE then
+        -- Process all weather effects (damage, healing, abilities)
+        local weatherEffectsResult = WeatherEffects.processEndOfTurnWeatherEffects(battleState.battleId, battleState)
+        
+        -- Apply damage results
+        for _, damageResult in ipairs(weatherEffectsResult.damage_results) do
+            local pokemon = TurnProcessor.findPokemon(battleState, damageResult.pokemon_id)
+            if pokemon then
+                pokemon.currentHP = math.max(0, pokemon.currentHP - damageResult.damage)
             end
         end
         
-        local weatherDamage = BattleConditions.processWeatherDamage(
-            battleState.battleId,
-            battleState.battleConditions.weather,
-            allPokemon
-        )
-        result.weather_effects = weatherDamage
+        -- Apply healing results
+        for _, healingResult in ipairs(weatherEffectsResult.healing_results) do
+            local pokemon = TurnProcessor.findPokemon(battleState, healingResult.pokemon_id)
+            if pokemon then
+                local maxHP = pokemon.maxHP or pokemon.stats[Enums.Stat.HP] or 100
+                pokemon.currentHP = math.min(maxHP, pokemon.currentHP + healingResult.healing)
+            end
+        end
         
-        -- Update weather duration
-        local newDuration, expired = BattleConditions.updateDuration("weather", battleState.battleConditions.weatherDuration)
-        battleState.battleConditions.weatherDuration = newDuration
-        if expired then
-            battleState.battleConditions.weather = BattleConditions.WeatherType.NONE
-            table.insert(result.duration_updates, {type = "weather", expired = true})
+        -- Apply ability trigger effects (Solar Power damage, etc.)
+        for _, abilityResult in ipairs(weatherEffectsResult.ability_triggers) do
+            local pokemon = TurnProcessor.findPokemon(battleState, abilityResult.pokemon_id)
+            if pokemon then
+                if abilityResult.effect_type == "damage" then
+                    pokemon.currentHP = math.max(0, pokemon.currentHP - abilityResult.damage)
+                elseif abilityResult.effect_type == "healing" then
+                    local maxHP = pokemon.maxHP or pokemon.stats[Enums.Stat.HP] or 100
+                    pokemon.currentHP = math.min(maxHP, pokemon.currentHP + abilityResult.healing)
+                end
+            end
+        end
+        
+        result.weather_effects = weatherEffectsResult
+        
+        -- Update weather duration using WeatherEffects system
+        if battleState.weather then
+            local updatedWeather, expired = WeatherEffects.updateWeatherDuration(battleState.weather)
+            battleState.weather = updatedWeather
+            if expired then
+                table.insert(result.duration_updates, {
+                    type = "weather", 
+                    expired = true,
+                    previous_weather = currentWeatherType,
+                    message = "The weather cleared up!"
+                })
+            end
         end
     end
     
-    -- Process terrain effects
-    if battleState.battleConditions.terrain ~= BattleConditions.TerrainType.NONE then
+    -- Process comprehensive terrain effects using TerrainEffects system
+    if battleState.terrain and battleState.terrain.current_terrain ~= TerrainEffects.TerrainType.NONE then
         local allPokemon = {}
-        for _, pokemon in ipairs(battleState.playerParty) do
+        for _, pokemon in ipairs(battleState.playerParty or {}) do
             if pokemon.currentHP > 0 then
                 table.insert(allPokemon, pokemon)
             end
         end
-        for _, pokemon in ipairs(battleState.enemyParty) do
+        for _, pokemon in ipairs(battleState.enemyParty or {}) do
             if pokemon.currentHP > 0 then
                 table.insert(allPokemon, pokemon)
             end
         end
         
-        local terrainHealing = BattleConditions.processTerrainHealing(
-            battleState.battleId,
-            battleState.battleConditions.terrain,
-            allPokemon
-        )
-        result.terrain_effects = terrainHealing
+        -- Process terrain healing effects
+        local terrainHealingResults = TerrainEffects.processTerrainHealing(battleState.terrain, allPokemon)
         
-        -- Update terrain duration
-        local newDuration, expired = BattleConditions.updateDuration("terrain", battleState.battleConditions.terrainDuration)
-        battleState.battleConditions.terrainDuration = newDuration
+        -- Apply healing results to Pokemon
+        for _, healingResult in ipairs(terrainHealingResults) do
+            local pokemon = TurnProcessor.findPokemon(battleState, healingResult.pokemon_id)
+            if pokemon then
+                pokemon.currentHP = healingResult.new_hp
+            end
+        end
+        
+        -- Process terrain ability effects
+        for _, pokemon in ipairs(allPokemon) do
+            local abilityEffects = TerrainAbilities.processEndOfTurnTerrainAbilities(pokemon, battleState.terrain)
+            for _, effect in ipairs(abilityEffects) do
+                -- Process any end-of-turn terrain ability effects here
+            end
+        end
+        
+        result.terrain_effects = {
+            healing_results = terrainHealingResults,
+            terrain_type = battleState.terrain.current_terrain
+        }
+        
+        -- Update terrain duration using TerrainEffects system
+        local updatedTerrain, expired = TerrainEffects.updateTerrainDuration(battleState.terrain)
+        battleState.terrain = updatedTerrain
         if expired then
-            battleState.battleConditions.terrain = BattleConditions.TerrainType.NONE
-            table.insert(result.duration_updates, {type = "terrain", expired = true})
+            table.insert(result.duration_updates, {
+                type = "terrain",
+                expired = true,
+                previous_terrain = result.terrain_effects.terrain_type,
+                message = "The terrain returned to normal!"
+            })
         end
     end
     
-    -- Process status effects on all Pokemon
+    -- Process status effects on all Pokemon using comprehensive status effects system
     local allPokemon = {}
     for _, pokemon in ipairs(battleState.playerParty) do
         table.insert(allPokemon, pokemon)
@@ -564,8 +748,8 @@ function TurnProcessor.processEndOfTurnEffects(battleState)
     end
     
     for _, pokemon in ipairs(allPokemon) do
-        local statusResult = TurnProcessor.processStatusEffects(pokemon, battleState)
-        if statusResult and #statusResult > 0 then
+        local statusResult = StatusEffects.processEndOfTurnEffects(pokemon, battleState)
+        if statusResult and (#statusResult.effects > 0 or #statusResult.messages > 0) then
             result.status_effects[pokemon.id] = statusResult
         end
     end
@@ -576,57 +760,13 @@ function TurnProcessor.processEndOfTurnEffects(battleState)
     return result
 end
 
--- Process status effects for a Pokemon
+-- Process status effects for a Pokemon (deprecated - use StatusEffects.processEndOfTurnEffects)
 -- @param pokemon: Pokemon to process
 -- @param battleState: Current battle state
 -- @return: Status effect results
 function TurnProcessor.processStatusEffects(pokemon, battleState)
-    if not pokemon or not pokemon.status then
-        return {}
-    end
-    
-    local results = {}
-    
-    -- Process based on status type
-    if pokemon.status == "burn" then
-        local maxHP = pokemon.maxHP or pokemon.stats.hp
-        local damage = math.max(1, math.floor(maxHP / 16))
-        pokemon.currentHP = math.max(0, pokemon.currentHP - damage)
-        table.insert(results, {
-            effect = "burn_damage",
-            damage = damage,
-            message = pokemon.name .. " was hurt by its burn!"
-        })
-    elseif pokemon.status == "poison" then
-        local maxHP = pokemon.maxHP or pokemon.stats.hp
-        local damage = math.max(1, math.floor(maxHP / 8))
-        pokemon.currentHP = math.max(0, pokemon.currentHP - damage)
-        table.insert(results, {
-            effect = "poison_damage",
-            damage = damage,
-            message = pokemon.name .. " was hurt by poison!"
-        })
-    elseif pokemon.status == "sleep" then
-        -- Update sleep counter
-        if pokemon.statusTurns then
-            pokemon.statusTurns = pokemon.statusTurns - 1
-            if pokemon.statusTurns <= 0 then
-                pokemon.status = nil
-                pokemon.statusTurns = nil
-                table.insert(results, {
-                    effect = "wake_up",
-                    message = pokemon.name .. " woke up!"
-                })
-            else
-                table.insert(results, {
-                    effect = "sleep_continue",
-                    message = pokemon.name .. " is fast asleep."
-                })
-            end
-        end
-    end
-    
-    return results
+    -- Delegate to comprehensive status effects system
+    return StatusEffects.processEndOfTurnEffects(pokemon, battleState)
 end
 
 -- Handle battle interruptions (fainting, forced switches)
@@ -885,29 +1025,10 @@ function TurnProcessor.canPokemonAct(pokemon)
         return false
     end
     
-    -- Check for status conditions that prevent action
-    if pokemon.status == "sleep" then
-        -- Pokemon might still be asleep
-        if pokemon.statusTurns and pokemon.statusTurns > 0 then
-            return BattleRNG.randomInt(1, 100) <= 33 -- 33% chance to wake up
-        end
-    end
-    
-    if pokemon.status == "freeze" then
-        -- Pokemon might thaw out
-        if BattleRNG.randomInt(1, 100) <= 20 then -- 20% chance to thaw
-            pokemon.status = nil
-            pokemon.statusTurns = nil
-            return true
-        end
-        return false
-    end
-    
-    if pokemon.status == "paralysis" then
-        -- Pokemon might be fully paralyzed
-        if BattleRNG.randomInt(1, 100) <= 25 then -- 25% chance of full paralysis
-            return false
-        end
+    -- Use comprehensive status effects system to check move prevention
+    if pokemon.statusEffect then
+        local movePreventionCheck = StatusEffects.checkMovePreventionEffects(pokemon, nil, nil)
+        return movePreventionCheck.canMove
     end
     
     return true
