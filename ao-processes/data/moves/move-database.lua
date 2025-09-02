@@ -364,7 +364,27 @@ function MoveDatabase.init()
         {915, "Supercell Slam", TYPES.ELECTRIC, CATEGORIES.PHYSICAL, 100, 95, 15, TARGETS.SELECTED, 0, {MOVE_FLAGS.CONTACT}, {recoil = "crash", crash_damage = 50}},
         {916, "Psychic Noise", TYPES.PSYCHIC, CATEGORIES.SPECIAL, 75, 100, 10, TARGETS.SELECTED, 0, {MOVE_FLAGS.SOUND}, {psychic_noise = true}},
         {917, "Upper Hand", TYPES.FIGHTING, CATEGORIES.PHYSICAL, 65, 100, 15, TARGETS.SELECTED, 3, {MOVE_FLAGS.CONTACT}, {upper_hand = true}},
-        {918, "Malignant Chain", TYPES.POISON, CATEGORIES.SPECIAL, 100, 100, 5, TARGETS.SELECTED, 0, {}, {badly_poison = true}}
+        {918, "Malignant Chain", TYPES.POISON, CATEGORIES.SPECIAL, 100, 100, 5, TARGETS.SELECTED, 0, {}, {badly_poison = true}},
+        
+        -- Entry Hazard Moves
+        {277, "Stealth Rock", TYPES.ROCK, CATEGORIES.STATUS, 0, -1, 20, TARGETS.ALL_OPPONENTS, 0, {}, {stealth_rock = true}},
+        {390, "Toxic Spikes", TYPES.POISON, CATEGORIES.STATUS, 0, -1, 20, TARGETS.ALL_OPPONENTS, 0, {}, {toxic_spikes = true}},
+        {564, "Sticky Web", TYPES.BUG, CATEGORIES.STATUS, 0, -1, 20, TARGETS.ALL_OPPONENTS, 0, {}, {sticky_web = true}},
+        
+        -- Entry Hazard Removal Moves
+        {229, "Rapid Spin", TYPES.NORMAL, CATEGORIES.PHYSICAL, 50, 100, 40, TARGETS.SELECTED, 0, {MOVE_FLAGS.CONTACT}, {rapid_spin = true, stat_change = {speed = 1, user = true}}},
+        {432, "Defog", TYPES.FLYING, CATEGORIES.STATUS, 0, -1, 15, TARGETS.SELECTED, 0, {}, {defog = true, stat_change = {evasion = -1}}},
+        
+        -- Field Condition Moves
+        {433, "Trick Room", TYPES.PSYCHIC, CATEGORIES.STATUS, 0, -1, 5, TARGETS.ALL, -7, {}, {field_condition = 1}},
+        {472, "Wonder Room", TYPES.PSYCHIC, CATEGORIES.STATUS, 0, -1, 10, TARGETS.ALL, 0, {}, {field_condition = 2}},
+        {478, "Magic Room", TYPES.PSYCHIC, CATEGORIES.STATUS, 0, -1, 10, TARGETS.ALL, 0, {}, {field_condition = 3}},
+        
+        -- Side Effect Moves
+        {440, "Safeguard", TYPES.NORMAL, CATEGORIES.STATUS, 0, -1, 25, TARGETS.USER_SIDE, 0, {}, {safeguard = true}},
+        {562, "Brick Break", TYPES.FIGHTING, CATEGORIES.PHYSICAL, 75, 100, 15, TARGETS.SELECTED, 0, {MOVE_FLAGS.CONTACT}, {remove_screens = true}},
+        {1390, "Aurora Veil", TYPES.ICE, CATEGORIES.STATUS, 0, -1, 20, TARGETS.USER_SIDE, 0, {}, {aurora_veil = true, weather_condition = "hail_or_snow"}},
+        {1414, "Psychic Fangs", TYPES.PSYCHIC, CATEGORIES.PHYSICAL, 85, 100, 10, TARGETS.SELECTED, 0, {MOVE_FLAGS.CONTACT, MOVE_FLAGS.BITE}, {remove_screens = true}}
     }
     
     -- Process all move definitions

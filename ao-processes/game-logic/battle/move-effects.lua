@@ -388,7 +388,7 @@ end
 -- @param pokemonData: Pokemon data for ability checks
 -- @param currentStages: Current stat stages table
 -- @return: Boolean indicating success and change details
-function MoveEffects.applyStatStageChange(battleId, targetId, stat, stages, source, pokemonData, currentStages)
+function MoveEffects.applyStatStageChange(battleId, targetId, stat, stages, source, pokemonData, currentStages, battleState)
     -- Input validation
     if not battleId or not targetId or not stat or not stages then
         return false, "Invalid parameters for stat stage change"
@@ -396,6 +396,17 @@ function MoveEffects.applyStatStageChange(battleId, targetId, stat, stages, sour
     
     if stages < -6 or stages > 6 then
         return false, "Stat stage change out of range (-6 to +6): " .. stages
+    end
+    
+    -- Check for Mist protection against stat reductions
+    if stages < 0 and battleState and pokemonData then
+        local SideEffects = require("game-logic.battle.side-effects")
+        local targetSide = pokemonData.side or "player"
+        local statChanges = {[stat] = stages}
+        
+        if SideEffects.preventStatReduction(battleState, targetSide, statChanges) then
+            return false, "Stat reduction prevented by Mist", true  -- Third param indicates blocked by Mist
+        end
     end
     
     -- Check if stat is valid (either numeric index or string name)
@@ -2123,8 +2134,8 @@ function MoveEffects.executeMove(battleState, attacker, moveData, target)
         end
     end
     
-    -- Check accuracy for moves that can miss
-    if moveData.accuracy and moveData.accuracy < 100 then
+    -- Check accuracy for moves that can miss (negative accuracy means never misses)
+    if moveData.accuracy and moveData.accuracy >= 0 and moveData.accuracy < 100 then
         local accuracyRoll = BattleRNG.randomInt(1, 100)
         if accuracyRoll > moveData.accuracy then
             result.missed = true
@@ -2213,12 +2224,16 @@ function MoveEffects.executeMove(battleState, attacker, moveData, target)
         local statTarget = actualTarget
         -- Check for explicit stat change target or fallback to move target
         local statChangeTarget = (moveData.effects and moveData.effects.stat_change_target) or moveData.stat_change_target
-        if moveData.target == Enums.MoveTarget.USER or statChangeTarget == "self" then
+        if moveData.target == Enums.MoveTarget.USER or statChangeTarget == "self" or statChanges.user then
             statTarget = attacker
         end
         
         if statTarget and statTarget.battleData and statTarget.battleData.statStages then
             for stat, change in pairs(statChanges) do
+                -- Skip metadata fields like 'user', 'target', etc.
+                if stat == "user" or stat == "target" or type(change) ~= "number" then
+                    goto continue
+                end
                 local statChangeResult = MoveEffects.applyStatStageChange(
                     battleState.battleId,
                     statTarget.id,
@@ -2256,6 +2271,7 @@ function MoveEffects.executeMove(battleState, attacker, moveData, target)
                         change = change
                     })
                 end
+                ::continue::
             end
         end
     end
@@ -2425,6 +2441,205 @@ function MoveEffects.executeMove(battleState, attacker, moveData, target)
         result.terrainChanged = true
     end
     
+    -- Handle field condition effects from move
+    if moveData.effects and moveData.effects.field_condition and battleState then
+        local fieldConditionType = moveData.effects.field_condition
+        
+        -- Check if field condition is already active
+        local shouldFail, failReason = MoveEffects.shouldFieldConditionMoveFail(battleState, fieldConditionType)
+        if shouldFail then
+            result.failed = true
+            result.messages = {failReason}
+            return result
+        end
+        
+        -- Apply field condition effect
+        local fieldSuccess, fieldResult = MoveEffects.processFieldConditionMove(battleState, moveData, attacker)
+        if fieldSuccess then
+            table.insert(result.effects, {
+                type = "field_condition",
+                field_condition_type = fieldConditionType,
+                field_condition_name = fieldResult.field_effect_name,
+                duration = fieldResult.duration
+            })
+            
+            table.insert(result.messages, fieldResult.message)
+            if fieldResult.description then
+                table.insert(result.messages, fieldResult.description)
+            end
+            
+            result.fieldConditionChanged = true
+        else
+            result.failed = true
+            result.messages = {fieldResult}
+            return result
+        end
+    end
+    
+    -- Handle entry hazard effects from move
+    local EntryHazards = require("game-logic.battle.entry-hazards")
+    if moveData.effects and battleState then
+        local hazardSet = false
+        local hazardMessages = {}
+        
+        -- Determine target side (opposite side from attacker)
+        local targetSide = "enemy"
+        if attacker.battleData and attacker.battleData.side then
+            targetSide = attacker.battleData.side == "player" and "enemy" or "player"
+        end
+        
+        -- Stealth Rock
+        if moveData.effects.stealth_rock then
+            local hazardResult = EntryHazards.setHazard(battleState, EntryHazards.HazardType.STEALTH_ROCK, targetSide)
+            if hazardResult.success and hazardResult.layersAdded > 0 then
+                hazardSet = true
+                for _, message in ipairs(hazardResult.messages) do
+                    table.insert(hazardMessages, message)
+                end
+                table.insert(result.effects, {
+                    type = "entry_hazard",
+                    hazardType = "stealth_rock",
+                    targetSide = targetSide,
+                    layersAdded = hazardResult.layersAdded
+                })
+            else
+                table.insert(hazardMessages, "But it failed!")
+            end
+        end
+        
+        -- Spikes
+        if moveData.effects.spikes then
+            local hazardResult = EntryHazards.setHazard(battleState, EntryHazards.HazardType.SPIKES, targetSide)
+            if hazardResult.success and hazardResult.layersAdded > 0 then
+                hazardSet = true
+                for _, message in ipairs(hazardResult.messages) do
+                    table.insert(hazardMessages, message)
+                end
+                table.insert(result.effects, {
+                    type = "entry_hazard",
+                    hazardType = "spikes",
+                    targetSide = targetSide,
+                    layersAdded = hazardResult.layersAdded
+                })
+            else
+                table.insert(hazardMessages, "But it failed!")
+            end
+        end
+        
+        -- Toxic Spikes
+        if moveData.effects.toxic_spikes then
+            local hazardResult = EntryHazards.setHazard(battleState, EntryHazards.HazardType.TOXIC_SPIKES, targetSide)
+            if hazardResult.success and hazardResult.layersAdded > 0 then
+                hazardSet = true
+                for _, message in ipairs(hazardResult.messages) do
+                    table.insert(hazardMessages, message)
+                end
+                table.insert(result.effects, {
+                    type = "entry_hazard",
+                    hazardType = "toxic_spikes",
+                    targetSide = targetSide,
+                    layersAdded = hazardResult.layersAdded
+                })
+            else
+                table.insert(hazardMessages, "But it failed!")
+            end
+        end
+        
+        -- Sticky Web
+        if moveData.effects.sticky_web then
+            local hazardResult = EntryHazards.setHazard(battleState, EntryHazards.HazardType.STICKY_WEB, targetSide)
+            if hazardResult.success and hazardResult.layersAdded > 0 then
+                hazardSet = true
+                for _, message in ipairs(hazardResult.messages) do
+                    table.insert(hazardMessages, message)
+                end
+                table.insert(result.effects, {
+                    type = "entry_hazard",
+                    hazardType = "sticky_web",
+                    targetSide = targetSide,
+                    layersAdded = hazardResult.layersAdded
+                })
+            else
+                table.insert(hazardMessages, "But it failed!")
+            end
+        end
+        
+        -- Add hazard messages to result
+        if hazardSet and #hazardMessages > 0 then
+            for _, message in ipairs(hazardMessages) do
+                table.insert(result.messages, message)
+            end
+        end
+        
+        -- Handle hazard removal effects
+        local hazardRemoved = false
+        local removalMessages = {}
+        
+        -- Rapid Spin - removes hazards from user's side
+        if moveData.effects.rapid_spin then
+            local userSide = "player"
+            if attacker.battleData and attacker.battleData.side then
+                userSide = attacker.battleData.side
+            end
+            
+            local removalResult = EntryHazards.removeHazards(battleState, userSide)
+            if removalResult.success and #removalResult.removed > 0 then
+                hazardRemoved = true
+                for _, message in ipairs(removalResult.messages) do
+                    table.insert(removalMessages, message)
+                end
+                table.insert(result.effects, {
+                    type = "hazard_removal",
+                    removalType = "rapid_spin",
+                    targetSide = userSide,
+                    hazardsRemoved = removalResult.removed
+                })
+            end
+        end
+        
+        -- Defog - removes hazards from both sides (like in battle-conditions.lua Story 5.4)
+        if moveData.effects.defog then
+            -- Remove from both sides
+            local userSide = "player"
+            if attacker.battleData and attacker.battleData.side then
+                userSide = attacker.battleData.side
+            end
+            local opponentSide = userSide == "player" and "enemy" or "player"
+            
+            local userRemoval = EntryHazards.removeHazards(battleState, userSide)
+            local opponentRemoval = EntryHazards.removeHazards(battleState, opponentSide)
+            
+            local totalRemoved = {}
+            if userRemoval.success then
+                for _, hazard in ipairs(userRemoval.removed) do
+                    table.insert(totalRemoved, hazard)
+                end
+            end
+            if opponentRemoval.success then
+                for _, hazard in ipairs(opponentRemoval.removed) do
+                    table.insert(totalRemoved, hazard)
+                end
+            end
+            
+            if #totalRemoved > 0 then
+                hazardRemoved = true
+                table.insert(removalMessages, "The wind cleared away entry hazards!")
+                table.insert(result.effects, {
+                    type = "hazard_removal",
+                    removalType = "defog",
+                    hazardsRemoved = totalRemoved
+                })
+            end
+        end
+        
+        -- Add removal messages to result
+        if hazardRemoved and #removalMessages > 0 then
+            for _, message in ipairs(removalMessages) do
+                table.insert(result.messages, message)
+            end
+        end
+    end
+    
     return result
 end
 
@@ -2508,6 +2723,248 @@ function MoveEffects.calculateMultiHitCount(moveData)
     end
 
     return 1
+end
+
+-- Field Condition Move Processing Functions
+-- Added to complete field condition system integration
+
+-- Check if field condition move should fail
+-- @param battleState: Current battle state
+-- @param fieldConditionType: Type of field condition to check
+-- @return: Boolean indicating if move should fail, reason if applicable
+function MoveEffects.shouldFieldConditionMoveFail(battleState, fieldConditionType)
+    if not battleState or not fieldConditionType then
+        return true, "Invalid parameters for field condition check"
+    end
+    
+    -- Load field conditions module
+    local FieldConditions = require("game-logic.battle.field-conditions")
+    
+    -- Check if field condition is already active
+    if battleState.fieldConditions and battleState.fieldConditions[fieldConditionType] then
+        local conditionData = battleState.fieldConditions[fieldConditionType]
+        if conditionData.duration and conditionData.duration > 0 then
+            local fieldData = FieldConditions.FieldEffectData[fieldConditionType]
+            local conditionName = fieldData and fieldData.name or "Field condition"
+            return true, conditionName .. " is already active!"
+        end
+    end
+    
+    return false, nil
+end
+
+-- Process field condition move effect
+-- @param battleState: Current battle state
+-- @param moveData: Move data including field condition type
+-- @param attacker: Pokemon using the move
+-- @return: Boolean indicating success and field condition result
+function MoveEffects.processFieldConditionMove(battleState, moveData, attacker)
+    if not battleState or not moveData or not attacker then
+        return false, "Invalid parameters for field condition move"
+    end
+    
+    local fieldConditionType = moveData.effects and moveData.effects.field_condition
+    if not fieldConditionType then
+        return false, "No field condition type specified in move"
+    end
+    
+    -- Load field conditions module
+    local FieldConditions = require("game-logic.battle.field-conditions")
+    
+    -- Set the field condition
+    local success, result = FieldConditions.setFieldEffect(
+        battleState.battleId,
+        fieldConditionType,
+        5, -- Default duration
+        "move",
+        attacker.id or attacker.name
+    )
+    
+    if not success then
+        return false, result -- Error message
+    end
+    
+    -- Initialize field conditions table if needed
+    if not battleState.fieldConditions then
+        battleState.fieldConditions = {}
+    end
+    
+    -- Store field condition in battle state
+    battleState.fieldConditions[fieldConditionType] = result
+    
+    -- Set compatibility fields for existing systems
+    if fieldConditionType == FieldConditions.FieldEffectType.TRICK_ROOM then
+        battleState.trickRoom = result.duration
+    elseif fieldConditionType == FieldConditions.FieldEffectType.WONDER_ROOM then
+        battleState.wonderRoom = result.duration
+    elseif fieldConditionType == FieldConditions.FieldEffectType.MAGIC_ROOM then
+        battleState.magicRoom = result.duration
+    end
+    
+    -- Prepare result for move execution
+    result.message = result.field_effect_name .. " was activated!"
+    result.description = FieldConditions.FieldEffectData[fieldConditionType] and 
+                        FieldConditions.FieldEffectData[fieldConditionType].description
+    
+    return true, result
+end
+
+-- Process Trick Room effect for move integration
+-- @param battleState: Current battle state
+-- @param pokemon: Pokemon using Trick Room
+-- @return: Boolean indicating success and effect result
+function MoveEffects.processTrickRoomEffect(battleState, pokemon)
+    local FieldConditions = require("game-logic.battle.field-conditions")
+    
+    local trickRoomMoveData = {
+        effects = {
+            field_condition = FieldConditions.FieldEffectType.TRICK_ROOM
+        }
+    }
+    
+    return MoveEffects.processFieldConditionMove(battleState, trickRoomMoveData, pokemon)
+end
+
+-- Process Wonder Room effect for move integration
+-- @param battleState: Current battle state
+-- @param pokemon: Pokemon using Wonder Room
+-- @return: Boolean indicating success and effect result
+function MoveEffects.processWonderRoomEffect(battleState, pokemon)
+    local FieldConditions = require("game-logic.battle.field-conditions")
+    
+    local wonderRoomMoveData = {
+        effects = {
+            field_condition = FieldConditions.FieldEffectType.WONDER_ROOM
+        }
+    }
+    
+    return MoveEffects.processFieldConditionMove(battleState, wonderRoomMoveData, pokemon)
+end
+
+-- Process Magic Room effect for move integration  
+-- @param battleState: Current battle state
+-- @param pokemon: Pokemon using Magic Room
+-- @return: Boolean indicating success and effect result
+function MoveEffects.processMagicRoomEffect(battleState, pokemon)
+    local FieldConditions = require("game-logic.battle.field-conditions")
+    
+    local magicRoomMoveData = {
+        effects = {
+            field_condition = FieldConditions.FieldEffectType.MAGIC_ROOM
+        }
+    }
+    
+    return MoveEffects.processFieldConditionMove(battleState, magicRoomMoveData, pokemon)
+end
+
+-- Process side effect moves (Light Screen, Reflect, Aurora Veil, Safeguard, Mist)
+-- @param battleState: Current battle state
+-- @param moveData: Move data containing side effect information
+-- @param pokemon: Pokemon using the move
+-- @return: Boolean indicating success and effect result
+function MoveEffects.processSideEffectMove(battleState, moveData, pokemon)
+    local SideEffects = require("game-logic.battle.side-effects")
+    
+    if not battleState or not moveData or not pokemon then
+        return false, "Missing required parameters for side effect move"
+    end
+    
+    -- Determine which side the Pokemon belongs to
+    local side = pokemon.side or "player"  -- Default to player if not specified
+    
+    local success = false
+    local effectName = ""
+    
+    -- Process Light Screen
+    if moveData.effects and moveData.effects.light_screen then
+        success = SideEffects.setLightScreen(battleState, side)
+        effectName = "Light Screen"
+    end
+    
+    -- Process Reflect
+    if moveData.effects and moveData.effects.reflect then
+        success = SideEffects.setReflect(battleState, side)
+        effectName = "Reflect"
+    end
+    
+    -- Process Aurora Veil (requires hail/snow weather)
+    if moveData.effects and moveData.effects.aurora_veil then
+        local success_result, message = SideEffects.setAuroraVeil(battleState, side)
+        success = success_result
+        effectName = "Aurora Veil"
+        if not success and message then
+            return false, message
+        end
+    end
+    
+    -- Process Safeguard
+    if moveData.effects and moveData.effects.safeguard then
+        success = SideEffects.setSafeguard(battleState, side)
+        effectName = "Safeguard"
+    end
+    
+    -- Process Mist
+    if moveData.effects and moveData.effects.mist then
+        success = SideEffects.setMist(battleState, side)
+        effectName = "Mist"
+    end
+    
+    if success then
+        return true, string.format("%s activated for %s's team!", effectName, side)
+    else
+        return false, string.format("Failed to activate %s", effectName)
+    end
+end
+
+-- Process screen-breaking moves (Brick Break, Psychic Fangs)
+-- @param battleState: Current battle state
+-- @param moveData: Move data containing screen removal information
+-- @param pokemon: Pokemon using the move
+-- @param targetSide: Side to remove screens from
+-- @return: Boolean indicating success and removed effects
+function MoveEffects.processScreenBreakingMove(battleState, moveData, pokemon, targetSide)
+    local SideEffects = require("game-logic.battle.side-effects")
+    
+    if not battleState or not moveData or not pokemon or not targetSide then
+        return false, "Missing required parameters for screen breaking move"
+    end
+    
+    -- Check if move breaks screens
+    if not moveData.effects or not moveData.effects.remove_screens then
+        return false, "Move does not break screens"
+    end
+    
+    -- Determine if move removes Aurora Veil (Psychic Fangs only)
+    local removeAuroraVeil = (moveData.id == 1414)  -- Psychic Fangs ID
+    
+    local removedEffects = SideEffects.removeScreens(battleState, targetSide, removeAuroraVeil)
+    
+    if #removedEffects > 0 then
+        local effectNames = {}
+        for _, effectType in ipairs(removedEffects) do
+            table.insert(effectNames, SideEffects.getEffectName(effectType))
+        end
+        
+        return true, string.format("Removed %s from %s's team!", table.concat(effectNames, ", "), targetSide)
+    else
+        return false, "No screens to remove"
+    end
+end
+
+-- Check if move has side effect components
+-- @param moveData: Move data to check
+-- @return: Boolean indicating if move has side effects
+function MoveEffects.hasSideEffects(moveData)
+    if not moveData or not moveData.effects then
+        return false
+    end
+    
+    return moveData.effects.light_screen or 
+           moveData.effects.reflect or 
+           moveData.effects.aurora_veil or 
+           moveData.effects.safeguard or 
+           moveData.effects.mist or
+           moveData.effects.remove_screens
 end
 
 return MoveEffects

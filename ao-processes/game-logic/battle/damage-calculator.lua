@@ -5,6 +5,7 @@
 local TypeChart = require("data.constants.type-chart")
 local Enums = require("data.constants.enums")
 local BattleRNG = require("game-logic.rng.battle-rng")
+local MoveTargeting = require("game-logic.battle.move-targeting")
 
 local DamageCalculator = {}
 
@@ -20,7 +21,10 @@ local DAMAGE_CONSTANTS = {
     VARIANCE_MIN = 0.85,
     VARIANCE_MAX = 1.0,
     STAT_STAGE_NUMERATORS = {2, 2, 2, 2, 2, 2, 2, 3, 4},  -- -6 to +6 (index 1-13, with 7 = neutral)
-    STAT_STAGE_DENOMINATORS = {8, 7, 6, 5, 4, 3, 2, 2, 2}
+    STAT_STAGE_DENOMINATORS = {8, 7, 6, 5, 4, 3, 2, 2, 2},
+    -- Spread move damage reduction constants
+    SPREAD_DAMAGE_REDUCTION = 0.75, -- Standard 25% reduction for spread moves
+    MIN_SPREAD_DAMAGE = 1 -- Minimum damage for spread moves
 }
 
 -- Weather damage multipliers
@@ -218,6 +222,33 @@ local function applyItemEffects(damage, attacker, defender, moveData, battleStat
     return damage
 end
 
+-- Apply side effect damage reduction (Light Screen, Reflect, Aurora Veil)
+-- @param damage: Current damage
+-- @param moveData: Move data
+-- @param attackingSide: Side performing the attack
+-- @param defendingSide: Side receiving the attack
+-- @param battleState: Current battle state
+-- @return: Damage after side effect reductions
+local function applySideEffectReductions(damage, moveData, attackingSide, defendingSide, battleState)
+    if not damage or damage <= 0 or not moveData or not battleState then
+        return damage
+    end
+    
+    -- Only apply to damaging moves
+    if moveData.category == Enums.MoveCategory.STATUS then
+        return damage
+    end
+    
+    local SideEffects = require("game-logic.battle.side-effects")
+    
+    -- Determine if this is a doubles battle format
+    local isDoublesFormat = battleState.battleFormat == "doubles" or 
+                           (battleState.playerParty and #battleState.playerParty > 1 and battleState.activePlayerPokemon and #battleState.activePlayerPokemon > 1)
+    
+    -- Apply side effect damage reduction
+    return SideEffects.applyDamageReduction(damage, moveData.category, attackingSide, defendingSide, battleState, isDoublesFormat)
+end
+
 -- Main damage calculation function
 -- @param params: Table containing all damage calculation parameters
 --   - attacker: Pokemon using the move
@@ -332,6 +363,19 @@ function DamageCalculator.calculateDamage(params)
     -- Apply item effects  
     currentDamage = applyItemEffects(currentDamage, attacker, defender, moveData, battleState)
     
+    -- Apply side effect damage reductions (Light Screen, Reflect, Aurora Veil)
+    -- Need to determine attacking and defending sides
+    local attackingSide = attacker.side or "player"
+    local defendingSide = defender.side or "enemy"
+    currentDamage = applySideEffectReductions(currentDamage, moveData, attackingSide, defendingSide, battleState)
+    
+    -- Apply spread move damage reduction if move has spread properties or explicit multiplier
+    if moveData.isSpreadMove and moveData.damageReduction then
+        currentDamage = math.floor(currentDamage * moveData.damageReduction)
+    elseif options.damageMultiplier then
+        currentDamage = math.floor(currentDamage * options.damageMultiplier)
+    end
+    
     -- Apply random damage variance (final step)
     local finalDamage = applyDamageVariance(currentDamage)
     
@@ -439,6 +483,226 @@ function DamageCalculator.validateParams(params)
     end
     
     return true
+end
+
+-- Apply spread move damage reduction
+-- @param damage: Base damage amount
+-- @param targetCount: Number of targets being hit
+-- @param customReduction: Custom reduction multiplier (optional)
+-- @return: Reduced damage for spread moves
+function DamageCalculator.applySpreadMoveDamageReduction(damage, targetCount, customReduction)
+    if not damage or damage <= 0 then
+        return 0
+    end
+    
+    targetCount = targetCount or 1
+    
+    -- No reduction for single target
+    if targetCount <= 1 then
+        return damage
+    end
+    
+    -- Use custom reduction or default spread move reduction
+    local reductionMultiplier = customReduction or DAMAGE_CONSTANTS.SPREAD_DAMAGE_REDUCTION
+    
+    -- Apply reduction
+    local reducedDamage = math.floor(damage * reductionMultiplier)
+    
+    -- Ensure minimum damage
+    return math.max(DAMAGE_CONSTANTS.MIN_SPREAD_DAMAGE, reducedDamage)
+end
+
+-- Calculate damage for multiple targets (spread moves)
+-- @param params: Table containing damage calculation parameters
+--   - attacker: Pokemon using the move
+--   - targets: Array of target Pokemon with their relationship info
+--   - moveData: Data about the move being used
+--   - battleState: Current battle conditions
+--   - options: Optional parameters
+-- @return: Array of damage results for each target
+function DamageCalculator.calculateSpreadMoveDamage(params)
+    if not params or not params.attacker or not params.targets or not params.moveData then
+        return {}
+    end
+    
+    local attacker = params.attacker
+    local targets = params.targets
+    local moveData = params.moveData
+    local battleState = params.battleState or {}
+    local options = params.options or {}
+    
+    -- Check if this is actually a spread move
+    local targetingType = MoveTargeting.getMoveTargetingType(moveData)
+    local isSpreadMove = targetingType == MoveTargeting.TargetingType.SPREAD
+    
+    local results = {}
+    local targetCount = #targets
+    
+    -- Determine if damage reduction should be applied
+    local applyReduction = isSpreadMove or (moveData.isSpreadMove == true) or targetCount > 1
+    
+    for _, targetInfo in ipairs(targets) do
+        local target = targetInfo.pokemon
+        
+        -- Calculate base damage for this target
+        local damageResult = DamageCalculator.calculateDamage({
+            attacker = attacker,
+            defender = target,
+            moveData = moveData,
+            battleState = battleState,
+            options = options
+        })
+        
+        -- Apply spread move damage reduction if applicable
+        if applyReduction and damageResult.damage > 0 then
+            local customReduction = targetInfo.damageMultiplier or moveData.damageReduction
+            local reducedDamage = DamageCalculator.applySpreadMoveDamageReduction(
+                damageResult.damage,
+                targetCount,
+                customReduction
+            )
+            
+            -- Update damage result with reduction information
+            damageResult.originalDamage = damageResult.damage
+            damageResult.damage = reducedDamage
+            damageResult.spreadReduction = true
+            damageResult.reductionRatio = reducedDamage / damageResult.originalDamage
+            damageResult.targetCount = targetCount
+        end
+        
+        -- Add target-specific information
+        damageResult.targetInfo = {
+            pokemon_id = target.id,
+            target_name = target.name or "Unknown",
+            target_relationship = targetInfo.targetType or "opponent",
+            target_position = targetInfo.targetPosition
+        }
+        
+        table.insert(results, damageResult)
+    end
+    
+    return results
+end
+
+-- Calculate damage for all targets of a multi-target move
+-- @param battleState: Current battle state
+-- @param attacker: Pokemon using the move
+-- @param moveData: Move data
+-- @param options: Optional calculation parameters
+-- @return: Complete damage results for all valid targets
+function DamageCalculator.calculateMultiTargetDamage(battleState, attacker, moveData, options)
+    if not battleState or not attacker or not moveData then
+        return {}
+    end
+    
+    -- Resolve all targets for the move
+    local resolvedTargets = MoveTargeting.resolveTargets(battleState, attacker, moveData)
+    
+    if #resolvedTargets == 0 then
+        return {}
+    end
+    
+    -- Calculate spread move damage for all targets
+    return DamageCalculator.calculateSpreadMoveDamage({
+        attacker = attacker,
+        targets = resolvedTargets,
+        moveData = moveData,
+        battleState = battleState,
+        options = options
+    })
+end
+
+-- Preview spread move damage (without variance)
+-- @param params: Same parameters as calculateSpreadMoveDamage
+-- @return: Array of damage previews for each target
+function DamageCalculator.previewSpreadMoveDamage(params)
+    if not params or not params.attacker or not params.targets or not params.moveData then
+        return {}
+    end
+    
+    local results = {}
+    local targetCount = #params.targets
+    
+    -- Determine if damage reduction should be applied
+    local targetingType = MoveTargeting.getMoveTargetingType(params.moveData)
+    local isSpreadMove = targetingType == MoveTargeting.TargetingType.SPREAD
+    local applyReduction = isSpreadMove or (params.moveData.isSpreadMove == true) or targetCount > 1
+    
+    for _, targetInfo in ipairs(params.targets) do
+        local target = targetInfo.pokemon
+        
+        -- Get damage preview for this target
+        local damagePreview = DamageCalculator.previewDamage({
+            attacker = params.attacker,
+            defender = target,
+            moveData = params.moveData,
+            battleState = params.battleState,
+            options = params.options
+        })
+        
+        -- Apply spread move reduction to preview
+        if applyReduction then
+            local customReduction = targetInfo.damageMultiplier or params.moveData.damageReduction
+            
+            damagePreview.originalMinDamage = damagePreview.minDamage
+            damagePreview.originalMaxDamage = damagePreview.maxDamage
+            
+            damagePreview.minDamage = DamageCalculator.applySpreadMoveDamageReduction(
+                damagePreview.minDamage,
+                targetCount,
+                customReduction
+            )
+            damagePreview.maxDamage = DamageCalculator.applySpreadMoveDamageReduction(
+                damagePreview.maxDamage,
+                targetCount,
+                customReduction
+            )
+            
+            damagePreview.spreadReduction = true
+            damagePreview.targetCount = targetCount
+        end
+        
+        -- Add target information
+        damagePreview.targetInfo = {
+            pokemon_id = target.id,
+            target_name = target.name or "Unknown",
+            target_relationship = targetInfo.targetType or "opponent"
+        }
+        
+        table.insert(results, damagePreview)
+    end
+    
+    return results
+end
+
+-- Utility function to determine if a move should use spread damage mechanics
+-- @param moveData: Move data to check
+-- @param targetCount: Number of targets the move will hit
+-- @return: Boolean indicating if spread damage should apply
+function DamageCalculator.shouldUseSpreadDamage(moveData, targetCount)
+    if not moveData then
+        return false
+    end
+    
+    -- Explicit spread move flag
+    if moveData.isSpreadMove == true then
+        return true
+    end
+    
+    -- Check targeting type
+    local targetingType = MoveTargeting.getMoveTargetingType(moveData)
+    if targetingType == MoveTargeting.TargetingType.SPREAD then
+        return true
+    end
+    
+    -- Multi-target moves with multiple actual targets
+    if targetCount and targetCount > 1 and 
+       (targetingType == MoveTargeting.TargetingType.ALL_OPPONENTS or
+        targetingType == MoveTargeting.TargetingType.ALL_POKEMON) then
+        return true
+    end
+    
+    return false
 end
 
 return DamageCalculator

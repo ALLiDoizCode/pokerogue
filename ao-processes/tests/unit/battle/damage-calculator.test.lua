@@ -431,6 +431,301 @@ function DamageCalculatorTests.testUtilityFunctions()
 end
 
 -- Test Runner
+-- Test side effect damage reduction
+function DamageCalculatorTests.testSideEffectDamageReduction()
+    local SideEffects = require("game-logic.battle.side-effects")
+    local battleState = {turn = 1}
+    
+    -- Set up Light Screen for player
+    SideEffects.setLightScreen(battleState, "player")
+    
+    local attacker = createMockPokemon(50, {attack = 100, spAttack = 100}, {Enums.PokemonType.NORMAL}, "enemy")
+    local defender = createMockPokemon(50, {defense = 80, spDefense = 80}, {Enums.PokemonType.NORMAL}, "player")
+    
+    -- Set side attributes explicitly
+    attacker.side = "enemy"
+    defender.side = "player"
+    
+    -- Test Special move damage reduction
+    local specialMove = {
+        name = "Psychic",
+        type = Enums.PokemonType.PSYCHIC,
+        category = Enums.MoveCategory.SPECIAL,
+        power = 90
+    }
+    
+    local result = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender,
+        moveData = specialMove,
+        battleState = battleState
+    })
+    
+    -- Damage should be reduced by Light Screen
+    assert(result.damage > 0, "Should deal damage")
+    
+    -- Test without Light Screen for comparison
+    local battleStateNoScreen = {turn = 1}
+    local resultNoScreen = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender,
+        moveData = specialMove,
+        battleState = battleStateNoScreen,
+        options = {criticalHitForced = false}  -- Disable random variance for comparison
+    })
+    
+    assert(result.damage < resultNoScreen.damage, "Light Screen should reduce damage")
+end
+
+-- Test side effect singles vs doubles format
+function DamageCalculatorTests.testSideEffectSinglesVsDoubles()
+    local SideEffects = require("game-logic.battle.side-effects")
+    
+    -- Test reduction percentages directly
+    local baseDamage = 100
+    
+    -- Singles format (50% reduction)
+    local singlesReduction = SideEffects.applyDamageReduction(baseDamage, Enums.MoveCategory.SPECIAL, "enemy", "player", 
+        {sideEffects = {player = {LIGHT_SCREEN = {type = "LIGHT_SCREEN", duration = 5}}}}, false)
+    assert(singlesReduction == 50, "Singles should reduce damage to 50%")
+    
+    -- Doubles format (33% reduction, so 67% remaining)
+    local doublesReduction = SideEffects.applyDamageReduction(baseDamage, Enums.MoveCategory.SPECIAL, "enemy", "player",
+        {sideEffects = {player = {LIGHT_SCREEN = {type = "LIGHT_SCREEN", duration = 5}}}}, true)
+    assert(doublesReduction == 67, "Doubles should reduce damage to 67%")
+end
+
+-- Test side effect combinations
+function DamageCalculatorTests.testSideEffectCombinations()
+    local SideEffects = require("game-logic.battle.side-effects")
+    local battleState = {turn = 1, weather = "HAIL"}
+    
+    -- Test Aurora Veil covers both physical and special
+    SideEffects.setAuroraVeil(battleState, "player")
+    
+    local physicalReduction = SideEffects.applyDamageReduction(100, Enums.MoveCategory.PHYSICAL, "enemy", "player", battleState, false)
+    local specialReduction = SideEffects.applyDamageReduction(100, Enums.MoveCategory.SPECIAL, "enemy", "player", battleState, false)
+    
+    assert(physicalReduction == 50, "Aurora Veil should reduce Physical damage")
+    assert(specialReduction == 50, "Aurora Veil should reduce Special damage")
+    
+    -- Test that Light Screen + Reflect don't stack with Aurora Veil
+    SideEffects.setLightScreen(battleState, "player")
+    SideEffects.setReflect(battleState, "player")
+    
+    local combinedPhysical = SideEffects.applyDamageReduction(100, Enums.MoveCategory.PHYSICAL, "enemy", "player", battleState, false)
+    local combinedSpecial = SideEffects.applyDamageReduction(100, Enums.MoveCategory.SPECIAL, "enemy", "player", battleState, false)
+    
+    assert(combinedPhysical == 50, "Multiple screen effects should not stack")
+    assert(combinedSpecial == 50, "Multiple screen effects should not stack")
+end
+
+-- Test spread move damage reduction
+function DamageCalculatorTests.testSpreadMoveDamageReduction()
+    -- Arrange
+    BattleRNG.seed("test-spread-damage")
+    local attacker = createMockPokemon(50, {atk = 100})
+    local defender = createMockPokemon(50, {def = 100})
+    
+    -- Regular single-target move
+    local singleMove = createMockMove(80, Enums.PokemonType.NORMAL, Enums.MoveCategory.PHYSICAL)
+    
+    -- Spread move with damage reduction
+    local spreadMove = createMockMove(80, Enums.PokemonType.NORMAL, Enums.MoveCategory.PHYSICAL)
+    spreadMove.isSpreadMove = true
+    spreadMove.damageReduction = 0.75
+    
+    -- Act
+    local singleResult = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender,
+        moveData = singleMove,
+        options = {criticalHitForced = false}
+    })
+    
+    local spreadResult = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender,
+        moveData = spreadMove,
+        options = {damageMultiplier = 0.75, criticalHitForced = false}
+    })
+    
+    -- Assert
+    assertTrue(singleResult.damage > spreadResult.damage, "Spread move should deal reduced damage")
+    
+    -- Verify damage reduction ratio (approximately 0.75)
+    local damageRatio = spreadResult.damage / singleResult.damage
+    assertTrue(damageRatio >= 0.7 and damageRatio <= 0.8, "Damage reduction should be approximately 25%")
+end
+
+-- Test spread move damage with multiple targets
+function DamageCalculatorTests.testSpreadMoveMultipleTargets()
+    -- Arrange
+    BattleRNG.seed("test-spread-multi")
+    local attacker = createMockPokemon(50, {atk = 100}, {Enums.PokemonType.GROUND})
+    
+    -- Different defender types for type effectiveness testing
+    local defender1 = createMockPokemon(50, {def = 80}, {Enums.PokemonType.FIRE})  -- Ground vs Fire = 2x
+    local defender2 = createMockPokemon(50, {def = 80}, {Enums.PokemonType.GRASS}) -- Ground vs Grass = 2x
+    local defender3 = createMockPokemon(50, {def = 80}, {Enums.PokemonType.FLYING}) -- Ground vs Flying = 0x
+    
+    local earthquakeMove = createMockMove(100, Enums.PokemonType.GROUND, Enums.MoveCategory.PHYSICAL)
+    earthquakeMove.isSpreadMove = true
+    earthquakeMove.damageReduction = 0.75
+    
+    -- Act
+    local result1 = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender1,
+        moveData = earthquakeMove,
+        options = {damageMultiplier = 0.75, criticalHitForced = false}
+    })
+    
+    local result2 = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender2,
+        moveData = earthquakeMove,
+        options = {damageMultiplier = 0.75, criticalHitForced = false}
+    })
+    
+    local result3 = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender3,
+        moveData = earthquakeMove,
+        options = {damageMultiplier = 0.75, criticalHitForced = false}
+    })
+    
+    -- Assert
+    assertTrue(result1.damage > 0, "Should damage Fire type")
+    assertTrue(result2.damage > 0, "Should damage Grass type")
+    assertEqual(result3.damage, 0, "Should not damage Flying type (immune)")
+    
+    assertEqual(result1.typeEffectiveness, 2.0, "Ground vs Fire should be 2x effective")
+    assertEqual(result2.typeEffectiveness, 2.0, "Ground vs Grass should be 2x effective") 
+    assertEqual(result3.typeEffectiveness, 0.0, "Ground vs Flying should be 0x effective")
+    
+    -- Both Fire and Grass should take similar damage (same stats, same effectiveness)
+    local damageDifference = math.abs(result1.damage - result2.damage)
+    assertTrue(damageDifference <= 2, "Similar defenders should take similar spread damage")
+end
+
+-- Test spread move damage with different spread multipliers
+function DamageCalculatorTests.testSpreadMoveDifferentMultipliers()
+    -- Arrange
+    BattleRNG.seed("test-spread-multipliers")
+    local attacker = createMockPokemon(50, {atk = 100})
+    local defender = createMockPokemon(50, {def = 100})
+    
+    -- Test different spread multipliers
+    local heavySpreadMove = createMockMove(80, Enums.PokemonType.NORMAL, Enums.MoveCategory.PHYSICAL)
+    heavySpreadMove.isSpreadMove = true
+    heavySpreadMove.damageReduction = 0.5 -- Heavy reduction (50% damage)
+    
+    local lightSpreadMove = createMockMove(80, Enums.PokemonType.NORMAL, Enums.MoveCategory.PHYSICAL)
+    lightSpreadMove.isSpreadMove = true
+    lightSpreadMove.damageReduction = 0.9 -- Light reduction (90% damage)
+    
+    -- Act
+    local heavyResult = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender,
+        moveData = heavySpreadMove,
+        options = {damageMultiplier = 0.5, criticalHitForced = false}
+    })
+    
+    local lightResult = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender,
+        moveData = lightSpreadMove,
+        options = {damageMultiplier = 0.9, criticalHitForced = false}
+    })
+    
+    -- Assert
+    assertTrue(lightResult.damage > heavyResult.damage, "Light spread reduction should deal more damage than heavy")
+    
+    -- Verify approximate multiplier effects
+    assertTrue(heavyResult.damage < lightResult.damage * 0.6, "Heavy reduction should be significantly lower")
+end
+
+-- Test spread moves with critical hits
+function DamageCalculatorTests.testSpreadMoveWithCriticalHit()
+    -- Arrange
+    BattleRNG.seed("test-spread-crit")
+    local attacker = createMockPokemon(50, {atk = 100})
+    local defender = createMockPokemon(50, {def = 100})
+    
+    local spreadMove = createMockMove(75, Enums.PokemonType.ROCK, Enums.MoveCategory.PHYSICAL)
+    spreadMove.isSpreadMove = true
+    spreadMove.damageReduction = 0.75
+    
+    -- Act
+    local normalResult = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender,
+        moveData = spreadMove,
+        options = {damageMultiplier = 0.75, criticalHitForced = false}
+    })
+    
+    local criticalResult = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender,
+        moveData = spreadMove,
+        options = {damageMultiplier = 0.75, criticalHitForced = true}
+    })
+    
+    -- Assert
+    assertFalse(normalResult.criticalHit, "Normal spread hit should not be critical")
+    assertTrue(criticalResult.criticalHit, "Forced critical spread hit should be critical")
+    assertTrue(criticalResult.damage > normalResult.damage, "Critical spread move should deal more damage")
+end
+
+-- Test spread move interaction with weather
+function DamageCalculatorTests.testSpreadMoveWithWeather()
+    -- Arrange
+    BattleRNG.seed("test-spread-weather")
+    local attacker = createMockPokemon(50, {spatk = 100}, {Enums.PokemonType.WATER})
+    local defender = createMockPokemon(50, {spdef = 100}, {Enums.PokemonType.FIRE})
+    
+    local spreadWaterMove = createMockMove(80, Enums.PokemonType.WATER, Enums.MoveCategory.SPECIAL)
+    spreadWaterMove.isSpreadMove = true
+    spreadWaterMove.damageReduction = 0.75
+    
+    -- Act - Test with rain
+    local rainResult = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender,
+        moveData = spreadWaterMove,
+        battleState = {weather = "RAIN"},
+        options = {damageMultiplier = 0.75, criticalHitForced = false}
+    })
+    
+    -- Test with sun
+    local sunResult = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender,
+        moveData = spreadWaterMove,
+        battleState = {weather = "SUN"},
+        options = {damageMultiplier = 0.75, criticalHitForced = false}
+    })
+    
+    -- Test with no weather
+    local normalResult = DamageCalculator.calculateDamage({
+        attacker = attacker,
+        defender = defender,
+        moveData = spreadWaterMove,
+        battleState = {},
+        options = {damageMultiplier = 0.75, criticalHitForced = false}
+    })
+    
+    -- Assert
+    assertTrue(rainResult.damage > normalResult.damage, "Rain should boost Water spread moves")
+    assertTrue(normalResult.damage > sunResult.damage, "Sun should weaken Water spread moves")
+    
+    -- Spread reduction should still apply with weather effects
+    assertTrue(rainResult.damage > 0, "Rain-boosted spread move should still deal damage")
+    assertTrue(sunResult.damage > 0, "Sun-weakened spread move should still deal damage")
+end
+
 function DamageCalculatorTests.runAllTests()
     local tests = {
         "testBaseDamageFormula",
@@ -447,7 +742,15 @@ function DamageCalculatorTests.runAllTests()
         "testDualTypeEffectiveness",
         "testDamagePreview",
         "testParameterValidation",
-        "testUtilityFunctions"
+        "testUtilityFunctions",
+        "testSideEffectDamageReduction",
+        "testSideEffectSinglesVsDoubles",
+        "testSideEffectCombinations",
+        "testSpreadMoveDamageReduction",
+        "testSpreadMoveMultipleTargets",
+        "testSpreadMoveDifferentMultipliers",
+        "testSpreadMoveWithCriticalHit",
+        "testSpreadMoveWithWeather"
     }
     
     local passed = 0
