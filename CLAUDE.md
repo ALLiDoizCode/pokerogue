@@ -152,9 +152,76 @@ The following MCP servers are configured and available through the Model Context
 - **Context**: The Permaweb is Arweave's permanent, censorship-resistant web infrastructure
 - **Status**: Early development stage (no releases yet)
 
+## ECS Architecture References
+Core Entity-Component-System architecture documentation for development guidance:
+
+### Bevy ECS Reference
+- **Repository**: https://github.com/bevyengine/bevy/tree/main/crates/bevy_ecs
+  - **Architecture**: Archetype-based ECS with data-oriented design patterns
+  - **Core Components**: World (container), Entities (identifiers), Components (data), Systems (logic)
+  - **Key Features**: Change detection, parallel system execution, resource management, event handling
+  - **Performance**: Cache-friendly data layout, SIMD optimization support, sparse/dense storage hybrid
+  - **Query System**: Type-safe entity queries with filters and combinators
+  - **System Scheduling**: Dependency resolution, parallel execution with conflict detection
+  - **Storage Types**: Table storage (dense), SparseSet storage (sparse), optimized for different access patterns
+
+### Quick Reference Commands
+Access Bevy ECS documentation:
+```bash
+# Bevy ECS crate
+WebFetch: https://github.com/bevyengine/bevy/tree/main/crates/bevy_ecs
+# Bevy ECS examples
+WebFetch: https://github.com/bevyengine/bevy/tree/main/examples/ecs
+```
+
+## HyperBeam Documentation Resources
+Core HyperBeam technical documentation available for all Claude sessions:
+
+### Primary HyperBeam References
+- **Official Documentation**: https://hyperbeam.arweave.net/build/introduction/what-is-hyperbeam.html
+  - **Architecture**: Erlang/OTP framework implementation of AO-Core protocol
+  - **Core Components**: Messages (cryptographically-linked data), Devices (modular Erlang modules), Paths (HTTP API interactions)
+  - **Key Features**: Exceptional concurrency via BEAM VM, high fault tolerance, scalable distributed architecture
+  - **Purpose**: Decentralized operating system for AO Computer, trust-minimized distributed supercomputer
+
+- **Rust NIF Implementation Tutorial**: https://blog.decent.land/rust-hb-tutorial/
+  - **NIF Details**: Rustler crate for native functions, DirtyCpu scheduler for network I/O
+  - **Performance**: Uses blocking I/O with ureq HTTP client, modular device architecture
+  - **Integration**: Dynamic NIF loading, Erlang wrapper modules, compiled .so libraries
+  - **Key Dependencies**: rustler, ureq, serde, anyhow
+
+- **Development Workshop**: https://hackmd.io/BHDsFUVLQSuVUXVJoaGSEQ  
+  - **Agent Implementation**: Lua scripting, process-based computation, trading simulation patterns
+  - **Workflow**: NodeJS setup, aos command-line spawning, modular code loading
+  - **Patterns**: Event-driven handlers, state management, SMA trading strategies
+
+- **Core Repository**: https://github.com/permaweb/HyperBEAM
+  - **Technical Stack**: Erlang OTP 27, 25 preloaded devices, WebAssembly execution support
+  - **Key Devices**: ~meta@1.0 (configuration), ~relay@1.0 (messaging), ~wasm64@1.0 (execution), ~snp@1.0 (TEE proofs)
+  - **Message Model**: Binary terms/function maps, lazy evaluation, cross-node sharding support
+  - **Build Profiles**: genesis_wasm, rocksdb, http3 QUIC support
+
+### HyperBeam vs Current Implementation
+**Current PokéRogue HyperBeam Process**: Pure Lua ECS implementation without NIFs
+**Official HyperBeam**: Erlang-based with Rust NIF support for performance-critical operations
+
+### Quick Reference Commands
+Access these resources anytime with WebFetch:
+```bash
+# Primary docs
+WebFetch: https://hyperbeam.arweave.net/build/introduction/what-is-hyperbeam.html
+# Rust NIF tutorial  
+WebFetch: https://blog.decent.land/rust-hb-tutorial/
+# Development workshop
+WebFetch: https://hackmd.io/BHDsFUVLQSuVUXVJoaGSEQ
+# Core repository
+WebFetch: https://github.com/permaweb/HyperBEAM
+```
+
 ## MCP Best Practices
 - **Memory Management**: Use permamind or similar memory servers to maintain context across sessions
 - **Documentation Access**: Leverage the documentation servers for real-time access to technical documentation
+- **HyperBeam Resources**: Reference the HyperBeam documentation section above for architecture and implementation details
 - **Permanent Storage**: Use aolite documentation for implementing permanent storage solutions
 - **Decentralized Development**: Use harlequin-toolkit docs for building on the Permaweb
 

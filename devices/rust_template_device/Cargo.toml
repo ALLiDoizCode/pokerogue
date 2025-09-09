@@ -1,0 +1,12 @@
+[package]
+name = "rust_template_device"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "rust_template_device_nif"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+rustler = "0.34"

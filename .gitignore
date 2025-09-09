@@ -46,4 +46,8 @@ coverage
 
 
 # Script outputs
-./*.csv
+./*.csvtarget/
+_build/
+*.beam
+*.so
+*.dylib
