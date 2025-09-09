@@ -1,4 +1,4 @@
-use rustler::{NifResult, Binary, NewBinary, Env};
+use rustler::NifResult;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
@@ -212,4 +212,13 @@ pub fn is_prime_nif(n: u64) -> NifResult<bool> {
     Ok(true)
 }
 
-rustler::init!("dev_rust_nif");
+rustler::init!("dev_rust_nif", [
+    hello_world_nif,
+    add_numbers_nif, 
+    echo_string_nif,
+    advanced_calculate_nif,
+    batch_operations_nif,
+    hash_string_nif,
+    fibonacci_nif,
+    is_prime_nif
+]);
