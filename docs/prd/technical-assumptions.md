@@ -1,22 +1,22 @@
 # Technical Assumptions
 
 ## Repository Structure: Monorepo
-Single repository approach for coordinated HyperBeam migration:
-- `/devices/` - Rust WASM device implementations (battle, stats, evolution, etc.)
-- `/shared/` - Shared Rust types and traits across devices  
-- `/hyperbeam-process/` - HyperBeam process configuration and state management
-- `/arweave-data/` - Pokemon species, moves, and items data for external storage
+Single repository approach for coordinated stateless process development:
+- `/processes/` - 26 stateless Lua processes (battle-engine.lua, pokemon-species-db.lua, etc.)
+- `/testing/` - Comprehensive TDD framework (aolite unit tests, aos-local integration, parity validation)
+- `/tools/` - AO sandbox validation, process size monitoring, performance testing
+- `/fixtures/` - Test data and golden master outputs for parity validation
 - `/typescript-reference/` - Current implementation for parity testing
 
 ## Service Architecture
-**Single HyperBeam Process + Distributed WASM Devices**
-- HyperBeam process maintains ECS world state (entities, components, player sessions)
-- Rust WASM devices handle game logic (battle resolution, stat calculation, evolution)  
-- External Arweave storage provides Pokemon species, moves, and items data
-- Device routing and message orchestration managed by HyperBeam
-- 95% bundle size reduction through external data references
+**26-Process Stateless Architecture with Async Coordination**
+- Data processes provide pure reference data (pokemon-species-db, moves-database, items-database, abilities-database)
+- Logic processes perform pure computation (battle-engine, evolution-engine, capture-engine, status-effects-engine)
+- Coordinator process orchestrates complex multi-step async workflows
+- Client-side GameState persistence eliminates persistent state within processes
+- Fixed process topology with predefined process addresses
 
-**Rationale:** HyperBeam-native architecture eliminates multi-process complexity while enabling modular Rust device development for type-safe game logic.
+**Rationale:** Stateless process architecture enables infinite horizontal scalability while maintaining deterministic behavior and eliminating single points of failure through pure functional design.
 
 ## Testing Requirements: Migration Parity Validation
 **Critical Requirement:** 100% functional parity with existing TypeScript implementation

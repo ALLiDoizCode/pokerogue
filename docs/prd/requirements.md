@@ -2,44 +2,44 @@
 
 ## Functional
 
-**FR1:** The system shall implement a pure Entity-Component-System architecture with entities as lightweight identifiers, components as data containers, and systems as behavior processors
+**FR1:** The system shall implement 26 specialized stateless AO processes with clear separation between data processes and logic processes
 
-**FR2:** The game shall support Pokemon entities with modular components including Species, Stats, Status, Position, and BattleState data
+**FR2:** Each process shall be completely self-contained with no external dependencies and under 500KB size constraint
 
-**FR3:** The battle system shall process damage calculations, move effects, and status conditions using ECS component queries and system execution
+**FR3:** The coordinator process shall orchestrate complex multi-step workflows through async message passing coordination
 
-**FR4:** The system shall provide real-time entity inspection and component debugging tools for development workflows
+**FR4:** Data processes shall provide pure reference data queries without GameState modification (pokemon-species-db, moves-database, items-database, abilities-database)
 
-**FR5:** All game logic shall execute through ECS systems with clear separation between data storage and behavioral processing
+**FR5:** Logic processes shall perform pure computation on received GameState and return updated state (battle-engine, evolution-engine, capture-engine, status-effects-engine)
 
-**FR6:** The architecture shall support dynamic component addition/removal during runtime for flexible entity modification
+**FR6:** All processes shall return responses via uniform "SaveState" action while accepting domain-specific input actions
 
-**FR7:** The system shall maintain 100% functional parity with original PokéRogue gameplay mechanics through ECS implementation
+**FR7:** The system shall maintain 100% functional parity with original PokéRogue gameplay mechanics through distributed process implementation
 
-**FR8:** Entity queries shall support complex filtering including required components, excluded components, and optional components
+**FR8:** GameState shall flow through processes without persistent storage within any individual process
 
-**FR9:** The system shall integrate with Arweave AO protocol for decentralized persistence and autonomous agent interaction
+**FR9:** The system shall integrate with Arweave AO protocol for process deployment and inter-process message passing
 
-**FR10:** Component serialization shall enable efficient entity state persistence and cross-process communication
+**FR10:** Process communication shall be fully asynchronous with operation state tracking in the coordinator process
 
 ## Non Functional
 
-**NFR1:** Entity queries shall achieve >90% L1 cache hit rates through archetype-based storage optimization
+**NFR1:** Each process deployment shall remain under 500KB through aggressive code optimization and inlining
 
-**NFR2:** Battle calculations shall complete in <5ms using SIMD-optimized damage computation systems
+**NFR2:** Coordinated battle turns shall complete in <5 seconds including all async data collection and processing
 
-**NFR3:** System execution shall scale linearly with CPU core count through parallel processing architecture
+**NFR3:** The system shall handle 100+ concurrent coordinated operations without performance degradation
 
-**NFR4:** Component processing shall achieve 4-8x performance improvement over scalar operations through vectorization
+**NFR4:** Process-to-process message latency shall average <500ms within the AO network
 
-**NFR5:** Memory allocation shall minimize fragmentation through custom pool allocators optimized for ECS patterns
+**NFR5:** Memory usage within processes shall be bounded and not grow with number of operations processed
 
-**NFR6:** Entity processing throughput shall exceed 1 million entities per second under optimal conditions
+**NFR6:** Data processes shall provide sub-100ms response times for reference data queries
 
-**NFR7:** Bundle sizes for AO deployment shall remain under 500KB through optimized ECS runtime compilation
+**NFR7:** The coordinator shall support 1000+ active operations simultaneously with proper state management
 
-**NFR8:** Component data layouts shall maintain cache-line alignment for optimal memory access patterns
+**NFR8:** Process crash recovery shall complete within 30 seconds through client-side timeout and retry mechanisms
 
-**NFR9:** Query compilation and caching shall reduce repeated query overhead to <1% of system execution time
+**NFR9:** AO sandbox validation shall prevent deployment of processes using forbidden APIs or exceeding size limits
 
-**NFR10:** Development tools shall provide zero runtime performance impact in production builds
+**NFR10:** Comprehensive test suite shall achieve 100% parity validation with TypeScript reference implementation

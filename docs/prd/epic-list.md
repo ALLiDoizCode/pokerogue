@@ -7,28 +7,25 @@ Establish HyperBeam process with ECS world state, device orchestration, and secu
 Establish comprehensive Test-Driven Development infrastructure using aolite, aos-local, and Rust testing frameworks to validate TypeScript→Rust migration parity before implementation.
 
 ## Epic 3: Pokemon Data System & Species Management  
-Migrate Pokemon species database, abilities, nature/IV systems, and individual Pokemon instance management to Rust WASM devices.
-
-## Epic 4: Pokemon Move System & Combat Mechanics
-Migrate Pokemon move database, type effectiveness calculations, move learning mechanics, and combat preparation systems to Rust WASM devices for battle system foundation.
+Migrate Pokemon species database, abilities, nature/IV systems, and individual Pokemon instance management to stateless AO processes.
 
 ## Epic 5: Core Battle System & Turn Resolution
-Migrate turn-based battle engine, damage calculation, battle state management, and victory/defeat conditions to battle devices.
+Migrate turn-based battle engine, damage calculation, battle state management, and victory/defeat conditions to specialized stateless AO processes.
 
 ## Epic 6: Status Effects & Environmental Systems
-Migrate Pokemon status conditions, weather systems, terrain effects, and environmental interactions to specialized devices.
+Migrate Pokemon status conditions, weather systems, terrain effects, and environmental interactions to specialized stateless AO processes.
 
 ## Epic 7: Arena Effects & Field Conditions
-Migrate entry hazards, field conditions, side-specific effects, and positional battle mechanics to environmental devices.
+Migrate entry hazards, field conditions, side-specific effects, and positional battle mechanics to specialized stateless AO processes.
 
 ## Epic 8: Player Progression & Experience Systems
-Migrate experience/leveling, evolution systems, friendship mechanics, and player character progression to progression devices.
+Migrate experience/leveling, evolution systems, friendship mechanics, and player character progression to specialized stateless AO processes.
 
 ## Epic 9: Item & Modifier Systems
-Migrate item database, held item effects, berry systems, and shop/economic functionality to item management devices.
+Migrate item database, held item effects, berry systems, and shop/economic functionality to specialized stateless AO processes.
 
 ## Epic 10: Pokemon Fusion System
-Migrate fusion creation, battle mechanics, evolution/form changes, and separation management to fusion-specific devices.
+Migrate fusion creation, battle mechanics, evolution/form changes, and separation management to specialized stateless AO processes.
 
 ## Epic 11: Dynamic Form Change System
 Migrate conditional form changes, move-based transformations, temporary vs permanent changes, and form-specific stats/abilities.
