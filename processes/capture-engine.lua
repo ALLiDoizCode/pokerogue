@@ -1,24 +1,83 @@
--- Capture Engine Process for PokéRogue AO
--- Handles capture probability calculation, success determination, and Pokemon storage logic
--- Implements pure computation on GameState with capture mechanics
--- Monolithic process - all dependencies embedded (no external imports)
+-- Pokemon Capture Engine Process for PokéRogue AO
+-- ADP v1.0 Compliant Process for capture probability calculations and mechanics
+-- Handles deterministic capture attempts, Pokeball effectiveness, and status modifiers
+-- Monolithic design - all dependencies embedded (no external imports)
 
--- Global declarations for AO environment
-local json = json or { encode = function(t) return "encoded_json" end, decode = function(s) return {} end }
-local ao = ao or { send = function(msg) return true end }
+-- ====================================
+-- AO ENVIRONMENT GLOBALS
+-- ====================================
 
--- Capture Engine process identifier
-local PROCESS_ID = "capture-engine"
+-- Mock AO environment for testing
+if not ao then
+    ao = {
+        send = function(msg) print("Mock send:", json.encode(msg)) end,
+        id = "capture_engine_process_id"
+    }
+end
 
--- Performance monitoring configuration (5 second limit for logic operations)
+if not Handlers then
+    Handlers = {
+        add = function(name, matcher, handler)
+            print("Handler registered:", name)
+        end,
+        utils = {
+            hasMatchingTag = function(tag, value)
+                return function(msg)
+                    return msg.Tags and msg.Tags[tag] == value
+                end
+            end
+        }
+    }
+end
+
+if not json then
+    json = {
+        encode = function(t) return "encoded_json" end,
+        decode = function(s) return {} end
+    }
+end
+
+-- ====================================
+-- PROCESS CONFIGURATION
+-- ====================================
+
+local PROCESS_INFO = {
+    name = "Pokemon Capture Engine",
+    version = "1.0.0",
+    adpVersion = "1.0",
+    processId = "capture-engine",
+    capabilities = {
+        "calculateCaptureRate",
+        "processCaptureAttempt", 
+        "validateCaptureConditions",
+        "deterministic_rng"
+    },
+    messageSchemas = {
+        ProcessLogic = {
+            required = {"Action", "Data", "Timestamp"},
+            dataFields = {"gameState", "operation", "parameters"}
+        },
+        Info = {
+            required = {"Action"},
+            response = "process_metadata"
+        },
+        HealthCheck = {
+            required = {"Action"},
+            response = "status_report"
+        }
+    }
+}
+
+-- Performance and rate limiting
 local LOGIC_OPERATION_TIMEOUT = 5000 -- 5 seconds in milliseconds
-local performanceStartTime = nil
-
--- Rate limiting configuration (stricter for logic processes)
 local RATE_LIMIT_MAX = 50 -- operations per minute per address
 local rateLimitCounters = {}
+local performanceStartTime = nil
 
--- Pokeball types and their catch rates (embedded data)
+-- ====================================
+-- POKEBALL DATA AND CONSTANTS
+-- ====================================
+
 local POKEBALL_DATA = {
     pokeball = {
         name = "Poke Ball",
@@ -26,7 +85,7 @@ local POKEBALL_DATA = {
         bonusConditions = {}
     },
     greatball = {
-        name = "Great Ball",
+        name = "Great Ball", 
         catchRate = 1.5,
         bonusConditions = {}
     },
@@ -43,32 +102,47 @@ local POKEBALL_DATA = {
     netball = {
         name = "Net Ball",
         catchRate = 3.5,
-        bonusConditions = {waterBug = true} -- Bonus for Water/Bug types
+        bonusConditions = {waterBug = true}
     },
     diveball = {
         name = "Dive Ball",
         catchRate = 3.5,
-        bonusConditions = {underwater = true} -- Bonus for underwater encounters
+        bonusConditions = {underwater = true}
     },
     timerball = {
         name = "Timer Ball",
-        catchRate = 1.0, -- Base rate, increases with turn count
+        catchRate = 1.0,
         bonusConditions = {timer = true}
     },
     quickball = {
         name = "Quick Ball",
         catchRate = 5.0,
-        bonusConditions = {firstTurn = true} -- Bonus on first turn
+        bonusConditions = {firstTurn = true}
     },
     duskball = {
         name = "Dusk Ball",
         catchRate = 3.5,
-        bonusConditions = {darkTime = true} -- Bonus at night or in caves
+        bonusConditions = {darkTime = true}
     },
     repeatball = {
         name = "Repeat Ball",
         catchRate = 3.5,
-        bonusConditions = {alreadyCaught = true} -- Bonus if species already caught
+        bonusConditions = {alreadyCaught = true}
+    },
+    luxuryball = {
+        name = "Luxury Ball",
+        catchRate = 1.0,
+        bonusConditions = {friendship = true}
+    },
+    premierball = {
+        name = "Premier Ball",
+        catchRate = 1.0,
+        bonusConditions = {}
+    },
+    healball = {
+        name = "Heal Ball",
+        catchRate = 1.0,
+        bonusConditions = {heal = true}
     }
 }
 
@@ -80,14 +154,16 @@ local STATUS_EFFECT_MULTIPLIERS = {
     paralysis = 1.5,
     burn = 1.5,
     poison = 1.5,
+    badly_poison = 1.5,
+    confusion = 1.0, -- Confusion doesn't affect capture rate
     faint = 0.0 -- Cannot catch fainted Pokemon
 }
 
 -- ====================================
--- EMBEDDED LOGIC TEMPLATE FUNCTIONS
+-- UTILITY FUNCTIONS
 -- ====================================
 
--- Deep copy utility
+-- Deep copy utility for immutable state management
 local function deepCopy(original)
     if type(original) ~= "table" then
         return original
@@ -127,7 +203,7 @@ local function validateGameState(gameState)
     return true, nil
 end
 
--- Input validation for logic process messages
+-- Input validation for capture operations
 local function validateInput(message)
     if type(message) ~= "table" then
         return false, "Message must be a table"
@@ -146,7 +222,7 @@ local function validateInput(message)
     end
     
     if not message.Data.gameState then
-        return false, "Data.gameState is required for logic operations"
+        return false, "Data.gameState is required for capture operations"
     end
     
     if not message.Data.operation or type(message.Data.operation) ~= "string" then
@@ -161,7 +237,7 @@ local function validateInput(message)
     return true, nil
 end
 
--- Rate limiting check
+-- Rate limiting protection
 local function checkRateLimit(address)
     local currentTime = os.time()
     local currentMinute = math.floor(currentTime / 60)
@@ -199,7 +275,11 @@ local function endPerformanceMonitoring()
     return nil
 end
 
--- Deterministic RNG using battle seed
+-- ====================================
+-- DETERMINISTIC RNG SYSTEM
+-- ====================================
+
+-- Initialize deterministic RNG using battle seed
 local function initializeRNG(battleSeed)
     if not battleSeed or type(battleSeed) ~= "string" then
         return nil, "Battle seed is required for deterministic RNG"
@@ -213,6 +293,7 @@ local function initializeRNG(battleSeed)
     return {seed = seedValue, counter = 0}, nil
 end
 
+-- Generate next deterministic random number
 local function nextRandom(rngState, min, max)
     if not rngState then
         error("RNG state is required for deterministic random generation")
@@ -220,6 +301,7 @@ local function nextRandom(rngState, min, max)
     
     rngState.counter = rngState.counter + 1
     
+    -- Linear congruential generator parameters
     local a = 1664525
     local c = 1013904223
     local m = 2^32
@@ -235,46 +317,58 @@ local function nextRandom(rngState, min, max)
 end
 
 -- ====================================
--- CAPTURE ENGINE CORE FUNCTIONS
+-- CAPTURE ENGINE CORE LOGIC
 -- ====================================
 
 local CaptureEngine = {}
 
--- Calculate capture probability based on Pokemon stats, ball type, and conditions
+-- Calculate comprehensive capture rate based on all factors
 function CaptureEngine.calculateCaptureRate(pokemon, pokeballType, battleConditions, rngState)
-    local baseRate = pokemon.catchRate or 45 -- Default catch rate if not specified
+    local baseRate = pokemon.catchRate or 45 -- Default catch rate
     local ballData = POKEBALL_DATA[pokeballType] or POKEBALL_DATA.pokeball
     
-    -- Base capture calculation using standard Pokemon formula
+    -- Core HP calculation using official Pokemon formula
     -- Rate = (HP_max * 3 - HP_current * 2) * species_rate * ball_rate / (HP_max * 3)
-    local currentHp = pokemon.hp
-    local maxHp = pokemon.maxHp
+    local currentHp = math.max(1, pokemon.hp) -- Prevent division by zero
+    local maxHp = pokemon.maxHp or 100
     local hpFactor = ((maxHp * 3 - currentHp * 2) * baseRate) / (maxHp * 3)
     
-    -- Apply pokeball modifier
+    -- Apply pokeball base modifier
     local ballModifier = ballData.catchRate
     
     -- Apply pokeball-specific bonuses
     if ballData.bonusConditions then
-        if ballData.bonusConditions.waterBug and (pokemon.type1 == "water" or pokemon.type1 == "bug" or 
-           pokemon.type2 == "water" or pokemon.type2 == "bug") then
+        -- Net Ball bonus for Water/Bug types
+        if ballData.bonusConditions.waterBug and (
+            pokemon.type1 == "water" or pokemon.type1 == "bug" or 
+            pokemon.type2 == "water" or pokemon.type2 == "bug") then
             ballModifier = ballModifier * 1.5
         end
         
+        -- Quick Ball bonus on first turn
         if ballData.bonusConditions.firstTurn and battleConditions.turn == 1 then
             ballModifier = ballModifier * 2.0
         end
         
+        -- Timer Ball bonus increases with turn count
         if ballData.bonusConditions.timer and battleConditions.turn then
             local timerBonus = math.min(4.0, 1.0 + (battleConditions.turn * 0.3))
             ballModifier = ballModifier * timerBonus
         end
         
-        if ballData.bonusConditions.darkTime and battleConditions.environment == "cave" then
+        -- Dusk Ball bonus in caves or at night
+        if ballData.bonusConditions.darkTime and 
+           (battleConditions.environment == "cave" or battleConditions.timeOfDay == "night") then
             ballModifier = ballModifier * 1.5
         end
         
+        -- Repeat Ball bonus if species already caught
         if ballData.bonusConditions.alreadyCaught and battleConditions.pokedexCaught then
+            ballModifier = ballModifier * 1.5
+        end
+        
+        -- Dive Ball bonus for underwater encounters
+        if ballData.bonusConditions.underwater and battleConditions.environment == "underwater" then
             ballModifier = ballModifier * 1.5
         end
     end
@@ -285,8 +379,7 @@ function CaptureEngine.calculateCaptureRate(pokemon, pokeballType, battleConditi
     -- Calculate final capture rate
     local finalRate = hpFactor * ballModifier * statusMultiplier
     
-    -- Apply capture formula: rate = (rate * 1048560) / 16711680
-    -- Simplified for AO implementation
+    -- Convert to capture value (0-255 scale)
     local captureValue = math.min(255, finalRate * 255 / 100)
     
     return {
@@ -295,11 +388,13 @@ function CaptureEngine.calculateCaptureRate(pokemon, pokeballType, battleConditi
         hpFactor = hpFactor,
         ballModifier = ballModifier,
         statusMultiplier = statusMultiplier,
-        finalRate = finalRate
+        finalRate = finalRate,
+        pokeball = pokeballType,
+        validCapture = statusMultiplier > 0
     }
 end
 
--- Determine capture success using deterministic RNG
+-- Process capture attempt with shake mechanics
 function CaptureEngine.attemptCapture(captureRate, rngState)
     local captureValue = captureRate.captureValue
     
@@ -309,11 +404,12 @@ function CaptureEngine.attemptCapture(captureRate, rngState)
             success = true,
             criticalCapture = false,
             shakeCount = 0,
-            captureValue = captureValue
+            captureValue = captureValue,
+            guaranteed = true
         }
     end
     
-    -- Check for critical capture (rare occurrence)
+    -- Check for critical capture (rare occurrence that skips shakes)
     local criticalCaptureChance = math.max(0, (captureValue - 100) / 6)
     local criticalRoll = nextRandom(rngState, 0, 255)
     local criticalCapture = criticalRoll < criticalCaptureChance
@@ -324,15 +420,17 @@ function CaptureEngine.attemptCapture(captureRate, rngState)
             success = finalCaptureRoll < captureValue,
             criticalCapture = true,
             shakeCount = finalCaptureRoll < captureValue and 1 or 0,
-            captureValue = captureValue
+            captureValue = captureValue,
+            guaranteed = false
         }
     end
     
-    -- Normal capture with shake calculation
+    -- Normal capture with shake calculation (up to 3 shakes)
     local shakeCount = 0
     local success = true
     
     for shake = 1, 3 do
+        -- Calculate shake probability using standard formula
         local shakeValue = (65536 * math.sqrt(math.sqrt(captureValue / 255))) / 255
         local shakeRoll = nextRandom(rngState, 0, 65535)
         
@@ -343,8 +441,10 @@ function CaptureEngine.attemptCapture(captureRate, rngState)
             break
         end
         
+        -- If we reach 3 shakes, capture succeeds
         if shake == 3 then
             shakeCount = 3
+            success = true
         end
     end
     
@@ -352,13 +452,58 @@ function CaptureEngine.attemptCapture(captureRate, rngState)
         success = success,
         criticalCapture = false,
         shakeCount = shakeCount,
-        captureValue = captureValue
+        captureValue = captureValue,
+        guaranteed = false
     }
 end
 
--- Add captured Pokemon to party or PC
+-- Validate capture conditions before attempt
+function CaptureEngine.validateCaptureConditions(pokemon, gameState, battleConditions)
+    local errors = {}
+    
+    -- Check if Pokemon is fainted
+    if pokemon.hp <= 0 then
+        table.insert(errors, "Cannot capture a fainted Pokemon")
+    end
+    
+    -- Check if it's a trainer Pokemon
+    if pokemon.isTrainerPokemon then
+        table.insert(errors, "Cannot capture trainer Pokemon")
+    end
+    
+    -- Check if player has pokeballs
+    if gameState.player and gameState.player.inventory then
+        local hasPokeballs = false
+        for item, count in pairs(gameState.player.inventory) do
+            if POKEBALL_DATA[item] and count > 0 then
+                hasPokeballs = true
+                break
+            end
+        end
+        if not hasPokeballs then
+            table.insert(errors, "No pokeballs available in inventory")
+        end
+    end
+    
+    -- Check battle state
+    if battleConditions and battleConditions.battleEnded then
+        table.insert(errors, "Cannot capture Pokemon after battle has ended")
+    end
+    
+    return #errors == 0, errors
+end
+
+-- Add captured Pokemon to party or PC storage
 function CaptureEngine.addPokemonToParty(gameState, capturedPokemon)
     local newGameState = deepCopy(gameState)
+    
+    -- Ensure player structure exists
+    if not newGameState.player then
+        newGameState.player = {party = {}}
+    end
+    if not newGameState.player.party then
+        newGameState.player.party = {}
+    end
     
     -- Check if party has space (max 6 Pokemon)
     if #newGameState.player.party < 6 then
@@ -374,65 +519,68 @@ function CaptureEngine.addPokemonToParty(gameState, capturedPokemon)
     end
 end
 
--- Process capture attempt with full mechanics
+-- Process complete capture attempt with all mechanics
 function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPokemon, battleConditions, rngState)
-    -- Validate that Pokemon can be captured
-    if targetPokemon.hp <= 0 then
-        error("Cannot capture a fainted Pokemon")
+    -- Validate capture conditions
+    local isValid, validationErrors = CaptureEngine.validateCaptureConditions(targetPokemon, gameState, battleConditions)
+    if not isValid then
+        error("Capture validation failed: " .. table.concat(validationErrors, ", "))
     end
     
-    if targetPokemon.isTrainerPokemon then
-        error("Cannot capture trainer Pokemon")
-    end
-    
-    -- Calculate capture rate
+    -- Calculate capture rate with all modifiers
     local captureRate = CaptureEngine.calculateCaptureRate(targetPokemon, pokeballType, battleConditions, rngState)
     
-    -- Attempt capture
+    -- Attempt capture with shake mechanics
     local captureResult = CaptureEngine.attemptCapture(captureRate, rngState)
     
     if captureResult.success then
-        -- Create captured Pokemon copy
+        -- Create captured Pokemon with metadata
         local capturedPokemon = deepCopy(targetPokemon)
         capturedPokemon.originalTrainer = gameState.playerId
         capturedPokemon.captureDate = os.time()
         capturedPokemon.pokeball = pokeballType
+        capturedPokemon.captureLocation = battleConditions.location or "unknown"
+        capturedPokemon.captureLevel = targetPokemon.level
         
         -- Add to party or PC
         local updatedGameState, location = CaptureEngine.addPokemonToParty(gameState, capturedPokemon)
+        
+        -- Update player inventory (remove used pokeball)
+        if updatedGameState.player.inventory and updatedGameState.player.inventory[pokeballType] then
+            updatedGameState.player.inventory[pokeballType] = 
+                math.max(0, updatedGameState.player.inventory[pokeballType] - 1)
+        end
         
         return {
             gameState = updatedGameState,
             captureSuccess = true,
             captureResult = captureResult,
+            captureRate = captureRate,
             storageLocation = location,
             capturedPokemon = capturedPokemon
         }
     else
+        -- Failed capture - only remove pokeball from inventory
+        local updatedGameState = deepCopy(gameState)
+        if updatedGameState.player.inventory and updatedGameState.player.inventory[pokeballType] then
+            updatedGameState.player.inventory[pokeballType] = 
+                math.max(0, updatedGameState.player.inventory[pokeballType] - 1)
+        end
+        
         return {
-            gameState = gameState, -- No state change on failed capture
+            gameState = updatedGameState,
             captureSuccess = false,
             captureResult = captureResult,
+            captureRate = captureRate,
             storageLocation = nil,
             capturedPokemon = nil
         }
     end
 end
 
--- Main logic handler for capture operations
+-- Main operation handler
 function CaptureEngine.handleLogicOperation(gameState, operation, parameters, rngState)
-    if operation == "attemptCapture" then
-        local pokeballType = parameters.pokeballType
-        local targetPokemon = parameters.targetPokemon
-        local battleConditions = parameters.battleConditions or {}
-        
-        if not pokeballType or not targetPokemon then
-            error("pokeballType and targetPokemon parameters are required for attemptCapture operation")
-        end
-        
-        return CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPokemon, battleConditions, rngState)
-        
-    elseif operation == "calculateCaptureRate" then
+    if operation == "calculateCaptureRate" then
         local pokemon = parameters.pokemon
         local pokeballType = parameters.pokeballType
         local battleConditions = parameters.battleConditions or {}
@@ -451,13 +599,45 @@ function CaptureEngine.handleLogicOperation(gameState, operation, parameters, rn
             captureRate = captureRate
         }
         
+    elseif operation == "processCaptureAttempt" then
+        local pokeballType = parameters.pokeballType
+        local targetPokemon = parameters.targetPokemon
+        local battleConditions = parameters.battleConditions or {}
+        
+        if not pokeballType or not targetPokemon then
+            error("pokeballType and targetPokemon parameters are required for processCaptureAttempt operation")
+        end
+        
+        return CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPokemon, battleConditions, rngState)
+        
+    elseif operation == "validateCaptureConditions" then
+        local pokemon = parameters.pokemon
+        local battleConditions = parameters.battleConditions or {}
+        
+        if not pokemon then
+            error("pokemon parameter is required for validateCaptureConditions operation")
+        end
+        
+        local isValid, errors = CaptureEngine.validateCaptureConditions(pokemon, gameState, battleConditions)
+        
+        local newGameState = deepCopy(gameState)
+        newGameState.version = (gameState.version or 0) + 1
+        
+        return {
+            gameState = newGameState,
+            validationResult = {
+                isValid = isValid,
+                errors = errors
+            }
+        }
+        
     else
         error("Unknown capture engine operation: " .. operation)
     end
 end
 
 -- ====================================
--- MESSAGE PROCESSING LOGIC
+-- MESSAGE PROCESSING
 -- ====================================
 
 local function handleMessage(message)
@@ -468,7 +648,7 @@ local function handleMessage(message)
         return {
             Action = "SaveState",
             Error = validationError,
-            ProcessId = PROCESS_ID,
+            ProcessId = PROCESS_INFO.processId,
             Timestamp = os.time()
         }
     end
@@ -480,7 +660,7 @@ local function handleMessage(message)
             Action = "SaveState",
             Error = rateLimitError,
             GameState = message.Data.gameState,
-            ProcessId = PROCESS_ID,
+            ProcessId = PROCESS_INFO.processId,
             Timestamp = os.time()
         }
     end
@@ -489,6 +669,7 @@ local function handleMessage(message)
     local operation = message.Data.operation
     local parameters = message.Data.parameters or {}
     
+    -- Initialize deterministic RNG if battle seed available
     local rngState = nil
     if originalGameState.battle and originalGameState.battle.battleSeed then
         local rngInitSuccess, rngError = initializeRNG(originalGameState.battle.battleSeed)
@@ -497,7 +678,7 @@ local function handleMessage(message)
                 Action = "SaveState",
                 Error = "RNG initialization failed: " .. rngError,
                 GameState = originalGameState,
-                ProcessId = PROCESS_ID,
+                ProcessId = PROCESS_INFO.processId,
                 Timestamp = os.time()
             }
         end
@@ -514,7 +695,7 @@ local function handleMessage(message)
             Action = "SaveState",
             Error = "Logic operation exceeded " .. LOGIC_OPERATION_TIMEOUT .. "ms timeout (took " .. responseTime .. "ms)",
             GameState = originalGameState,
-            ProcessId = PROCESS_ID,
+            ProcessId = PROCESS_INFO.processId,
             Timestamp = os.time()
         }
     end
@@ -534,22 +715,95 @@ local function handleMessage(message)
                 result = result
             },
             Timestamp = os.time(),
-            ProcessId = PROCESS_ID
+            ProcessId = PROCESS_INFO.processId
         }
     else
         return {
             Action = "SaveState",
             Error = "Logic operation failed: " .. tostring(result),
             GameState = originalGameState,
-            ProcessId = PROCESS_ID,
+            ProcessId = PROCESS_INFO.processId,
             Timestamp = os.time()
         }
     end
 end
 
 -- ====================================
--- AO MESSAGE HANDLERS
+-- AO MESSAGE HANDLERS (ADP v1.0 COMPLIANT)
 -- ====================================
+
+-- ADP v1.0 Info Handler (REQUIRED)
+Handlers.add("info",
+    Handlers.utils.hasMatchingTag("Action", "Info"),
+    function(msg)
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = {
+                process = {
+                    name = PROCESS_INFO.name,
+                    version = PROCESS_INFO.version,
+                    adpVersion = PROCESS_INFO.adpVersion,
+                    processId = PROCESS_INFO.processId,
+                    capabilities = PROCESS_INFO.capabilities,
+                    messageSchemas = PROCESS_INFO.messageSchemas
+                },
+                handlers = {"ProcessLogic", "HealthCheck", "Info"},
+                pokeballs = {
+                    supported = {},
+                    statusEffects = {}
+                },
+                documentation = {
+                    adpCompliance = "v1.0",
+                    selfDocumenting = true,
+                    description = "Pokemon capture engine with comprehensive mechanics including HP, status effects, pokeball modifiers, and deterministic RNG"
+                }
+            }
+        })
+        
+        -- Populate pokeball data for documentation
+        local response = {
+            Target = msg.From,
+            Action = "SaveState",
+            Data = {
+                process = {
+                    name = PROCESS_INFO.name,
+                    version = PROCESS_INFO.version,
+                    adpVersion = PROCESS_INFO.adpVersion,
+                    processId = PROCESS_INFO.processId,
+                    capabilities = PROCESS_INFO.capabilities,
+                    messageSchemas = PROCESS_INFO.messageSchemas
+                },
+                handlers = {"ProcessLogic", "HealthCheck", "Info"},
+                pokeballs = {
+                    supported = {},
+                    statusEffects = {}
+                },
+                documentation = {
+                    adpCompliance = "v1.0",
+                    selfDocumenting = true,
+                    description = "Pokemon capture engine with comprehensive mechanics"
+                }
+            }
+        }
+        
+        -- Add pokeball data
+        for ballType, ballData in pairs(POKEBALL_DATA) do
+            response.Data.pokeballs.supported[ballType] = {
+                name = ballData.name,
+                catchRate = ballData.catchRate,
+                bonusConditions = ballData.bonusConditions
+            }
+        end
+        
+        -- Add status effect data
+        for status, multiplier in pairs(STATUS_EFFECT_MULTIPLIERS) do
+            response.Data.pokeballs.statusEffects[status] = multiplier
+        end
+        
+        ao.send(response)
+    end
+)
 
 -- Process Logic Handler (main entry point)
 Handlers.add("process-logic",
@@ -568,7 +822,7 @@ Handlers.add("process-logic",
     end
 )
 
--- Health check handler
+-- Health Check Handler
 Handlers.add("health-check",
     Handlers.utils.hasMatchingTag("Action", "HealthCheck"),
     function(msg)
@@ -576,16 +830,14 @@ Handlers.add("health-check",
             Target = msg.From,
             Action = "SaveState",
             Data = {
-                processId = PROCESS_ID,
+                processId = PROCESS_INFO.processId,
                 processType = "logic",
                 status = "healthy",
                 timestamp = os.time(),
-                operations = {
-                    "attemptCapture",
-                    "calculateCaptureRate"
-                }
+                operations = PROCESS_INFO.capabilities,
+                adpCompliance = PROCESS_INFO.adpVersion
             },
-            ProcessId = PROCESS_ID,
+            ProcessId = PROCESS_INFO.processId,
             Timestamp = tostring(os.time())
         })
     end
@@ -594,7 +846,7 @@ Handlers.add("health-check",
 -- Export for testing
 return {
     CaptureEngine = CaptureEngine,
-    PROCESS_ID = PROCESS_ID,
+    PROCESS_INFO = PROCESS_INFO,
     POKEBALL_DATA = POKEBALL_DATA,
     STATUS_EFFECT_MULTIPLIERS = STATUS_EFFECT_MULTIPLIERS
 }

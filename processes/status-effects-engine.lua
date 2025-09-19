@@ -1,162 +1,313 @@
 -- Status Effects Engine Process for PokéRogue AO
--- Handles status condition application, environmental effects, and battle condition management
--- Implements pure computation on GameState with status effect logic
+-- ADP v1.0 Compliant Pokemon Status Effects Management System
+-- Handles comprehensive status effect application, turn processing, interactions, and removal
 -- Monolithic process - all dependencies embedded (no external imports)
 
 -- Global declarations for AO environment
 local json = json or { encode = function(t) return "encoded_json" end, decode = function(s) return {} end }
-local ao = ao or { send = function(msg) return true end }
+local ao = ao or { send = function(msg) return true end, id = "status-effects-engine" }
 
--- Status Effects Engine process identifier
-local PROCESS_ID = "status-effects-engine"
+-- Process metadata for ADP v1.0 compliance
+local PROCESS_METADATA = {
+    name = "Status Effects Engine",
+    version = "1.0.0",
+    adpVersion = "1.0",
+    description = "Comprehensive Pokemon status effects management system with damage calculations, probability checks, and interaction rules",
+    capabilities = {
+        "applyStatusEffect",
+        "processStatusTurn", 
+        "removeStatusEffect",
+        "checkStatusInteractions",
+        "validateStatusImmunity",
+        "calculateStatusDamage",
+        "processEnvironmentalEffects"
+    },
+    messageSchemas = {
+        ProcessLogic = {
+            required = {"Action", "Data", "Timestamp"},
+            properties = {
+                Action = {type = "string", value = "ProcessLogic"},
+                Data = {
+                    type = "object",
+                    required = {"gameState", "operation", "parameters"},
+                    properties = {
+                        gameState = {type = "object", description = "Current game state"},
+                        operation = {type = "string", enum = {"applyStatusEffect", "processStatusTurn", "removeStatusEffect", "checkStatusInteractions", "validateStatusImmunity", "calculateStatusDamage", "processEnvironmentalEffects"}},
+                        parameters = {type = "object", description = "Operation-specific parameters"}
+                    }
+                },
+                Timestamp = {type = "number", description = "Unix timestamp"}
+            }
+        },
+        HealthCheck = {
+            required = {"Action"},
+            properties = {
+                Action = {type = "string", value = "HealthCheck"}
+            }
+        },
+        Info = {
+            required = {"Action"},
+            properties = {
+                Action = {type = "string", value = "Info"}
+            }
+        }
+    }
+}
 
--- Performance monitoring configuration (5 second limit for logic operations)
-local LOGIC_OPERATION_TIMEOUT = 5000 -- 5 seconds in milliseconds
+-- Performance monitoring (5 second limit for operations)
+local OPERATION_TIMEOUT = 5000
 local performanceStartTime = nil
 
--- Rate limiting configuration (stricter for logic processes)
-local RATE_LIMIT_MAX = 50 -- operations per minute per address
+-- Rate limiting (50 operations per minute per address)
+local RATE_LIMIT_MAX = 50
 local rateLimitCounters = {}
 
--- Status effect types and their properties (embedded data)
+-- Comprehensive status effects database with detailed mechanics
 local STATUS_EFFECTS = {
     none = {
         name = "None",
+        category = "normal",
         duration = 0,
         damageOverTime = false,
         statModifiers = {},
         moveRestrictions = {},
-        turnEndEffect = nil
-    },
-    sleep = {
-        name = "Sleep",
-        duration = {min = 1, max = 3}, -- 1-3 turns
-        damageOverTime = false,
-        statModifiers = {},
-        moveRestrictions = {cannotMove = true},
-        turnEndEffect = "checkWakeUp",
-        cureConditions = {"damage", "switch"}
-    },
-    paralysis = {
-        name = "Paralysis",
-        duration = -1, -- Permanent until cured
-        damageOverTime = false,
-        statModifiers = {speed = 0.25}, -- 75% speed reduction
-        moveRestrictions = {chanceToNotMove = 0.25}, -- 25% chance to be fully paralyzed
-        turnEndEffect = nil,
-        cureConditions = {"switch", "heal"}
+        immunities = {},
+        interactions = {}
     },
     burn = {
         name = "Burn",
+        category = "major",
         duration = -1, -- Permanent until cured
         damageOverTime = true,
-        damagePercent = 0.0625, -- 1/16 of max HP per turn
+        damagePercent = 0.0625, -- 1/16 max HP per turn
         statModifiers = {attack = 0.5}, -- 50% attack reduction
         moveRestrictions = {},
+        immunities = {"fire"},
+        interactions = {
+            curedBy = {"switch", "heal", "waterMove", "rain"},
+            preventedBy = {"fireType", "waterVeil", "magmaArmor"},
+            damageBoostedBy = {"sunny"},
+            damageReducedBy = {"rain"}
+        },
         turnEndEffect = "applyBurnDamage",
-        cureConditions = {"switch", "heal"}
+        description = "Deals 1/16 max HP damage per turn and halves Attack stat"
     },
     poison = {
         name = "Poison",
-        duration = -1, -- Permanent until cured
+        category = "major", 
+        duration = -1,
         damageOverTime = true,
-        damagePercent = 0.125, -- 1/8 of max HP per turn
+        damagePercent = 0.125, -- 1/8 max HP per turn
         statModifiers = {},
         moveRestrictions = {},
+        immunities = {"poison", "steel"},
+        interactions = {
+            curedBy = {"switch", "heal", "aromatherapy", "healBell"},
+            preventedBy = {"poisonType", "steelType", "immunity", "limber"},
+            upgradedBy = {"toxicSpikes2"}
+        },
         turnEndEffect = "applyPoisonDamage",
-        cureConditions = {"switch", "heal"}
+        description = "Deals 1/8 max HP damage per turn"
     },
     badlyPoisoned = {
         name = "Badly Poisoned",
-        duration = -1, -- Permanent until cured
+        category = "major",
+        duration = -1,
         damageOverTime = true,
         damagePercent = 0.0625, -- Starts at 1/16, increases each turn
         statModifiers = {},
         moveRestrictions = {},
+        immunities = {"poison", "steel"},
+        interactions = {
+            curedBy = {"switch", "heal", "aromatherapy", "healBell"},
+            preventedBy = {"poisonType", "steelType", "immunity"},
+            resetOnSwitch = true
+        },
         turnEndEffect = "applyBadPoisonDamage",
-        cureConditions = {"switch", "heal"},
-        counter = 1 -- Tracks turns for increasing damage
+        counter = 1,
+        description = "Deals increasing damage each turn (1/16, 2/16, 3/16...)"
     },
-    freeze = {
-        name = "Freeze",
-        duration = -1, -- Until thawed
+    paralysis = {
+        name = "Paralysis", 
+        category = "major",
+        duration = -1,
+        damageOverTime = false,
+        statModifiers = {speed = 0.25}, -- 75% speed reduction
+        moveRestrictions = {chanceToNotMove = 0.25}, -- 25% full paralysis chance
+        immunities = {"electric"},
+        interactions = {
+            curedBy = {"switch", "heal", "aromatherapy", "healBell"},
+            preventedBy = {"electricType", "limber", "groundType"},
+            bypassedBy = {"sleepTalk", "snore"}
+        },
+        turnEndEffect = nil,
+        description = "Reduces Speed by 75% and 25% chance to be unable to move"
+    },
+    sleep = {
+        name = "Sleep",
+        category = "major", 
+        duration = {min = 1, max = 3}, -- 1-3 turns
         damageOverTime = false,
         statModifiers = {},
         moveRestrictions = {cannotMove = true},
+        immunities = {},
+        interactions = {
+            curedBy = {"damage", "switch", "aromatherapy", "healBell"},
+            preventedBy = {"insomnia", "vitalSpirit"},
+            allowedMoves = {"sleepTalk", "snore"},
+            wakenBy = {"uproar"}
+        },
+        turnEndEffect = "checkWakeUp",
+        description = "Cannot move for 1-3 turns"
+    },
+    freeze = {
+        name = "Freeze",
+        category = "major",
+        duration = -1,
+        damageOverTime = false,
+        statModifiers = {},
+        moveRestrictions = {cannotMove = true},
+        immunities = {"ice"},
+        interactions = {
+            curedBy = {"fireMove", "switch", "aromatherapy", "healBell"},
+            preventedBy = {"iceType", "magmaArmor"},
+            thawChance = 0.2 -- 20% chance per turn
+        },
         turnEndEffect = "checkThaw",
-        cureConditions = {"fireMove", "switch"},
-        thawChance = 0.2 -- 20% chance to thaw each turn
+        description = "Cannot move until thawed by fire moves or luck"
     },
     confused = {
         name = "Confused",
+        category = "minor",
         duration = {min = 1, max = 4}, -- 1-4 turns
         damageOverTime = false,
         statModifiers = {},
-        moveRestrictions = {chanceToHurtSelf = 0.33}, -- 33% chance to hurt self
+        moveRestrictions = {chanceToHurtSelf = 0.33}, -- 33% self-hit chance
+        immunities = {},
+        interactions = {
+            curedBy = {"switch"},
+            preventedBy = {"ownTempo"},
+            selfDamagePercent = 0.125 -- 1/8 max HP confusion damage
+        },
         turnEndEffect = "checkConfusion",
-        cureConditions = {"switch"}
+        description = "33% chance to hurt self instead of using move"
+    },
+    flinch = {
+        name = "Flinch",
+        category = "minor",
+        duration = 1, -- Only current turn
+        damageOverTime = false,
+        statModifiers = {},
+        moveRestrictions = {cannotMove = true},
+        immunities = {},
+        interactions = {
+            preventedBy = {"innerFocus"},
+            onlyIfNotMoved = true
+        },
+        turnEndEffect = "removeFlinch",
+        description = "Cannot move this turn only"
+    },
+    infatuation = {
+        name = "Infatuation",
+        category = "minor",
+        duration = -1,
+        damageOverTime = false,
+        statModifiers = {},
+        moveRestrictions = {chanceToNotMove = 0.5}, -- 50% immobilization
+        immunities = {},
+        interactions = {
+            curedBy = {"switch"},
+            preventedBy = {"oblivious", "sameGender"},
+            requiresOppositeGender = true
+        },
+        turnEndEffect = nil,
+        description = "50% chance to be immobilized by attraction"
     },
     faint = {
         name = "Faint",
-        duration = -1, -- Until revived
+        category = "critical",
+        duration = -1,
         damageOverTime = false,
         statModifiers = {},
         moveRestrictions = {cannotMove = true, cannotBeTargeted = true},
+        immunities = {},
+        interactions = {
+            curedBy = {"revive", "reviveHalf", "maxRevive"}
+        },
         turnEndEffect = nil,
-        cureConditions = {"revive"}
+        description = "Pokemon has 0 HP and cannot battle"
     }
 }
 
--- Environmental effects and field conditions
+-- Environmental effects that modify status calculations
 local ENVIRONMENTAL_EFFECTS = {
-    none = {
-        name = "None",
-        effects = {}
-    },
+    none = {name = "None", effects = {}},
     sunny = {
         name = "Sunny Day",
         duration = 5,
         effects = {
-            fireMovePowerBoost = 1.5,
-            waterMovePowerReduction = 0.5,
-            solarBeamNoCharge = true,
-            synthesisBoosted = true
+            statusModifications = {
+                burn = {damageReduced = true, healChance = 0.1},
+                freeze = {preventApplication = true}
+            }
         }
     },
     rain = {
-        name = "Rain",
+        name = "Rain", 
         duration = 5,
         effects = {
-            waterMovePowerBoost = 1.5,
-            fireMovePowerReduction = 0.5,
-            thunderAlwaysHits = true,
-            synthesiisReduced = true
+            statusModifications = {
+                burn = {cureChance = 0.2},
+                paralysis = {thunderWaveBoost = 1.2}
+            }
         }
     },
     sandstorm = {
         name = "Sandstorm",
         duration = 5,
         effects = {
-            rockTypeSpDefBoost = 1.5,
-            damageNonGroundRockSteel = 0.0625, -- 1/16 max HP
-            weatherBallPower = 100,
-            weatherBallType = "rock"
+            statusModifications = {
+                poison = {damageToNonGroundRockSteel = 0.0625}
+            }
         }
     },
     hail = {
         name = "Hail",
         duration = 5,
         effects = {
-            damageNonIce = 0.0625, -- 1/16 max HP
-            blizzardAlwaysHits = true,
-            weatherBallPower = 100,
-            weatherBallType = "ice"
+            statusModifications = {
+                freeze = {preventThaw = true},
+                burn = {damageToNonIce = 0.0625}
+            }
         }
     }
 }
 
+-- Type immunities and resistances
+local TYPE_IMMUNITIES = {
+    fire = {"burn"},
+    electric = {"paralysis"},
+    poison = {"poison", "badlyPoisoned"},
+    steel = {"poison", "badlyPoisoned"},
+    ice = {"freeze"},
+    psychic = {"confusion"} -- Only from other Psychic types
+}
+
+-- Ability-based immunities
+local ABILITY_IMMUNITIES = {
+    immunity = {"poison", "badlyPoisoned"},
+    limber = {"paralysis"},
+    insomnia = {"sleep"},
+    vitalSpirit = {"sleep"},
+    waterVeil = {"burn"},
+    magmaArmor = {"freeze"},
+    ownTempo = {"confused"},
+    innerFocus = {"flinch"},
+    oblivious = {"infatuation"}
+}
+
 -- ====================================
--- EMBEDDED LOGIC TEMPLATE FUNCTIONS
+-- UTILITY FUNCTIONS
 -- ====================================
 
 -- Deep copy utility
@@ -171,66 +322,56 @@ local function deepCopy(original)
     return copy
 end
 
--- GameState integrity validation
-local function validateGameState(gameState)
-    if type(gameState) ~= "table" then
-        return false, "GameState must be a table"
+-- Deterministic RNG using battle seed
+local function initializeRNG(battleSeed, turnCounter)
+    if not battleSeed or type(battleSeed) ~= "string" then
+        return nil, "Battle seed is required for deterministic RNG"
     end
     
-    local requiredFields = {"playerId", "timestamp", "version"}
-    for _, field in ipairs(requiredFields) do
-        if not gameState[field] then
-            return false, "GameState missing required field: " .. field
-        end
+    local seedValue = 0
+    for i = 1, #battleSeed do
+        seedValue = seedValue + string.byte(battleSeed, i) * i
     end
     
-    if gameState.player then
-        if not gameState.player.party or type(gameState.player.party) ~= "table" then
-            return false, "GameState.player.party must be a table"
-        end
-    end
+    -- Include turn counter for turn-specific randomness
+    seedValue = seedValue + (turnCounter or 0) * 1000
     
-    if gameState.battle then
-        if not gameState.battle.battleId or not gameState.battle.battleSeed then
-            return false, "GameState.battle must have battleId and battleSeed"
-        end
-    end
-    
-    return true, nil
+    return {seed = seedValue, counter = 0}, nil
 end
 
--- Input validation for logic process messages
-local function validateInput(message)
-    if type(message) ~= "table" then
-        return false, "Message must be a table"
+local function nextRandom(rngState, min, max)
+    if not rngState then
+        error("RNG state is required for deterministic random generation")
     end
     
-    if not message.Action or type(message.Action) ~= "string" then
-        return false, "Action field is required and must be a string"
-    end
+    rngState.counter = rngState.counter + 1
     
-    if not message.Data or type(message.Data) ~= "table" then
-        return false, "Data field is required and must be a table"
-    end
+    local a = 1664525
+    local c = 1013904223
+    local m = 2^32
     
-    if not message.Timestamp or type(message.Timestamp) ~= "number" then
-        return false, "Timestamp field is required and must be a number"
-    end
+    rngState.seed = (a * rngState.seed + c + rngState.counter) % m
+    local random = rngState.seed / m
     
-    if not message.Data.gameState then
-        return false, "Data.gameState is required for logic operations"
+    if min and max then
+        return math.floor(random * (max - min + 1)) + min
+    else
+        return random
     end
-    
-    if not message.Data.operation or type(message.Data.operation) ~= "string" then
-        return false, "Data.operation is required and must be a string"
+end
+
+-- Performance monitoring
+local function startPerformanceMonitoring()
+    performanceStartTime = os.clock()
+end
+
+local function endPerformanceMonitoring()
+    if performanceStartTime then
+        local responseTime = (os.clock() - performanceStartTime) * 1000
+        performanceStartTime = nil
+        return responseTime
     end
-    
-    local gameStateValid, gameStateError = validateGameState(message.Data.gameState)
-    if not gameStateValid then
-        return false, "Invalid GameState: " .. gameStateError
-    end
-    
-    return true, nil
+    return nil
 end
 
 -- Rate limiting check
@@ -257,74 +398,143 @@ local function checkRateLimit(address)
     return true, nil
 end
 
--- Performance monitoring
-local function startPerformanceMonitoring()
-    performanceStartTime = os.clock()
-end
-
-local function endPerformanceMonitoring()
-    if performanceStartTime then
-        local responseTime = (os.clock() - performanceStartTime) * 1000
-        performanceStartTime = nil
-        return responseTime
-    end
-    return nil
-end
-
--- Deterministic RNG using battle seed
-local function initializeRNG(battleSeed)
-    if not battleSeed or type(battleSeed) ~= "string" then
-        return nil, "Battle seed is required for deterministic RNG"
+-- Input validation
+local function validateInput(message)
+    if type(message) ~= "table" then
+        return false, "Message must be a table"
     end
     
-    local seedValue = 0
-    for i = 1, #battleSeed do
-        seedValue = seedValue + string.byte(battleSeed, i) * i
+    if not message.Action or type(message.Action) ~= "string" then
+        return false, "Action field is required and must be a string"
     end
     
-    return {seed = seedValue, counter = 0}, nil
-end
-
-local function nextRandom(rngState, min, max)
-    if not rngState then
-        error("RNG state is required for deterministic random generation")
+    if not message.Data or type(message.Data) ~= "table" then
+        return false, "Data field is required and must be a table"
     end
     
-    rngState.counter = rngState.counter + 1
-    
-    local a = 1664525
-    local c = 1013904223
-    local m = 2^32
-    
-    rngState.seed = (a * rngState.seed + c + rngState.counter) % m
-    local random = rngState.seed / m
-    
-    if min and max then
-        return math.floor(random * (max - min + 1)) + min
-    else
-        return random
+    if not message.Timestamp or type(message.Timestamp) ~= "number" then
+        return false, "Timestamp field is required and must be a number"
     end
+    
+    return true, nil
 end
 
 -- ====================================
--- STATUS EFFECTS ENGINE CORE FUNCTIONS
+-- STATUS EFFECTS ENGINE CORE
 -- ====================================
 
 local StatusEffectsEngine = {}
 
--- Apply status effect to Pokemon
-function StatusEffectsEngine.applyStatusEffect(pokemon, statusEffect, rngState)
-    local newPokemon = deepCopy(pokemon)
-    local effectData = STATUS_EFFECTS[statusEffect]
-    
-    if not effectData then
-        error("Unknown status effect: " .. statusEffect)
+-- Check if Pokemon has immunity to status effect
+function StatusEffectsEngine.checkStatusImmunity(pokemon, statusEffect)
+    local effect = STATUS_EFFECTS[statusEffect]
+    if not effect then
+        return false, "Unknown status effect: " .. statusEffect
     end
     
-    -- Cannot apply status if already has one (except for certain combinations)
-    if newPokemon.statusEffect and newPokemon.statusEffect ~= "none" then
-        if not StatusEffectsEngine.canReplaceStatus(newPokemon.statusEffect, statusEffect) then
-            return newPokemon, false, "Pokemon already has status effect: " .. newPokemon.statusEffect
+    -- Check type immunities
+    if pokemon.types then
+        for _, pokemonType in ipairs(pokemon.types) do
+            local typeImmunities = TYPE_IMMUNITIES[pokemonType]
+            if typeImmunities then
+                for _, immunity in ipairs(typeImmunities) do
+                    if immunity == statusEffect then
+                        return true, "Type immunity: " .. pokemonType .. " type immune to " .. statusEffect
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Check ability immunities
+    if pokemon.ability then
+        local abilityImmunities = ABILITY_IMMUNITIES[pokemon.ability]
+        if abilityImmunities then
+            for _, immunity in ipairs(abilityImmunities) do
+                if immunity == statusEffect then
+                    return true, "Ability immunity: " .. pokemon.ability .. " prevents " .. statusEffect
+                end
+            end
+        end
+    end
+    
+    return false, nil
+end
+
+-- Check status effect interactions and conflicts
+function StatusEffectsEngine.checkStatusInteractions(currentStatus, newStatus)
+    if currentStatus == "none" or not currentStatus then
+        return true, "No current status to conflict with"
+    end
+    
+    if currentStatus == newStatus then
+        return false, "Pokemon already has " .. newStatus
+    end
+    
+    local currentEffect = STATUS_EFFECTS[currentStatus]
+    local newEffect = STATUS_EFFECTS[newStatus]
+    
+    if not currentEffect or not newEffect then
+        return false, "Invalid status effect"
+    end
+    
+    -- Major statuses generally cannot be replaced
+    if currentEffect.category == "major" and newEffect.category == "major" then
+        return false, "Cannot replace major status " .. currentStatus .. " with " .. newStatus
+    end
+    
+    -- Minor statuses can be replaced by major ones
+    if currentEffect.category == "minor" and newEffect.category == "major" then
+        return true, "Major status replaces minor status"
+    end
+    
+    -- Some specific replacements allowed
+    local allowedReplacements = {
+        sleep = {"paralysis"}, -- Thunder Wave can wake up sleeping Pokemon
+        freeze = {"burn"} -- Burn thaws frozen Pokemon
+    }
+    
+    local allowed = allowedReplacements[currentStatus]
+    if allowed then
+        for _, replacement in ipairs(allowed) do
+            if replacement == newStatus then
+                return true, "Specific interaction: " .. newStatus .. " replaces " .. currentStatus
+            end
+        end
+    end
+    
+    return false, "Status effects conflict: " .. currentStatus .. " and " .. newStatus
+end
+
+-- Apply status effect with comprehensive checks
+function StatusEffectsEngine.applyStatusEffect(pokemon, statusEffect, rngState, environmentalEffect)
+    local newPokemon = deepCopy(pokemon)
+    
+    -- Check immunity first
+    local immune, immunityReason = StatusEffectsEngine.checkStatusImmunity(pokemon, statusEffect)
+    if immune then
+        return newPokemon, false, immunityReason
+    end
+    
+    -- Check interactions with current status
+    local canApply, interactionResult = StatusEffectsEngine.checkStatusInteractions(
+        pokemon.statusEffect or "none", 
+        statusEffect
+    )
+    if not canApply then
+        return newPokemon, false, interactionResult
+    end
+    
+    local effectData = STATUS_EFFECTS[statusEffect]
+    if not effectData then
+        return newPokemon, false, "Unknown status effect: " .. statusEffect
+    end
+    
+    -- Apply environmental modifications
+    if environmentalEffect and environmentalEffect.effects and environmentalEffect.effects.statusModifications then
+        local envMod = environmentalEffect.effects.statusModifications[statusEffect]
+        if envMod and envMod.preventApplication then
+            return newPokemon, false, "Environmental effect prevents " .. statusEffect
         end
     end
     
@@ -340,7 +550,7 @@ function StatusEffectsEngine.applyStatusEffect(pokemon, statusEffect, rngState)
         newPokemon.statusEffectData.remainingDuration = effectData.duration
     end
     
-    -- Initialize counters for effects like badly poisoned
+    -- Initialize counters for progressive effects
     if effectData.counter then
         newPokemon.statusEffectData.counter = effectData.counter
     end
@@ -348,27 +558,39 @@ function StatusEffectsEngine.applyStatusEffect(pokemon, statusEffect, rngState)
     return newPokemon, true, "Status effect applied: " .. effectData.name
 end
 
--- Check if one status can replace another
-function StatusEffectsEngine.canReplaceStatus(currentStatus, newStatus)
-    -- Generally, status effects cannot be replaced
-    -- Exceptions: sleep can be replaced by paralysis from certain moves
-    local replacements = {
-        sleep = {"paralysis"}, -- Sleep can be replaced by some moves
-        none = {"sleep", "paralysis", "burn", "poison", "badlyPoisoned", "freeze", "confused"}
-    }
+-- Calculate status damage with environmental modifiers
+function StatusEffectsEngine.calculateStatusDamage(pokemon, statusData, environmentalEffect)
+    if not statusData.damageOverTime then
+        return 0
+    end
     
-    local allowedReplacements = replacements[currentStatus] or {}
-    for _, allowed in ipairs(allowedReplacements) do
-        if allowed == newStatus then
-            return true
+    local baseDamage = 0
+    local damagePercent = statusData.damagePercent or 0
+    
+    if statusData.name == "Badly Poisoned" then
+        local counter = statusData.counter or 1
+        baseDamage = math.floor(pokemon.maxHp * damagePercent * counter)
+    else
+        baseDamage = math.floor(pokemon.maxHp * damagePercent)
+    end
+    
+    -- Apply environmental modifications
+    if environmentalEffect and environmentalEffect.effects and environmentalEffect.effects.statusModifications then
+        local envMod = environmentalEffect.effects.statusModifications[statusData.name:lower()]
+        if envMod then
+            if envMod.damageReduced then
+                baseDamage = math.floor(baseDamage * 0.5)
+            elseif envMod.damageBoosted then
+                baseDamage = math.floor(baseDamage * 1.5)
+            end
         end
     end
     
-    return false
+    return baseDamage
 end
 
--- Process turn-end status effects
-function StatusEffectsEngine.processTurnEndEffects(pokemon, rngState)
+-- Process turn-based status effects
+function StatusEffectsEngine.processStatusTurn(pokemon, rngState, environmentalEffect, turnNumber)
     local newPokemon = deepCopy(pokemon)
     local effects = {}
     
@@ -381,75 +603,65 @@ function StatusEffectsEngine.processTurnEndEffects(pokemon, rngState)
         return newPokemon, effects
     end
     
-    -- Process specific turn-end effects
-    if statusData.turnEndEffect == "applyBurnDamage" then
-        local damage = math.floor(newPokemon.maxHp * (statusData.damagePercent or 0.0625))
-        newPokemon.hp = math.max(0, newPokemon.hp - damage)
-        table.insert(effects, {
-            type = "damage",
-            source = "burn",
-            damage = damage,
-            message = newPokemon.name .. " is hurt by its burn!"
-        })
-        
-    elseif statusData.turnEndEffect == "applyPoisonDamage" then
-        local damage = math.floor(newPokemon.maxHp * (statusData.damagePercent or 0.125))
-        newPokemon.hp = math.max(0, newPokemon.hp - damage)
-        table.insert(effects, {
-            type = "damage",
-            source = "poison",
-            damage = damage,
-            message = newPokemon.name .. " is hurt by poison!"
-        })
-        
-    elseif statusData.turnEndEffect == "applyBadPoisonDamage" then
-        local counter = statusData.counter or 1
-        local damage = math.floor(newPokemon.maxHp * (statusData.damagePercent or 0.0625) * counter)
-        newPokemon.hp = math.max(0, newPokemon.hp - damage)
-        newPokemon.statusEffectData.counter = counter + 1
-        table.insert(effects, {
-            type = "damage",
-            source = "badlyPoisoned",
-            damage = damage,
-            message = newPokemon.name .. " is hurt by poison!"
-        })
-        
-    elseif statusData.turnEndEffect == "checkWakeUp" then
-        -- Sleep naturally ends after duration
-        if statusData.remainingDuration and statusData.remainingDuration <= 1 then
-            newPokemon.statusEffect = "none"
-            newPokemon.statusEffectData = nil
+    -- Process damage over time effects
+    if statusData.damageOverTime then
+        local damage = StatusEffectsEngine.calculateStatusDamage(newPokemon, statusData, environmentalEffect)
+        if damage > 0 then
+            newPokemon.hp = math.max(0, newPokemon.hp - damage)
             table.insert(effects, {
-                type = "cure",
-                source = "naturalRecovery",
-                message = newPokemon.name .. " woke up!"
+                type = "damage",
+                source = statusData.name,
+                damage = damage,
+                message = newPokemon.name .. " is hurt by " .. statusData.name:lower() .. "!"
             })
+            
+            -- Increment counter for badly poisoned
+            if statusData.name == "Badly Poisoned" then
+                newPokemon.statusEffectData.counter = (statusData.counter or 1) + 1
+            end
         end
-        
-    elseif statusData.turnEndEffect == "checkThaw" then
-        -- Chance to thaw from freeze
-        local thawChance = statusData.thawChance or 0.2
-        local thawRoll = nextRandom(rngState, 1, 100) / 100
-        if thawRoll <= thawChance then
+    end
+    
+    -- Process turn-end effects
+    if statusData.turnEndEffect then
+        if statusData.turnEndEffect == "checkWakeUp" then
+            if statusData.remainingDuration and statusData.remainingDuration <= 1 then
+                newPokemon.statusEffect = "none"
+                newPokemon.statusEffectData = nil
+                table.insert(effects, {
+                    type = "cure",
+                    source = "naturalRecovery",
+                    message = newPokemon.name .. " woke up!"
+                })
+            end
+            
+        elseif statusData.turnEndEffect == "checkThaw" then
+            local thawChance = statusData.interactions and statusData.interactions.thawChance or 0.2
+            local thawRoll = nextRandom(rngState, 1, 100) / 100
+            if thawRoll <= thawChance then
+                newPokemon.statusEffect = "none"
+                newPokemon.statusEffectData = nil
+                table.insert(effects, {
+                    type = "cure",
+                    source = "naturalThaw",
+                    message = newPokemon.name .. " thawed out!"
+                })
+            end
+            
+        elseif statusData.turnEndEffect == "checkConfusion" then
+            if statusData.remainingDuration and statusData.remainingDuration <= 1 then
+                newPokemon.statusEffect = "none"
+                newPokemon.statusEffectData = nil
+                table.insert(effects, {
+                    type = "cure",
+                    source = "naturalRecovery",
+                    message = newPokemon.name .. " snapped out of confusion!"
+                })
+            end
+            
+        elseif statusData.turnEndEffect == "removeFlinch" then
             newPokemon.statusEffect = "none"
             newPokemon.statusEffectData = nil
-            table.insert(effects, {
-                type = "cure",
-                source = "naturalThaw",
-                message = newPokemon.name .. " thawed out!"
-            })
-        end
-        
-    elseif statusData.turnEndEffect == "checkConfusion" then
-        -- Confusion duration countdown
-        if statusData.remainingDuration and statusData.remainingDuration <= 1 then
-            newPokemon.statusEffect = "none"
-            newPokemon.statusEffectData = nil
-            table.insert(effects, {
-                type = "cure",
-                source = "naturalRecovery",
-                message = newPokemon.name .. " snapped out of confusion!"
-            })
         end
     end
     
@@ -473,53 +685,69 @@ function StatusEffectsEngine.processTurnEndEffects(pokemon, rngState)
     return newPokemon, effects
 end
 
--- Apply environmental effect to battle
-function StatusEffectsEngine.applyEnvironmentalEffect(gameState, effectType, duration)
-    local newGameState = deepCopy(gameState)
+-- Remove status effect with method validation
+function StatusEffectsEngine.removeStatusEffect(pokemon, cureMethod, rngState)
+    local newPokemon = deepCopy(pokemon)
     
-    if not newGameState.battle then
-        error("No battle in progress")
+    if not newPokemon.statusEffect or newPokemon.statusEffect == "none" then
+        return newPokemon, false, "Pokemon has no status effect to cure"
     end
     
-    local effectData = ENVIRONMENTAL_EFFECTS[effectType]
-    if not effectData then
-        error("Unknown environmental effect: " .. effectType)
+    local statusData = newPokemon.statusEffectData
+    if not statusData then
+        return newPokemon, false, "No status data found"
     end
     
-    -- Set environmental effect
-    newGameState.battle.environmentalEffect = {
-        type = effectType,
-        name = effectData.name,
-        effects = deepCopy(effectData.effects),
-        remainingDuration = duration or effectData.duration or 5
-    }
+    -- Check if cure method is valid for this status
+    if statusData.interactions and statusData.interactions.curedBy then
+        for _, cureCondition in ipairs(statusData.interactions.curedBy) do
+            if cureCondition == cureMethod then
+                local oldStatus = newPokemon.statusEffect
+                newPokemon.statusEffect = "none"
+                newPokemon.statusEffectData = nil
+                return newPokemon, true, "Status effect " .. oldStatus .. " cured by " .. cureMethod
+            end
+        end
+    end
     
-    return newGameState
+    return newPokemon, false, "Cannot cure " .. newPokemon.statusEffect .. " with method: " .. cureMethod
 end
 
--- Check move restrictions due to status effects
+-- Check move restrictions from status effects
 function StatusEffectsEngine.checkMoveRestrictions(pokemon, move, rngState)
     if not pokemon.statusEffect or pokemon.statusEffect == "none" then
-        return true, nil -- No restrictions
+        return true, nil, nil
     end
     
     local statusData = pokemon.statusEffectData
     if not statusData or not statusData.moveRestrictions then
-        return true, nil
+        return true, nil, nil
     end
     
     local restrictions = statusData.moveRestrictions
     
     -- Check if Pokemon cannot move at all
     if restrictions.cannotMove then
-        return false, pokemon.name .. " is " .. (statusData.name or "unable to move") .. " and cannot move!"
+        -- Check for allowed moves (like Sleep Talk during sleep)
+        if statusData.interactions and statusData.interactions.allowedMoves then
+            for _, allowedMove in ipairs(statusData.interactions.allowedMoves) do
+                if move and move.name == allowedMove then
+                    return true, nil, nil
+                end
+            end
+        end
+        return false, pokemon.name .. " is " .. statusData.name:lower() .. " and cannot move!"
     end
     
     -- Check chance-based restrictions
     if restrictions.chanceToNotMove then
         local moveRoll = nextRandom(rngState, 1, 100) / 100
         if moveRoll <= restrictions.chanceToNotMove then
-            return false, pokemon.name .. " is fully paralyzed and cannot move!"
+            local message = pokemon.name .. " is fully paralyzed and cannot move!"
+            if statusData.name == "Infatuation" then
+                message = pokemon.name .. " is immobilized by love!"
+            end
+            return false, message
         end
     end
     
@@ -527,27 +755,27 @@ function StatusEffectsEngine.checkMoveRestrictions(pokemon, move, rngState)
     if restrictions.chanceToHurtSelf then
         local confusionRoll = nextRandom(rngState, 1, 100) / 100
         if confusionRoll <= restrictions.chanceToHurtSelf then
-            -- Calculate confusion damage
-            local confusionDamage = math.floor(pokemon.maxHp * 0.125) -- 1/8 max HP
+            local selfDamagePercent = statusData.interactions and statusData.interactions.selfDamagePercent or 0.125
+            local confusionDamage = math.floor(pokemon.maxHp * selfDamagePercent)
             return false, pokemon.name .. " hurt itself in its confusion!", confusionDamage
         end
     end
     
-    return true, nil
+    return true, nil, nil
 end
 
 -- Apply stat modifiers from status effects
 function StatusEffectsEngine.applyStatModifiers(pokemon)
     if not pokemon.statusEffect or pokemon.statusEffect == "none" then
-        return pokemon.stats
+        return pokemon.stats or {}
     end
     
     local statusData = pokemon.statusEffectData
     if not statusData or not statusData.statModifiers then
-        return pokemon.stats
+        return pokemon.stats or {}
     end
     
-    local modifiedStats = deepCopy(pokemon.stats)
+    local modifiedStats = deepCopy(pokemon.stats or {})
     
     for stat, modifier in pairs(statusData.statModifiers) do
         if modifiedStats[stat] then
@@ -558,47 +786,103 @@ function StatusEffectsEngine.applyStatModifiers(pokemon)
     return modifiedStats
 end
 
--- Cure status effects
-function StatusEffectsEngine.cureStatusEffect(pokemon, cureMethod)
-    local newPokemon = deepCopy(pokemon)
+-- Process environmental effects on status conditions
+function StatusEffectsEngine.processEnvironmentalEffects(gameState, environmentalEffectType, duration)
+    local newGameState = deepCopy(gameState)
     
-    if not newPokemon.statusEffect or newPokemon.statusEffect == "none" then
-        return newPokemon, false, "Pokemon has no status effect to cure"
+    if not newGameState.battle then
+        return newGameState, false, "No battle in progress"
     end
     
-    local statusData = newPokemon.statusEffectData
-    if statusData and statusData.cureConditions then
-        for _, condition in ipairs(statusData.cureConditions) do
-            if condition == cureMethod then
-                newPokemon.statusEffect = "none"
-                newPokemon.statusEffectData = nil
-                return newPokemon, true, "Status effect cured"
-            end
-        end
+    local effectData = ENVIRONMENTAL_EFFECTS[environmentalEffectType]
+    if not effectData then
+        return newGameState, false, "Unknown environmental effect: " .. environmentalEffectType
     end
     
-    return newPokemon, false, "Cannot cure status effect with method: " .. cureMethod
+    newGameState.battle.environmentalEffect = {
+        type = environmentalEffectType,
+        name = effectData.name,
+        effects = deepCopy(effectData.effects),
+        remainingDuration = duration or effectData.duration or 5,
+        turnApplied = newGameState.battle.turnNumber or 1
+    }
+    
+    return newGameState, true, "Environmental effect applied: " .. effectData.name
 end
 
--- Main logic handler for status effects operations
-function StatusEffectsEngine.handleLogicOperation(gameState, operation, parameters, rngState)
+-- Main operation handler
+function StatusEffectsEngine.handleOperation(gameState, operation, parameters, rngState)
     if operation == "applyStatusEffect" then
         local pokemonIndex = parameters.pokemonIndex
         local statusEffect = parameters.statusEffect
+        local environmentalEffect = gameState.battle and gameState.battle.environmentalEffect
         
         if not pokemonIndex or not statusEffect then
-            error("pokemonIndex and statusEffect parameters are required for applyStatusEffect operation")
+            error("pokemonIndex and statusEffect parameters are required")
         end
         
         local newGameState = deepCopy(gameState)
-        if not newGameState.player.party[pokemonIndex] then
+        local pokemon = newGameState.player.party[pokemonIndex]
+        if not pokemon then
             error("Pokemon not found at index " .. pokemonIndex)
         end
         
         local modifiedPokemon, success, message = StatusEffectsEngine.applyStatusEffect(
-            newGameState.player.party[pokemonIndex], 
-            statusEffect, 
-            rngState
+            pokemon, statusEffect, rngState, environmentalEffect
+        )
+        
+        newGameState.player.party[pokemonIndex] = modifiedPokemon
+        
+        return {
+            gameState = newGameState,
+            success = success,
+            message = message,
+            appliedEffect = success and statusEffect or nil
+        }
+        
+    elseif operation == "processStatusTurn" then
+        local pokemonIndex = parameters.pokemonIndex
+        local turnNumber = parameters.turnNumber or 1
+        local environmentalEffect = gameState.battle and gameState.battle.environmentalEffect
+        
+        if not pokemonIndex then
+            error("pokemonIndex parameter is required")
+        end
+        
+        local newGameState = deepCopy(gameState)
+        local pokemon = newGameState.player.party[pokemonIndex]
+        if not pokemon then
+            error("Pokemon not found at index " .. pokemonIndex)
+        end
+        
+        local modifiedPokemon, effects = StatusEffectsEngine.processStatusTurn(
+            pokemon, rngState, environmentalEffect, turnNumber
+        )
+        
+        newGameState.player.party[pokemonIndex] = modifiedPokemon
+        
+        return {
+            gameState = newGameState,
+            effects = effects,
+            pokemon = modifiedPokemon
+        }
+        
+    elseif operation == "removeStatusEffect" then
+        local pokemonIndex = parameters.pokemonIndex
+        local cureMethod = parameters.cureMethod
+        
+        if not pokemonIndex or not cureMethod then
+            error("pokemonIndex and cureMethod parameters are required")
+        end
+        
+        local newGameState = deepCopy(gameState)
+        local pokemon = newGameState.player.party[pokemonIndex]
+        if not pokemon then
+            error("Pokemon not found at index " .. pokemonIndex)
+        end
+        
+        local modifiedPokemon, success, message = StatusEffectsEngine.removeStatusEffect(
+            pokemon, cureMethod, rngState
         )
         
         newGameState.player.party[pokemonIndex] = modifiedPokemon
@@ -609,51 +893,12 @@ function StatusEffectsEngine.handleLogicOperation(gameState, operation, paramete
             message = message
         }
         
-    elseif operation == "processTurnEndEffects" then
+    elseif operation == "checkStatusInteractions" then
         local pokemonIndex = parameters.pokemonIndex
+        local newStatusEffect = parameters.newStatusEffect
         
-        if not pokemonIndex then
-            error("pokemonIndex parameter is required for processTurnEndEffects operation")
-        end
-        
-        local newGameState = deepCopy(gameState)
-        if not newGameState.player.party[pokemonIndex] then
-            error("Pokemon not found at index " .. pokemonIndex)
-        end
-        
-        local modifiedPokemon, effects = StatusEffectsEngine.processTurnEndEffects(
-            newGameState.player.party[pokemonIndex], 
-            rngState
-        )
-        
-        newGameState.player.party[pokemonIndex] = modifiedPokemon
-        
-        return {
-            gameState = newGameState,
-            effects = effects
-        }
-        
-    elseif operation == "applyEnvironmentalEffect" then
-        local effectType = parameters.effectType
-        local duration = parameters.duration
-        
-        if not effectType then
-            error("effectType parameter is required for applyEnvironmentalEffect operation")
-        end
-        
-        local newGameState = StatusEffectsEngine.applyEnvironmentalEffect(gameState, effectType, duration)
-        
-        return {
-            gameState = newGameState,
-            effectApplied = effectType
-        }
-        
-    elseif operation == "checkMoveRestrictions" then
-        local pokemonIndex = parameters.pokemonIndex
-        local move = parameters.move
-        
-        if not pokemonIndex or not move then
-            error("pokemonIndex and move parameters are required for checkMoveRestrictions operation")
+        if not pokemonIndex or not newStatusEffect then
+            error("pokemonIndex and newStatusEffect parameters are required")
         end
         
         local pokemon = gameState.player.party[pokemonIndex]
@@ -661,37 +906,80 @@ function StatusEffectsEngine.handleLogicOperation(gameState, operation, paramete
             error("Pokemon not found at index " .. pokemonIndex)
         end
         
-        local canMove, message, selfDamage = StatusEffectsEngine.checkMoveRestrictions(pokemon, move, rngState)
-        
-        local newGameState = deepCopy(gameState)
-        newGameState.version = (gameState.version or 0) + 1
+        local immune, immunityReason = StatusEffectsEngine.checkStatusImmunity(pokemon, newStatusEffect)
+        local canApply, interactionResult = StatusEffectsEngine.checkStatusInteractions(
+            pokemon.statusEffect or "none", newStatusEffect
+        )
         
         return {
-            gameState = newGameState,
-            canMove = canMove,
-            message = message,
-            selfDamage = selfDamage
+            gameState = gameState,
+            immune = immune,
+            immunityReason = immunityReason,
+            canApply = canApply,
+            interactionResult = interactionResult
         }
         
-    elseif operation == "cureStatusEffect" then
+    elseif operation == "validateStatusImmunity" then
         local pokemonIndex = parameters.pokemonIndex
-        local cureMethod = parameters.cureMethod
+        local statusEffect = parameters.statusEffect
         
-        if not pokemonIndex or not cureMethod then
-            error("pokemonIndex and cureMethod parameters are required for cureStatusEffect operation")
+        if not pokemonIndex or not statusEffect then
+            error("pokemonIndex and statusEffect parameters are required")
         end
         
-        local newGameState = deepCopy(gameState)
-        if not newGameState.player.party[pokemonIndex] then
+        local pokemon = gameState.player.party[pokemonIndex]
+        if not pokemon then
             error("Pokemon not found at index " .. pokemonIndex)
         end
         
-        local modifiedPokemon, success, message = StatusEffectsEngine.cureStatusEffect(
-            newGameState.player.party[pokemonIndex], 
-            cureMethod
-        )
+        local immune, reason = StatusEffectsEngine.checkStatusImmunity(pokemon, statusEffect)
         
-        newGameState.player.party[pokemonIndex] = modifiedPokemon
+        return {
+            gameState = gameState,
+            immune = immune,
+            reason = reason
+        }
+        
+    elseif operation == "calculateStatusDamage" then
+        local pokemonIndex = parameters.pokemonIndex
+        local environmentalEffect = gameState.battle and gameState.battle.environmentalEffect
+        
+        if not pokemonIndex then
+            error("pokemonIndex parameter is required")
+        end
+        
+        local pokemon = gameState.player.party[pokemonIndex]
+        if not pokemon then
+            error("Pokemon not found at index " .. pokemonIndex)
+        end
+        
+        if not pokemon.statusEffectData then
+            return {
+                gameState = gameState,
+                damage = 0,
+                message = "No status effect to calculate damage for"
+            }
+        end
+        
+        local damage = StatusEffectsEngine.calculateStatusDamage(pokemon, pokemon.statusEffectData, environmentalEffect)
+        
+        return {
+            gameState = gameState,
+            damage = damage,
+            statusEffect = pokemon.statusEffect
+        }
+        
+    elseif operation == "processEnvironmentalEffects" then
+        local effectType = parameters.effectType
+        local duration = parameters.duration
+        
+        if not effectType then
+            error("effectType parameter is required")
+        end
+        
+        local newGameState, success, message = StatusEffectsEngine.processEnvironmentalEffects(
+            gameState, effectType, duration
+        )
         
         return {
             gameState = newGameState,
@@ -700,119 +988,99 @@ function StatusEffectsEngine.handleLogicOperation(gameState, operation, paramete
         }
         
     else
-        error("Unknown status effects engine operation: " .. operation)
+        error("Unknown operation: " .. operation)
     end
 end
 
 -- ====================================
--- MESSAGE PROCESSING LOGIC
+-- MESSAGE HANDLERS (ADP v1.0 COMPLIANT)
 -- ====================================
 
-local function handleMessage(message)
-    startPerformanceMonitoring()
-    
-    local isValid, validationError = validateInput(message)
-    if not isValid then
-        return {
-            Action = "SaveState",
-            Error = validationError,
-            ProcessId = PROCESS_ID,
-            Timestamp = os.time()
-        }
-    end
-    
-    local senderAddress = message.From or "unknown"
-    local rateLimitOk, rateLimitError = checkRateLimit(senderAddress)
-    if not rateLimitOk then
-        return {
-            Action = "SaveState",
-            Error = rateLimitError,
-            GameState = message.Data.gameState,
-            ProcessId = PROCESS_ID,
-            Timestamp = os.time()
-        }
-    end
-    
-    local originalGameState = message.Data.gameState
-    local operation = message.Data.operation
-    local parameters = message.Data.parameters or {}
-    
-    local rngState = nil
-    if originalGameState.battle and originalGameState.battle.battleSeed then
-        local rngInitSuccess, rngError = initializeRNG(originalGameState.battle.battleSeed)
-        if not rngInitSuccess then
-            return {
-                Action = "SaveState",
-                Error = "RNG initialization failed: " .. rngError,
-                GameState = originalGameState,
-                ProcessId = PROCESS_ID,
-                Timestamp = os.time()
-            }
-        end
-        rngState = rngInitSuccess
-    end
-    
-    local success, result = pcall(function()
-        return StatusEffectsEngine.handleLogicOperation(originalGameState, operation, parameters, rngState)
-    end)
-    
-    local responseTime = endPerformanceMonitoring()
-    if responseTime and responseTime > LOGIC_OPERATION_TIMEOUT then
-        return {
-            Action = "SaveState",
-            Error = "Logic operation exceeded " .. LOGIC_OPERATION_TIMEOUT .. "ms timeout (took " .. responseTime .. "ms)",
-            GameState = originalGameState,
-            ProcessId = PROCESS_ID,
-            Timestamp = os.time()
-        }
-    end
-    
-    if success then
-        if result and result.gameState then
-            result.gameState.timestamp = os.time()
-            if originalGameState.version then
-                result.gameState.version = (originalGameState.version or 0) + 1
-            end
-        end
-        
-        return {
-            Action = "SaveState",
-            Data = {
-                gameState = result and result.gameState or originalGameState,
-                result = result
-            },
-            Timestamp = os.time(),
-            ProcessId = PROCESS_ID
-        }
-    else
-        return {
-            Action = "SaveState",
-            Error = "Logic operation failed: " .. tostring(result),
-            GameState = originalGameState,
-            ProcessId = PROCESS_ID,
-            Timestamp = os.time()
-        }
-    end
-end
-
--- ====================================
--- AO MESSAGE HANDLERS
--- ====================================
-
--- Process Logic Handler (main entry point)
+-- Main process logic handler
 Handlers.add("process-logic",
     Handlers.utils.hasMatchingTag("Action", "ProcessLogic"),
     function(msg)
-        local response = handleMessage(msg)
-        ao.send({
-            Target = msg.From,
-            Action = response.Action,
-            Data = response.Data,
-            Error = response.Error,
-            GameState = response.GameState,
-            ProcessId = response.ProcessId,
-            Timestamp = tostring(response.Timestamp)
-        })
+        startPerformanceMonitoring()
+        
+        local isValid, validationError = validateInput(msg)
+        if not isValid then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = validationError,
+                Timestamp = tostring(os.time())
+            })
+            return
+        end
+        
+        local senderAddress = msg.From or "unknown"
+        local rateLimitOk, rateLimitError = checkRateLimit(senderAddress)
+        if not rateLimitOk then
+            ao.send({
+                Target = msg.From,
+                Action = "Error", 
+                Error = rateLimitError,
+                Timestamp = tostring(os.time())
+            })
+            return
+        end
+        
+        local gameState = msg.Data.gameState
+        local operation = msg.Data.operation
+        local parameters = msg.Data.parameters or {}
+        
+        -- Initialize RNG with battle seed and turn number
+        local turnNumber = (gameState.battle and gameState.battle.turnNumber) or 1
+        local rngState = nil
+        if gameState.battle and gameState.battle.battleSeed then
+            local rngInitSuccess, rngError = initializeRNG(gameState.battle.battleSeed, turnNumber)
+            if not rngInitSuccess then
+                ao.send({
+                    Target = msg.From,
+                    Action = "Error",
+                    Error = "RNG initialization failed: " .. rngError,
+                    Timestamp = tostring(os.time())
+                })
+                return
+            end
+            rngState = rngInitSuccess
+        end
+        
+        local success, result = pcall(function()
+            return StatusEffectsEngine.handleOperation(gameState, operation, parameters, rngState)
+        end)
+        
+        local responseTime = endPerformanceMonitoring()
+        if responseTime and responseTime > OPERATION_TIMEOUT then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "Operation exceeded " .. OPERATION_TIMEOUT .. "ms timeout",
+                Timestamp = tostring(os.time())
+            })
+            return
+        end
+        
+        if success then
+            if result and result.gameState then
+                result.gameState.timestamp = os.time()
+                result.gameState.version = (gameState.version or 0) + 1
+            end
+            
+            ao.send({
+                Target = msg.From,
+                Action = "ProcessResult",
+                Data = result,
+                Timestamp = tostring(os.time())
+            })
+        else
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "Operation failed: " .. tostring(result),
+                Timestamp = tostring(os.time())
+            })
+        end
     end
 )
 
@@ -822,30 +1090,51 @@ Handlers.add("health-check",
     function(msg)
         ao.send({
             Target = msg.From,
-            Action = "SaveState",
+            Action = "HealthStatus",
             Data = {
-                processId = PROCESS_ID,
-                processType = "logic",
+                processId = ao.id,
+                processType = "status-effects-engine",
                 status = "healthy",
                 timestamp = os.time(),
-                operations = {
-                    "applyStatusEffect",
-                    "processTurnEndEffects",
-                    "applyEnvironmentalEffect",
-                    "checkMoveRestrictions",
-                    "cureStatusEffect"
-                }
+                capabilities = PROCESS_METADATA.capabilities,
+                version = PROCESS_METADATA.version
             },
-            ProcessId = PROCESS_ID,
             Timestamp = tostring(os.time())
         })
     end
 )
 
--- Export for testing
+-- Info handler for ADP v1.0 compliance
+Handlers.add("info",
+    Handlers.utils.hasMatchingTag("Action", "Info"),
+    function(msg)
+        ao.send({
+            Target = msg.From,
+            Action = "InfoResponse",
+            Data = {
+                process = PROCESS_METADATA,
+                handlers = {
+                    "ProcessLogic",
+                    "HealthCheck", 
+                    "Info"
+                },
+                documentation = {
+                    adpCompliance = "v1.0",
+                    selfDocumenting = true,
+                    description = "Comprehensive Pokemon status effects management system with damage calculations, probability checks, and interaction rules supporting all major and minor status conditions"
+                }
+            },
+            Timestamp = tostring(os.time())
+        })
+    end
+)
+
+-- Export for testing (monolithic design)
 return {
     StatusEffectsEngine = StatusEffectsEngine,
-    PROCESS_ID = PROCESS_ID,
+    PROCESS_METADATA = PROCESS_METADATA,
     STATUS_EFFECTS = STATUS_EFFECTS,
-    ENVIRONMENTAL_EFFECTS = ENVIRONMENTAL_EFFECTS
+    ENVIRONMENTAL_EFFECTS = ENVIRONMENTAL_EFFECTS,
+    TYPE_IMMUNITIES = TYPE_IMMUNITIES,
+    ABILITY_IMMUNITIES = ABILITY_IMMUNITIES
 }
