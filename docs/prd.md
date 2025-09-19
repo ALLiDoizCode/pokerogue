@@ -22,6 +22,7 @@ The Stateless AO Process architecture addresses fundamental scalability bottlene
 |------|---------|-------------|---------|
 | 2025-09-08 | 1.0.0 | Initial ECS HyperBeam PRD for greenfield architecture | Product Manager |
 | 2025-09-10 | 2.0.0 | **MAJOR REVISION**: 26-Process Stateless AO Architecture | Product Manager |
+| 2025-09-11 | 3.0.0 | **ARCHITECTURE ALIGNMENT**: Removed HyperBeam, updated to stateless AO processes | BMad Master |
 
 ## Requirements
 
@@ -29,7 +30,7 @@ The Stateless AO Process architecture addresses fundamental scalability bottlene
 
 **FR1:** The system shall implement 26 specialized stateless AO processes with clear separation between data processes and logic processes
 
-**FR2:** Each process shall be completely self-contained with no external dependencies and under 500KB size constraint
+**FR2:** Each process shall be completely self-contained with no external dependencies and under 500KB size constraint, implemented as monolithic AO processes with embedded dependencies and proper `Handlers.add()` patterns (no require() statements, no direct handler assignment)
 
 **FR3:** The coordinator process shall orchestrate complex multi-step workflows through async message passing coordination
 
@@ -46,6 +47,10 @@ The Stateless AO Process architecture addresses fundamental scalability bottlene
 **FR9:** The system shall integrate with Arweave AO protocol for process deployment and inter-process message passing
 
 **FR10:** Process communication shall be fully asynchronous with operation state tracking in the coordinator process
+
+**FR11:** All processes shall comply with AO runtime requirements: monolithic design with embedded dependencies, proper `Handlers.add(name, matcher, handler)` pattern, wrapped error handling with pcall, and timeout monitoring under 5-second execution limits
+
+**FR12:** Process implementations shall use only available AO globals (ao.send, ao.id, Handlers, json, standard Lua) with no access to require(), io, debug, or external filesystem operations
 
 ### Non Functional
 
@@ -91,236 +96,266 @@ Single repository approach for coordinated stateless process development:
 
 ### Testing Requirements: Migration Parity Validation
 **Critical Requirement:** 100% functional parity with existing TypeScript implementation
-- **Parity Testing:** Automated comparison of TypeScript vs Rust device outcomes for identical inputs
-- **Device Testing:** Unit testing of individual Rust WASM devices with TypeScript reference validation
-- **Integration Testing:** HyperBeam process coordination with device routing and external data fetching
-- **End-to-End Testing:** Complete game scenarios comparing TypeScript vs HyperBeam implementations
+- **Parity Testing:** Automated comparison of TypeScript vs stateless process outcomes for identical inputs
+- **Process Testing:** Unit testing of individual Lua processes with TypeScript reference validation using aolite
+- **Integration Testing:** Coordinator process orchestration with async message routing and external data fetching
+- **End-to-End Testing:** Complete game scenarios comparing TypeScript vs stateless AO process implementations
 
 ### Additional Technical Assumptions and Requests
 
 **Core Architecture:**
-- **HyperBeam Process:** Single ECS world state manager with HTTP server and device routing
-- **Rust WASM Devices:** Stateless, type-safe computational units for game logic (~pokemon-stats@1.0, ~battle-engine@1.0, etc.)
+- **Coordinator Process:** Central orchestration process managing async workflows and operation state
+- **Specialized Processes:** 26 stateless Lua processes with clear data/logic separation
 - **External Data Storage:** Arweave transactions for Pokemon species, moves, and items databases (2MB+ data moved external)
-- **Device Communication:** HyperBeam message routing to appropriate devices based on action type
+- **Process Communication:** Coordinator-mediated message routing to appropriate processes based on operation type
 
 **Migration Approach:**
 - **TypeScript Reference:** Preserve existing implementation for parity validation
-- **Rust Device Logic:** Migrate battle calculations, stat computations, evolution logic to type-safe Rust
+- **Stateless Process Logic:** Migrate battle calculations, stat computations, evolution logic to specialized Lua processes
 - **External Data Migration:** Move static game data to Arweave for bundle size optimization
-- **State Synchronization:** ECS entity state managed by HyperBeam with device-computed updates
+- **GameState Flow:** Client-side state persistence with processes performing pure computation transformations
 
 **Performance Requirements:**
-- **Bundle Size:** <500KB HyperBeam process through external data references  
-- **Parity Validation:** Zero functional differences between TypeScript and Rust implementations
-- **Response Time:** Battle turns complete within existing game performance expectations
+- **Bundle Size:** <500KB per process through external data references and optimization  
+- **Parity Validation:** Zero functional differences between TypeScript and stateless process implementations
+- **Response Time:** Coordinated battle turns complete within <5 seconds for complex workflows
 
 ## Epic List
 
-### Epic 1: HyperBeam Foundation & Security
-Establish HyperBeam process with ECS world state, device orchestration, and security framework for type-safe game logic processing.
+### Epic 1: Stateless AO Process Foundation & Architecture
+Establish foundational 26-process stateless AO architecture with async coordination framework, process specialization patterns, and comprehensive testing infrastructure.
 
 ### Epic 2: TDD Testing Suite & Validation Framework
-Establish comprehensive Test-Driven Development infrastructure using aolite, aos-local, and Rust testing frameworks to validate TypeScript→Rust migration parity before implementation.
+Establish comprehensive Test-Driven Development infrastructure using aolite, aos-local, and Lua testing frameworks to validate TypeScript→stateless process migration parity before implementation.
 
 ### Epic 3: Pokemon Data System & Species Management  
-Migrate Pokemon species database, abilities, nature/IV systems, and individual Pokemon instance management to Rust WASM devices.
+Migrate Pokemon species database, abilities, nature/IV systems, and individual Pokemon instance management to specialized data processes.
 
 ### Epic 5: Core Battle System & Turn Resolution
-Migrate turn-based battle engine, damage calculation, battle state management, and victory/defeat conditions to battle devices.
+Migrate turn-based battle engine, damage calculation, battle state management, and victory/defeat conditions to specialized logic processes.
 
 ### Epic 6: Status Effects & Environmental Systems
-Migrate Pokemon status conditions, weather systems, terrain effects, and environmental interactions to specialized devices.
+Migrate Pokemon status conditions, weather systems, terrain effects, and environmental interactions to specialized logic processes.
 
 ### Epic 7: Arena Effects & Field Conditions
-Migrate entry hazards, field conditions, side-specific effects, and positional battle mechanics to environmental devices.
+Migrate entry hazards, field conditions, side-specific effects, and positional battle mechanics to environmental logic processes.
 
 ### Epic 8: Player Progression & Experience Systems
-Migrate experience/leveling, evolution systems, friendship mechanics, and player character progression to progression devices.
+Migrate experience/leveling, evolution systems, friendship mechanics, and player character progression to progression logic processes.
 
 ### Epic 9: Item & Modifier Systems
-Migrate item database, held item effects, berry systems, and shop/economic functionality to item management devices.
+Migrate item database, held item effects, berry systems, and shop/economic functionality to item management processes.
 
 ### Epic 10: Pokemon Fusion System
-Migrate fusion creation, battle mechanics, evolution/form changes, and separation management to fusion-specific devices.
+Migrate fusion creation, battle mechanics, evolution/form changes, and separation management to fusion-specific logic processes.
 
 ### Epic 11: Dynamic Form Change System
-Migrate conditional form changes, move-based transformations, temporary vs permanent changes, and form-specific stats/abilities.
+Migrate conditional form changes, move-based transformations, temporary vs permanent changes, and form-specific stats/abilities to form change processes.
 
 ### Epic 12: Terastalization System
-Migrate Tera type mechanics, Stellar Tera implementation, Tera Crystal resources, and terastalization battle integration.
+Migrate Tera type mechanics, Stellar Tera implementation, Tera Crystal resources, and terastalization battle integration to terastalization processes.
 
 ### Epic 13: Capture & Collection Mechanics
-Migrate wild Pokemon encounters, Pokeball/capture mechanics, PC storage/party management, and collection tracking.
+Migrate wild Pokemon encounters, Pokeball/capture mechanics, PC storage/party management, and collection tracking to capture and storage processes.
 
 ### Epic 14: Egg System & Breeding Mechanics
-Migrate breeding compatibility, genetic inheritance, egg moves, and hatching/incubation systems.
+Migrate breeding compatibility, genetic inheritance, egg moves, and hatching/incubation systems to breeding management processes.
 
 ### Epic 15: Passive Abilities & Unlockables
-Migrate passive ability systems, unlockable content, achievement-based progression, and special ability unlock conditions.
+Migrate passive ability systems, unlockable content, achievement-based progression, and special ability unlock conditions to progression processes.
 
 ### Epic 16: World Progression & Biome System
-Migrate biome progression, trainer encounters, gym leader/Elite Four systems, and environmental cycles.
+Migrate biome progression, trainer encounters, gym leader/Elite Four systems, and environmental cycles to world management processes.
 
 ### Epic 17: Trainer & AI Systems
-Migrate AI battle decision making, trainer personalities, dynamic party generation, and NPC interaction systems.
+Migrate AI battle decision making, trainer personalities, dynamic party generation, and NPC interaction systems to AI logic processes.
 
 ### Epic 18: Challenge & Game Mode Systems
-Migrate daily runs, challenge frameworks, alternative game modes, and difficulty scaling systems.
+Migrate daily runs, challenge frameworks, alternative game modes, and difficulty scaling systems to challenge management processes.
 
 ### Epic 19: Mystery Encounter System
-Migrate mystery encounter framework, dialogue/narrative systems, special events, and encounter rewards/consequences.
+Migrate mystery encounter framework, dialogue/narrative systems, special events, and encounter rewards/consequences to encounter processes.
 
 ### Epic 20: Timed Events System
-Migrate seasonal events, dynamic content modification, special event species, and community event integration.
+Migrate seasonal events, dynamic content modification, special event species, and community event integration to event management processes.
 
 ### Epic 21: Gacha & Voucher Systems
-Migrate gacha mechanics, voucher economy, egg tier rewards, and gacha integration/balance systems.
+Migrate gacha mechanics, voucher economy, egg tier rewards, and gacha integration/balance systems to economy management processes.
 
 ### Epic 22: Tutorial & Help Systems
-Migrate interactive tutorials, contextual help, advanced mechanic explanations, and player onboarding systems.
+Migrate interactive tutorials, contextual help, advanced mechanic explanations, and player onboarding systems to tutorial processes.
 
 ### Epic 23: Pokedex & Collection Tracking
-Migrate species discovery/registration, collection progress/statistics, advanced Pokedex features, and community sharing.
+Migrate species discovery/registration, collection progress/statistics, advanced Pokedex features, and community sharing to collection processes.
 
 ### Epic 24: Achievement & Ribbon Systems
-Migrate achievement framework, ribbon awards, scoring/rankings, and special recognition systems.
+Migrate achievement framework, ribbon awards, scoring/rankings, and special recognition systems to achievement processes.
 
 ### Epic 25: Statistics & Analytics System
-Migrate battle statistics, collection analytics, economic statistics, and advanced insights systems.
+Migrate battle statistics, collection analytics, economic statistics, and advanced insights systems to analytics processes.
 
 ### Epic 26: Run Tracking & Session Management
-Migrate run lifecycle management, naming/customization, historical records, and session identity/continuity.
+Migrate run lifecycle management, naming/customization, historical records, and session identity/continuity to session management processes.
 
 ### Epic 27: Integration & Deployment
-Complete HyperBeam-AO integration with comprehensive device orchestration, performance optimization, and production deployment.
+Complete stateless AO process integration with comprehensive coordinator orchestration, performance optimization, and production deployment.
 
-## Epic 1: HyperBeam Foundation & Security
+## Epic 1: Stateless AO Process Foundation & Architecture
 
-Establish foundational HyperBeam process architecture with ECS world state, device orchestration framework, and security systems for type-safe game logic processing and anti-cheat validation.
+Establish foundational 26-process stateless AO architecture with async coordination framework, process specialization patterns, and comprehensive testing infrastructure for scalable decentralized game logic processing.
 
-### Story 1.1: HyperBeam Process Architecture Setup
+### Story 1.1: Core Process Architecture & Coordinator Setup
 As a **systems architect**,  
-I want **a foundational HyperBeam process with ECS world state and HTTP server**,  
-so that **game entities, components, and player sessions can be managed with device integration**.
+I want **foundational coordinator process and core process infrastructure**,  
+so that **async message coordination and stateless process communication can be established**.
 
 #### Acceptance Criteria
-1. HyperBeam process initializes with ECS world containing entity manager and component storage
-2. HTTP server provides endpoints for game actions, state queries, and device communication
-3. ECS entity creation, modification, and deletion operations function correctly
-4. Component systems for Pokemon, Player, Battle, and World entities work as expected
-5. Process state persistence with Arweave integration maintains data integrity
-6. Bundle optimization achieves <500KB target through external data references
-7. Process deployment succeeds within AO platform constraints and resource limits
-8. Basic health checks and world state validation ensure system reliability
+1. Coordinator process initializes with operation state management and async message routing
+2. Core process communication patterns established with uniform "SaveState" response protocol
+3. Process topology framework supports 26 specialized stateless processes
+4. Message passing infrastructure handles async coordination without blocking
+5. Operation lifecycle management tracks pending → active → completed states
+6. Process discovery framework enables fixed process topology addressing
+7. Bundle size optimization maintains <500KB constraint for each process
+8. Basic health checks and coordinator validation ensure system reliability
 
-### Story 1.2: Device Orchestration Framework
-As a **device integration developer**,  
-I want **comprehensive device registry and message routing system**,  
-so that **Rust WASM devices can be discovered, versioned, and orchestrated reliably**.
-
-#### Acceptance Criteria
-1. Device registry manages available Rust WASM devices with semantic versioning
-2. Message routing directs game actions to appropriate devices based on capability
-3. Device lifecycle management handles loading, unloading, and hot-swapping
-4. Error handling and timeout management for device communication failures
-5. Device health monitoring with performance metrics and availability tracking
-6. Message queuing ensures proper ordering and delivery of device requests
-7. Device capability discovery allows dynamic feature detection
-8. Integration testing validates device communication under concurrent load
-
-### Story 1.3: Security Framework & Anti-Cheat Foundation
-As a **security engineer**,  
-I want **comprehensive security validation and anti-cheat detection systems**,  
-so that **game state integrity is maintained and cheating attempts are prevented**.
+### Story 1.2: Data Process Specialization Framework
+As a **data architecture engineer**,  
+I want **specialized data processes for game reference data**,  
+so that **Pokemon, moves, items, and abilities data can be served with optimal performance**.
 
 #### Acceptance Criteria
-1. Game state validation ensures all entity modifications follow game rules
-2. Anti-cheat detection identifies impossible stat changes, invalid moves, and resource manipulation
-3. Rate limiting prevents abuse of game actions and API endpoints
-4. Cryptographic validation for critical game state changes and transactions
-5. Input sanitization and validation for all player actions and device responses
-6. Audit logging tracks all game state modifications with player attribution
-7. Security policy enforcement prevents unauthorized access to sensitive operations
-8. Integration with Arweave provides immutable audit trails for investigations
+1. Data process template provides pure reference data queries without GameState modification
+2. Pokemon species database process serves complete species data with <500KB constraint
+3. Moves database process provides move data with type effectiveness integration
+4. Items database process serves item data with effect descriptions and mechanics
+5. Abilities database process provides ability data with trigger conditions and effects
+6. External data referencing optimizes bundle size through Arweave transaction storage
+7. Data process response times achieve sub-100ms for reference queries
+8. Comprehensive testing validates data accuracy and query performance
 
-### Story 1.4: TypeScript Reference Preservation & Parity Framework
+### Story 1.3: Logic Process Specialization Framework  
+As a **game logic engineer**,  
+I want **specialized logic processes for pure computation**,  
+so that **battle, evolution, capture, and status effect logic can process GameState transformations**.
+
+#### Acceptance Criteria
+1. Logic process template performs pure computation on received GameState
+2. Battle engine process handles damage calculation and turn resolution logic
+3. Evolution engine process manages Pokemon evolution and form change logic
+4. Capture engine process calculates capture probability and success determination
+5. Status effects engine process manages status conditions and environmental effects
+6. GameState flow maintains integrity through stateless process transformations
+7. Logic process performance achieves <5 second completion for coordinated operations
+8. Comprehensive testing validates 100% functional parity with TypeScript reference
+
+### Story 1.4: Async Coordination & State Management
+As a **coordination engineer**,  
+I want **comprehensive async message coordination system**,  
+so that **complex multi-step workflows can be orchestrated across specialized processes**.
+
+#### Acceptance Criteria
+1. Coordinator process manages 1000+ concurrent operations with proper state tracking
+2. Async message routing directs operations to appropriate specialized processes
+3. Operation timeout management handles process communication failures gracefully
+4. Message queuing ensures proper ordering and delivery of process requests
+5. Error handling provides robust failure recovery and client-side timeout mechanisms
+6. Process-to-process communication maintains <500ms average latency
+7. GameState persistence handled client-side eliminates process-local state storage
+8. Integration testing validates coordination under concurrent load scenarios
+
+### Story 1.5: TypeScript Parity & Validation Framework
 As a **quality assurance engineer**,  
-I want **automated parity testing framework comparing TypeScript reference with HyperBeam implementation**,  
-so that **100% functional equivalence is maintained throughout migration**.
+I want **automated parity testing comparing TypeScript reference with stateless AO implementation**,  
+so that **100% functional equivalence is maintained throughout the migration**.
 
 #### Acceptance Criteria
 1. TypeScript reference implementation preserved in `/typescript-reference/` directory
 2. Automated test framework executes identical scenarios on both implementations
 3. Parity validation covers all game mechanics with comprehensive test coverage
-4. Regression detection immediately identifies behavioral differences between systems
-5. Performance benchmarking ensures HyperBeam meets or exceeds TypeScript performance
-6. Test data generation creates exhaustive game scenarios for validation
+4. aolite unit testing framework validates individual process logic
+5. aos-local integration testing validates complete process deployment
+6. Property-based testing ensures statistical consistency across scenarios
 7. Continuous integration enforces zero parity violations before deployment
-8. Detailed reporting provides insights into system behavior and performance differences
+8. Performance benchmarking ensures stateless processes meet or exceed TypeScript performance
+
+### Story 1.6: Security & Anti-Cheat Foundation
+As a **security engineer**,  
+I want **comprehensive security validation and anti-cheat detection systems**,  
+so that **GameState integrity is maintained and cheating attempts are prevented**.
+
+#### Acceptance Criteria
+1. GameState validation ensures all modifications follow game rules at process boundaries
+2. Anti-cheat detection identifies impossible stat changes, invalid moves, and resource manipulation
+3. Input validation prevents malformed data from corrupting process logic
+4. AO message sender authentication ensures only authorized players can modify their data
+5. Rate limiting prevents abuse of process endpoints and resource consumption
+6. Audit logging tracks all GameState modifications with player attribution
+7. Process sandbox validation prevents deployment of oversized or incompatible code
+8. Integration with Arweave provides immutable audit trails for investigations
 
 ## Epic 2: TDD Testing Suite & Validation Framework
 
-Establish comprehensive Test-Driven Development infrastructure using aolite for AO process testing, aos-local for deployment validation, and Rust testing frameworks to validate TypeScript→Rust migration parity before implementation of any epic functionality.
+Establish comprehensive Test-Driven Development infrastructure using aolite for AO process testing, aos-local for deployment validation, and Lua testing frameworks to validate TypeScript→stateless process migration parity before implementation of any epic functionality.
 
-### Story 2.1: aolite Unit Testing Framework for HyperBeam Lua Process
+### Story 2.1: aolite Unit Testing Framework for Stateless AO Processes
 As a **TDD engineer**,  
-I want **comprehensive aolite-based unit testing framework for HyperBeam AO handlers and Lua process logic**,  
-so that **I can write failing tests for Lua handlers first, then implement HyperBeam Lua functionality to make tests pass**.
+I want **comprehensive aolite-based unit testing framework for stateless AO process handlers and coordination logic**,  
+so that **I can write failing tests for process logic first, then implement stateless process functionality to make tests pass**.
 
 #### Acceptance Criteria
-1. aolite testing environment configured with concurrent process emulation using coroutines for HyperBeam process
+1. aolite testing environment configured with concurrent process emulation using coroutines for stateless process coordination
 2. Message passing test framework validates Lua AO handler responses against expected game action outcomes
 3. Handler unit testing covers all game action message types with comprehensive Lua test cases
-4. Process state inspection allows validation of ECS world state after Lua handler execution
-5. Mock external data sources (Arweave transactions) for isolated Lua handler unit testing
-6. Test fixtures provide consistent game state scenarios for reproducible Lua testing
+4. Process state inspection allows validation of GameState flow after process execution
+5. Mock external data sources (Arweave transactions) for isolated process unit testing
+6. Test fixtures provide consistent game state scenarios for reproducible process testing
 7. Automated test discovery and execution with clear pass/fail reporting for aolite tests
-8. TDD workflow documentation guides developers in Lua handler test-first methodology
+8. TDD workflow documentation guides developers in stateless process test-first methodology
 
 ### Story 2.2: aos-local Deployment Testing Integration
 As a **deployment validation engineer**,  
-I want **aos-local integration for testing complete HyperBeam process deployment and validation**,  
+I want **aos-local integration for testing complete stateless process deployment and validation**,  
 so that **I can validate process deployment, bundling, and real AO environment compatibility**.
 
 #### Acceptance Criteria
 1. aos-local environment configured for local AO process testing and validation
-2. HyperBeam process deployment testing validates bundle size, initialization, and functionality
-3. Device loading and registration testing ensures all Rust WASM devices deploy correctly
+2. Stateless process deployment testing validates bundle size, initialization, and functionality
+3. Process coordination testing ensures all 26 specialized processes deploy correctly
 4. End-to-end testing validates complete game scenarios from process deployment to gameplay
 5. Performance benchmarking validates response times and resource usage in AO environment
 6. External data fetching testing validates Arweave transaction access and caching
-7. Process restart and recovery testing ensures state persistence and reliability
+7. Process restart and recovery testing ensures coordinator resilience and reliability
 8. Integration with CI/CD pipeline for automated deployment validation
 
-### Story 2.3: Rust WASM Device Unit Testing with cargo test
-As a **Rust device developer**,  
-I want **comprehensive cargo test framework for Rust WASM device logic with TypeScript parity validation**,  
-so that **I can write failing Rust unit tests first, then implement device logic to pass tests**.
+### Story 2.3: Lua Process Unit Testing with Custom Framework
+As a **Lua process developer**,  
+I want **comprehensive Lua testing framework for stateless process logic with TypeScript parity validation**,  
+so that **I can write failing Lua unit tests first, then implement process logic to pass tests**.
 
 #### Acceptance Criteria
-1. cargo test framework configured for Rust WASM device testing with wasm-pack integration
-2. Property-based testing using proptest crate validates device logic across comprehensive input ranges
-3. Unit tests with #[test] annotations cover all device functions with TDD test-first methodology
-4. Benchmark testing using criterion crate measures device performance against TypeScript reference
-5. Mock input/output testing isolates device logic from HyperBeam integration concerns using test doubles
-6. Cross-compilation testing validates device functionality across target platforms (wasm32-unknown-unknown)
-7. Memory safety testing ensures no unsafe operations or memory leaks in devices using miri
-8. Serialization testing validates data integrity between HyperBeam and device communication using serde
+1. Custom Lua test framework configured for stateless process testing with aolite integration
+2. Property-based testing validates process logic across comprehensive input ranges using generated test data
+3. Unit tests cover all process functions with TDD test-first methodology
+4. Benchmark testing measures process performance against TypeScript reference implementation
+5. Mock input/output testing isolates process logic from coordinator integration concerns using test doubles
+6. Process isolation testing validates functionality across different AO environments
+7. Memory management testing ensures no memory leaks or state persistence in stateless processes
+8. Serialization testing validates data integrity between coordinator and process communication using JSON
 
-### Story 2.4: TypeScript-Rust Parity Validation Suite
+### Story 2.4: TypeScript-Lua Process Parity Validation Suite
 As a **parity validation specialist**,  
-I want **comprehensive automated testing that validates 100% functional equivalence between TypeScript and Rust implementations**,  
+I want **comprehensive automated testing that validates 100% functional equivalence between TypeScript and Lua process implementations**,  
 so that **no behavioral differences exist between original and migrated code**.
 
 #### Acceptance Criteria
 1. Golden master testing captures TypeScript outputs for identical inputs across all game mechanics
-2. Regression testing automatically detects any behavioral changes during Rust migration
+2. Regression testing automatically detects any behavioral changes during Lua process migration
 3. Equivalence testing validates mathematical calculations produce identical results (damage, stats, etc.)
 4. Randomization testing ensures RNG produces identical sequences with same seeds
 5. Edge case testing validates handling of boundary conditions and error states
-6. Performance comparison testing ensures Rust implementation meets or exceeds TypeScript speed
-7. State consistency testing validates ECS world state matches TypeScript game state
+6. Performance comparison testing ensures Lua process implementation meets or exceeds TypeScript speed
+7. State consistency testing validates GameState flow matches TypeScript game state
 8. Comprehensive test coverage analysis ensures all code paths are validated
 
 ### Story 2.5: TDD Workflow Integration and Automation
@@ -338,35 +373,35 @@ so that **no functionality is implemented without corresponding failing tests fi
 7. Integration with issue tracking links failing tests to development tasks
 8. Developer tooling provides easy test running and debugging capabilities
 
-### Story 2.6: Dual-Path Integration Testing Framework
+### Story 2.6: Multi-Process Integration Testing Framework
 As a **integration testing engineer**,  
-I want **comprehensive testing that validates seamless communication between HyperBeam Lua process and Rust WASM devices**,  
-so that **both paths work together correctly with 100% parity to TypeScript reference**.
+I want **comprehensive testing that validates seamless communication between coordinator and specialized stateless processes**,  
+so that **all processes work together correctly with 100% parity to TypeScript reference**.
 
 #### Acceptance Criteria
-1. Integration tests validate message passing between HyperBeam Lua handlers and Rust WASM devices
-2. Device orchestration testing ensures proper loading, registration, and communication of Rust devices
-3. End-to-end game scenario testing validates complete workflows across both Lua process and Rust devices
-4. State synchronization testing ensures ECS world state consistency across Lua-Rust boundaries
-5. Performance testing validates that dual-path architecture meets or exceeds TypeScript performance
-6. Error handling testing validates graceful degradation when devices fail or become unavailable
-7. Serialization testing validates data integrity across HyperBeam-device communication boundaries
-8. Parity testing ensures identical outcomes whether logic runs in Lua handlers or Rust devices
+1. Integration tests validate message passing between coordinator and specialized stateless processes
+2. Process orchestration testing ensures proper coordination, registration, and communication of all 26 processes
+3. End-to-end game scenario testing validates complete workflows across coordinator and specialized processes
+4. State synchronization testing ensures GameState consistency across process boundaries
+5. Performance testing validates that multi-process architecture meets or exceeds TypeScript performance
+6. Error handling testing validates graceful degradation when processes fail or become unavailable
+7. Serialization testing validates data integrity across coordinator-process communication boundaries
+8. Parity testing ensures identical outcomes across all process specialization patterns
 
 ### Story 2.7: Continuous Integration Testing Pipeline
 As a **CI/CD engineer**,  
-I want **comprehensive automated testing pipeline that validates both Lua process (aolite/aos-local) and Rust device (cargo test) paths**,  
-so that **quality gates prevent deployment of non-functional or non-parity code in either path**.
+I want **comprehensive automated testing pipeline that validates all stateless processes (aolite/aos-local) and coordinator orchestration**,  
+so that **quality gates prevent deployment of non-functional or non-parity code in any process**.
 
 #### Acceptance Criteria
-1. Multi-stage pipeline validates aolite unit tests, aos-local deployment, cargo test Rust devices, and integration testing
-2. Parallel testing execution for both Lua and Rust paths reduces pipeline runtime while maintaining coverage
-3. Quality gates prevent progression without passing tests in BOTH Lua handlers AND Rust devices
-4. Test result aggregation provides comprehensive reporting across aolite, aos-local, cargo test, and integration frameworks
-5. Notification system alerts developers of test failures with path-specific debugging information
-6. Test artifact management stores results from both Lua process testing and Rust device testing
-7. Environment management provides isolated testing environments for dual-path epic branches
-8. Integration with code review process requires passing tests in both paths before merge approval
+1. Multi-stage pipeline validates aolite unit tests, aos-local deployment, coordinator orchestration, and integration testing
+2. Parallel testing execution for all 26 processes reduces pipeline runtime while maintaining coverage
+3. Quality gates prevent progression without passing tests in coordinator AND all specialized processes
+4. Test result aggregation provides comprehensive reporting across aolite, aos-local, coordinator, and integration frameworks
+5. Notification system alerts developers of test failures with process-specific debugging information
+6. Test artifact management stores results from all process testing and coordinator orchestration testing
+7. Environment management provides isolated testing environments for multi-process epic branches
+8. Integration with code review process requires passing tests in all process types before merge approval
 
 ## Epic 3: Pokemon Data System & Species Management
 

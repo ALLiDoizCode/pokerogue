@@ -3,17 +3,19 @@
 This file contains information and commands for Claude to help with development tasks.
 
 ## Project Information
-- Project: PokéRogue ECS HyperBeam
-- Architecture: Greenfield Entity-Component-System
+- Project: PokéRogue Stateless AO Processes
+- Architecture: 26-Process Stateless Architecture with Async Coordination
 - Main branch: beta
-- Current branch: epic34
+- Current branch: ECS
 
 ## Development Commands
-### ECS Development
-- Build ECS: `npm run build:ecs`
-- Test ECS: `npm run test:ecs`
-- Start ECS dev: `npm run dev:ecs`
-- ECS lint: `npm run lint:ecs`
+### Process Development
+- Test processes (unit): `npm run test:aolite`
+- Test processes (integration): `npm run test:aos-local`
+- Test parity: `npm run test:parity`
+- Validate AO sandbox: `npm run lint:ao-sandbox`
+- Validate process sizes: `npm run validate:size`
+- Full test suite: `npm run test:all`
 
 ### Legacy Commands (Archived)
 - Build: `npm run build`
@@ -225,12 +227,97 @@ WebFetch: https://github.com/permaweb/HyperBEAM
 - **Permanent Storage**: Use aolite documentation for implementing permanent storage solutions
 - **Decentralized Development**: Use harlequin-toolkit docs for building on the Permaweb
 
+## AO Process Implementation Guidelines
+
+### CRITICAL: AO Compliance Requirements
+All Lua processes MUST follow these patterns to comply with AO runtime:
+
+#### 1. Monolithic Design (REQUIRED)
+```lua
+-- ❌ FORBIDDEN: External dependencies
+local utils = require('utils')
+
+-- ✅ REQUIRED: Embed all dependencies
+local function validateInput(data)
+    -- Embedded utility function
+end
+```
+
+#### 2. Handler Pattern (REQUIRED)
+```lua
+-- ❌ FORBIDDEN: Direct assignment
+Handlers["ProcessLogic"] = function(msg) end
+
+-- ✅ REQUIRED: Handlers.add pattern
+Handlers.add("process-logic",
+    Handlers.utils.hasMatchingTag("Action", "ProcessLogic"),
+    function(msg)
+        local response = processLogic(msg)
+        ao.send({
+            Target = msg.From,
+            Action = response.Action,
+            Data = response.Data
+        })
+    end
+)
+```
+
+#### 3. Error Handling (REQUIRED)
+```lua
+-- ✅ REQUIRED: Wrap all operations in pcall
+local success, response = pcall(processLogic, msg)
+if success then
+    ao.send(response)
+else
+    ao.send({
+        Target = msg.From,
+        Action = "Error",
+        Error = response
+    })
+end
+```
+
+#### 4. Available AO Globals
+- `ao.send()` - Send messages to other processes
+- `ao.id` - Current process ID
+- `Handlers` - Message handler registry
+- `json` - JSON encode/decode utilities
+- Standard Lua: string, table, math, os (limited subset)
+
+#### 5. Forbidden Operations
+- `require()` - No external module loading
+- `io` - No file system access
+- `debug` - Debug library unavailable
+- Network operations (only through ao.send)
+
+#### 6. Testing Pattern for AO Processes
+```lua
+-- Mock AO environment for testing
+local function setupTestEnvironment()
+    if not ao then
+        ao = {
+            send = function(msg) print("Mock send:", json.encode(msg)) end,
+            id = "test_process_id"
+        }
+    end
+    
+    if not Handlers then
+        Handlers = {
+            add = function(name, matcher, handler)
+                print("Handler registered:", name)
+            end
+        }
+    end
+end
+```
+
 ## Notes
-- **Project Status**: Greenfield ECS HyperBeam architecture
-- **Architecture**: Entity-Component-System with data-oriented design
-- **Performance**: SIMD vectorization and cache optimization targets
-- **Platform**: Arweave AO with decentralized persistence
+- **Project Status**: Stateless AO Process Architecture (Phase 1-2 Complete)
+- **Architecture**: 26-Process Stateless AO with Async Coordination
+- **Performance**: Sub-5-second execution with 500KB process limits
+- **Platform**: Arweave AO with monolithic process design
 - **Legacy Archive**: Previous implementation archived in `archive/` directory
+- **AO Compliance**: All processes now follow monolithic design with proper handler patterns
 - MCP servers provide additional capabilities for memory management and documentation access
 
 ## Automated README Updates
