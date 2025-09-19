@@ -14,6 +14,12 @@
     "test:watch": "vitest watch --coverage --no-isolate",
     "test:silent": "vitest run --silent='passed-only' --no-isolate",
     "test:create": "node scripts/create-test/create-test.js",
+    "test:aolite": "lua scripts/run-aolite-tests.lua",
+    "test:aos-local": "node scripts/run-aos-local-tests.js",
+    "test:parity": "node scripts/run-parity-tests.js",
+    "test:all": "npm run test:aolite && npm run test:aos-local && npm run test:parity",
+    "validate:size": "lua tools/size-validator.lua",
+    "lint:ao-sandbox": "lua tools/ao-sandbox-validator.lua",
     "scrape-trainers": "node scripts/scrape-trainer-names/main.js",
     "typecheck": "tsc --noEmit",
     "biome": "biome check --write --changed --no-errors-on-unmatched --diagnostic-level=error",
@@ -28,6 +34,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.0.0",
     "@ls-lint/ls-lint": "2.3.1",
+    "@permaweb/loco": "^0.0.20",
     "@types/crypto-js": "^4.2.0",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.16.5",
@@ -45,11 +52,11 @@
     "vite": "^7.0.6",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4",
-    "vitest-canvas-mock": "^0.3.3",
-    "@permaweb/loco": "^0.0.20"
+    "vitest-canvas-mock": "^0.3.3"
   },
   "dependencies": {
     "@material/material-color-utilities": "^0.2.7",
+    "@permaweb/aoconnect": "^0.0.90",
     "compare-versions": "^6.1.1",
     "crypto-js": "^4.2.0",
     "i18next": "^24.2.3",

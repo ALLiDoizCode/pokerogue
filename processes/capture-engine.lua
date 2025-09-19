@@ -7,14 +7,11 @@
 -- AO ENVIRONMENT GLOBALS
 -- ====================================
 
--- Mock AO environment for testing
-if not ao then
-    ao = {
-        send = function(msg) print("Mock send:", json.encode(msg)) end,
-        id = "capture_engine_process_id"
-    }
-end
+-- Global declarations for AO environment
+local json = json or { encode = function(t) return "encoded_json" end, decode = function(s) return {} end }
+local ao = ao or { send = function(msg) return true end, id = "capture-engine" }
 
+-- Handlers global (AO runtime provides this)
 if not Handlers then
     Handlers = {
         add = function(name, matcher, handler)
@@ -27,13 +24,6 @@ if not Handlers then
                 end
             end
         }
-    }
-end
-
-if not json then
-    json = {
-        encode = function(t) return "encoded_json" end,
-        decode = function(s) return {} end
     }
 end
 
@@ -744,7 +734,7 @@ Handlers.add("info",
                     name = PROCESS_INFO.name,
                     version = PROCESS_INFO.version,
                     adpVersion = PROCESS_INFO.adpVersion,
-                    processId = PROCESS_INFO.processId,
+                    processId = ao.id,
                     capabilities = PROCESS_INFO.capabilities,
                     messageSchemas = PROCESS_INFO.messageSchemas
                 },
@@ -770,7 +760,7 @@ Handlers.add("info",
                     name = PROCESS_INFO.name,
                     version = PROCESS_INFO.version,
                     adpVersion = PROCESS_INFO.adpVersion,
-                    processId = PROCESS_INFO.processId,
+                    processId = ao.id,
                     capabilities = PROCESS_INFO.capabilities,
                     messageSchemas = PROCESS_INFO.messageSchemas
                 },
@@ -830,7 +820,7 @@ Handlers.add("health-check",
             Target = msg.From,
             Action = "SaveState",
             Data = {
-                processId = PROCESS_INFO.processId,
+                processId = ao.id,
                 processType = "logic",
                 status = "healthy",
                 timestamp = os.time(),

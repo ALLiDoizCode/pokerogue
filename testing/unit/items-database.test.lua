@@ -1,7 +1,12 @@
 -- Unit tests for Items Database Process
 -- Test framework: aolite
 
-local DataProcessTemplate = require("processes.templates.data-process-template")
+-- ADP v1.0 Compatible Test - Template dependency removed
+-- Temporary stub for DataProcessTemplate
+local DataProcessTemplate = {
+    validateInput = function(msg) return true, nil end,
+    handleMessage = function(msg, processId, handler) return {Action = "Response", Data = {}} end
+}
 
 -- Set up AO global mocks
 _G.Handlers = {

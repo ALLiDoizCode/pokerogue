@@ -5,7 +5,23 @@
 
 -- Global declarations for AO environment
 local json = json or { encode = function(t) return "encoded_json" end, decode = function(s) return {} end }
-local ao = ao or { send = function(msg) return true end }
+local ao = ao or { send = function(msg) return true end, id = "evolution-engine" }
+
+-- Handlers global (AO runtime provides this)
+if not Handlers then
+    Handlers = {
+        add = function(name, matcher, handler)
+            print("Handler registered:", name)
+        end,
+        utils = {
+            hasMatchingTag = function(tag, value)
+                return function(msg)
+                    return msg.Tags and msg.Tags[tag] == value
+                end
+            end
+        }
+    }
+end
 
 -- Evolution Engine process identifier
 local PROCESS_ID = "evolution-engine"
@@ -958,7 +974,7 @@ Handlers.add("health-check",
             Target = msg.From,
             Action = "SaveState",
             Data = {
-                processId = PROCESS_ID,
+                processId = ao.id,
                 processType = "logic",
                 status = "healthy",
                 timestamp = os.time(),
@@ -988,7 +1004,7 @@ Handlers.add("info",
                     name = "Evolution Engine",
                     version = PROCESS_VERSION,
                     adpVersion = ADP_VERSION,
-                    processId = PROCESS_ID,
+                    processId = ao.id,
                     capabilities = {
                         "processEvolution",
                         "checkEvolutionConditions", 

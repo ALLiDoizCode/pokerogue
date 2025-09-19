@@ -443,8 +443,77 @@ function tests.runAllTests()
     tests.testErrorHandling()
     
     print("=" .. string.rep("=", 50))
+    print("Running ADP v1.0 Compliance tests...")
+    
+    tests.testADPCompliance()
+    tests.testInfoHandlerSchema()
+    
+    print("=" .. string.rep("=", 50))
     print("✅ All Evolution Engine tests passed!")
     return true
+end
+
+-- ADP v1.0 Compliance Tests
+function tests.testADPCompliance()
+    print("Testing ADP v1.0 compliance...")
+    
+    -- Test process metadata exists
+    assert(EvolutionEngineModule.PROCESS_METADATA, "Process metadata should exist")
+    local metadata = EvolutionEngineModule.PROCESS_METADATA
+    
+    -- Test ADP version
+    assert(metadata.adpVersion == "1.0", "Should be ADP v1.0 compliant")
+    
+    -- Test required fields
+    assert(metadata.name, "Should have process name")
+    assert(metadata.capabilities, "Should have capabilities list")
+    assert(metadata.messageSchemas, "Should have message schemas")
+    
+    -- Test capabilities include expected operations
+    local requiredCapabilities = {"checkEvolutionConditions", "processEvolution", "validateEvolutionData"}
+    for _, capability in ipairs(requiredCapabilities) do
+        local found = false
+        for _, existing in ipairs(metadata.capabilities) do
+            if existing == capability then
+                found = true
+                break
+            end
+        end
+        assert(found, "Should have capability: " .. capability)
+    end
+    
+    -- Test message schemas structure
+    assert(metadata.messageSchemas.ProcessLogic, "Should have ProcessLogic schema")
+    assert(metadata.messageSchemas.HealthCheck, "Should have HealthCheck schema")
+    assert(metadata.messageSchemas.Info, "Should have Info schema")
+    
+    print("✓ ADP v1.0 compliance tests passed")
+end
+
+function tests.testInfoHandlerSchema()
+    print("Testing Info handler schema structure...")
+    
+    local metadata = EvolutionEngineModule.PROCESS_METADATA
+    local processLogicSchema = metadata.messageSchemas.ProcessLogic
+    
+    -- Test required fields exist
+    assert(processLogicSchema.required, "ProcessLogic should have required fields")
+    assert(processLogicSchema.properties, "ProcessLogic should have properties")
+    
+    -- Test required fields include essential ones
+    local requiredFields = {"Action", "Data", "Timestamp"}
+    for _, field in ipairs(requiredFields) do
+        local found = false
+        for _, existing in ipairs(processLogicSchema.required) do
+            if existing == field then
+                found = true
+                break
+            end
+        end
+        assert(found, "ProcessLogic should require field: " .. field)
+    end
+    
+    print("✓ Info handler schema tests passed")
 end
 
 -- Export test runner

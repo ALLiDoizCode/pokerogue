@@ -1,11 +1,10 @@
-# PokéRogue AO Migration - Complete Architecture Document
+# PokéRogue Stateless AO Process Architecture
 
 ## Table of Contents
 
-- [PokéRogue AO Migration - Complete Architecture Document](#table-of-contents)
-  - [Introduction](./introduction.md)
-    - [Starter Template or Existing Project](./introduction.md#starter-template-or-existing-project)
-    - [Change Log](./introduction.md#change-log)
+- [PokéRogue Stateless AO Process Architecture](#table-of-contents)
+  - [Overview](./overview.md)
+    - [Change Log](./overview.md#change-log)
   - [High Level Architecture](./high-level-architecture.md)
     - [Technical Summary](./high-level-architecture.md#technical-summary)
     - [High Level Overview](./high-level-architecture.md#high-level-overview)
@@ -27,6 +26,14 @@
   - [Core Workflows](./core-workflows.md)
     - [Workflow 1: Battle Turn Resolution](./core-workflows.md#workflow-1-battle-turn-resolution)
     - [Workflow 2: Agent Battle Decision Process (Phase 3)](./core-workflows.md#workflow-2-agent-battle-decision-process-phase-3)
+  - [HyperBeam HTTP GET State Access](./hyperbeam-http-get-state-access.md)
+    - [URL Path Pattern](./hyperbeam-http-get-state-access.md#url-path-pattern)
+    - [Pokemon Game State Paths](./hyperbeam-http-get-state-access.md#pokemon-game-state-paths)
+      - [Player Data Access](./hyperbeam-http-get-state-access.md#player-data-access)
+      - [Battle State Access](./hyperbeam-http-get-state-access.md#battle-state-access)
+      - [Game Data Access](./hyperbeam-http-get-state-access.md#game-data-access)
+    - [Implementation Pattern](./hyperbeam-http-get-state-access.md#implementation-pattern)
+    - [Agent Integration Example](./hyperbeam-http-get-state-access.md#agent-integration-example)
   - [Database Schema (Embedded Lua Data Structures)](./database-schema-embedded-lua-data-structures.md)
     - [Species Database Schema](./database-schema-embedded-lua-data-structures.md#species-database-schema)
     - [Player Save Data Schema](./database-schema-embedded-lua-data-structures.md#player-save-data-schema)

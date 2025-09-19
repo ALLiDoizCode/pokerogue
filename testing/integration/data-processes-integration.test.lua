@@ -1,7 +1,7 @@
 -- Integration Tests for Data Process Specialization
 -- Tests all 4 data processes working together
 
-local DataProcessTemplate = require("processes.templates.data-process-template")
+-- ADP v1.0 Compatible Integration Test - Template dependency removed
 
 -- Test summary function
 function testDataProcessesIntegration()

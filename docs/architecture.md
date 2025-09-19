@@ -1,8 +1,8 @@
-# PokéRogue ECS HyperBeam Architecture
+# PokéRogue Stateless AO Process Architecture
 
 ## Overview
 
-PokéRogue implements a greenfield Entity-Component-System (ECS) architecture on the Arweave AO platform. The system leverages Native Implemented Functions (NIFs) as global Lua modules for high-performance game calculations while maintaining a pure Lua ECS for game state management.
+PokéRogue implements a **26-process stateless architecture** on the Arweave AO platform. The system utilizes specialized stateless Lua processes that communicate through async message coordination, replacing the previous monolithic NIF approach with modular, scalable process topology.
 
 ### Change Log
 
@@ -11,49 +11,50 @@ PokéRogue implements a greenfield Entity-Component-System (ECS) architecture on
 | 2025-01-26 | 1.0.0 | Initial architecture document | Architect Agent |
 | 2025-01-26 | 2.0.0 | **MAJOR ARCHITECTURE REVISION**: HyperBEAM + Rust NIF Devices | Architect Agent |
 | 2025-09-08 | 3.0.0 | **GREENFIELD ECS HYPERBEAM ARCHITECTURE**: Complete project reset | Product Owner |
+| 2025-09-10 | 4.0.0 | **STATELESS AO PROCESS ARCHITECTURE**: 26-process async coordination | Architect Agent |
 
 ## High Level Architecture
 
 ### Technical Summary
 
-The PokéRogue AO migration employs an **ECS architecture with NIF-powered systems**, transforming the existing object-oriented TypeScript codebase into an Entity-Component-System running on a single AO process. The architecture prioritizes **100% behavioral parity** with the current implementation while leveraging Native Implemented Functions (NIFs) as complete ECS systems implemented in Rust. Core architectural patterns include Lua message routing, NIF systems for all game logic, deterministic world state management, and efficient component-based data organization, directly supporting the PRD's goal of creating the world's first fully UI-agnostic roguelike where AI agents battle as first-class citizens.
+The PokéRogue AO migration employs a **26-process stateless architecture with async coordination**, transforming the existing object-oriented TypeScript codebase into specialized, stateless Lua processes that communicate through message passing. The architecture prioritizes **100% behavioral parity** with the current implementation while leveraging process specialization for data and logic separation. Core architectural patterns include async message coordination, stateless process design, specialized data/logic process separation, and comprehensive TDD with parity validation, directly supporting the PRD's goal of creating the world's first fully UI-agnostic roguelike where AI agents battle as first-class citizens.
 
 ### High Level Overview
 
-**Architectural Style:** **Single-Process ECS with NIF Systems**
-- Single AO process managing ECS world state and message routing
-- Native Implemented Functions (NIFs) implementing complete ECS systems in Rust
-- Lua handlers route messages to appropriate NIF systems
-- Embedded game data within process bundle for self-contained operation
+**Architectural Style:** **26-Process Stateless Architecture with Async Coordination**
+- 26 specialized stateless Lua processes (data processes, logic processes, coordinator)
+- Async message passing coordination via coordinator-process for complex workflows
+- Each process under 500KB size constraint with complete self-contained functionality
+- No persistent state within processes - GameState flows through processes
 
 **Repository Structure:** **Monorepo** (from PRD Technical Assumptions)
-- `/nifs/` - Rust NIF systems (battle_system, evolution_system, stats_system)
-- `/shared/` - Shared Rust ECS types (WorldState, components, entities)
-- `/ao-process/` - AO process with Lua message handlers and world state persistence
-- `/game-data/` - Pokemon species, moves, and items data embedded in Rust
+- `/processes/` - 26 stateless Lua processes (battle-processor.lua, pokemon-species-db.lua, etc.)
+- `/testing/` - Comprehensive TDD framework (aolite unit tests, aos-local integration, parity validation)
+- `/tools/` - AO sandbox validation, process size monitoring, performance testing
+- `/fixtures/` - Test data and golden master outputs for parity validation
 - `/typescript-reference/` - Current implementation for parity testing
 
-**Service Architecture:** **Single AO Process + NIF Systems + HyperBeam Pathing**
-- AO process handles message routing and world state persistence
-- NIF systems implement complete ECS logic (entities, components, systems) in Rust
-- HyperBeam pathing exposes state via HTTP GET requests for read-only access
-- World state passed between NIF systems for processing
-- Lua handlers orchestrate system execution and state management
+**Service Architecture:** **Distributed Process Topology with Coordinator-Led Orchestration**
+- Data processes (pokemon-species-db, moves-database, items-database, abilities-database)
+- Logic processes (battle-engine, evolution-engine, capture-engine, status-effects-engine)  
+- Coordinator process orchestrates multi-step async workflows
+- Client-side or coordinator-side GameState persistence
+- Fixed process topology - all processes known at deployment
 
-**Primary Data Flow:** **Player → AO Message/HyperBeam Path → Lua Router → NIF System → GameState Update → Response**
-1. Players/agents send AO messages (writes) OR HyperBeam HTTP paths (reads) to the process
-2. Lua message handlers route to appropriate NIF systems for processing
-3. HyperBeam paths provide direct access to GameState fields for read operations
-4. NIF system converts GameState to internal Bevy World, processes game logic, and returns updated GameState
-5. Process persists GameState and sends response via AO message or HTTP path response
+**Primary Data Flow:** **Client → Coordinator → Data Processes → Logic Processes → Final Result → Client**
+1. Client sends coordinated request to coordinator-process with GameState
+2. Coordinator orchestrates async data collection from specialized data processes
+3. Coordinator sends collected data + GameState to appropriate logic process
+4. Logic process performs calculations and returns updated GameState
+5. Coordinator returns final result to client with updated GameState
 
 **Key Architectural Decisions:**
-- **ECS in Rust:** Complete Entity-Component-System implementation in NIF systems
-- **NIF Systems:** Each game system (battle, evolution, stats) as dedicated NIF function
-- **Lua Orchestration:** Lightweight message routing and world state persistence in Lua
-- **Single Process:** Unified world state passed between NIF systems
-- **Agent-First:** Rich query interfaces designed for autonomous agent participation
-- **HyperBeam Pathing:** HTTP GET access to process state via URL path navigation
+- **Process Specialization:** Data processes (pure reference data) vs Logic processes (pure computation)
+- **Stateless Design:** No persistent state in processes - GameState flows through system
+- **Async Coordination:** Coordinator orchestrates complex multi-step workflows via message passing
+- **Size Optimization:** Each process <500KB through aggressive inlining and data compression
+- **Agent-First:** Rich query interfaces and standardized message protocols for agents
+- **Generic Response Pattern:** All processes return via "SaveState" action for uniform client handling
 
 ### High Level Project Diagram
 
@@ -62,68 +63,74 @@ graph TB
     subgraph "Player Interfaces"
         P1[Human Players<br/>Phase 2: AOConnect UI]
         P2[AI Agents<br/>Phase 3: AO Messages]
+        P3[Client Applications<br/>GameState Management]
     end
     
-    subgraph "Single AO Process: Message Router + State Persistence"
-        MSG[Lua Message Handlers<br/>Route to NIF Systems]
-        STATE[World State Persistence<br/>Lua table storage]
+    subgraph "Coordinator Process"
+        COORD[coordinator-process.lua<br/>Async workflow orchestration<br/>Operation state management<br/>Error handling & timeouts]
     end
     
-    subgraph "NIF ECS Systems (Complete Rust Implementation)"
-        NS1[battle_system.process_turn<br/>Complete battle ECS logic]
-        NS2[evolution_system.check_evolution<br/>Evolution processing + stats]
-        NS3[stats_system.recalculate<br/>Stat calculation system]
-        NS4[query_system.get_state<br/>Agent queries + responses]
+    subgraph "Data Processes (~500KB each)"
+        DP1[pokemon-species-db.lua<br/>Species + evolution data]
+        DP2[moves-database.lua<br/>Moves + type effectiveness]  
+        DP3[items-database.lua<br/>Items + berries + effects]
+        DP4[abilities-database.lua<br/>Abilities + mechanics]
     end
     
-    subgraph "Embedded Game Data (In Rust)"
-        GD1[Species Database<br/>900+ Pokemon species]
-        GD2[Move Database<br/>800+ moves + effects]
-        GD3[Item Database<br/>All items + effects]
-        GD4[Type Effectiveness<br/>Damage calculations]
+    subgraph "Logic Processes (~400KB each)"
+        LP1[battle-engine.lua<br/>Damage + turn resolution]
+        LP2[evolution-engine.lua<br/>Evolution logic only]
+        LP3[capture-engine.lua<br/>Capture mechanics]
+        LP4[status-effects-engine.lua<br/>Status + weather + terrain]
     end
     
-    P1 --> MSG
-    P2 --> MSG
-    MSG --> NS1
-    MSG --> NS2
-    MSG --> NS3
-    MSG --> NS4
+    subgraph "Specialized Processes"
+        SP1[state-validator.lua<br/>Data integrity + validation]
+        SP2[query-processor.lua<br/>Agent queries + aggregation]
+    end
     
-    NS1 --> STATE
-    NS2 --> STATE
-    NS3 --> STATE
-    NS4 --> STATE
+    P1 --> COORD
+    P2 --> COORD
+    P3 --> COORD
     
-    NS1 --> GD1
-    NS1 --> GD2
-    NS1 --> GD4
-    NS2 --> GD1
-    NS3 --> GD1
-    NS4 --> GD1
-    NS4 --> GD2
-    NS4 --> GD3
+    COORD --> DP1
+    COORD --> DP2
+    COORD --> DP3
+    COORD --> DP4
+    
+    COORD --> LP1
+    COORD --> LP2
+    COORD --> LP3
+    COORD --> LP4
+    
+    COORD --> SP1
+    COORD --> SP2
+    
+    DP1 -.-> LP1
+    DP2 -.-> LP1
+    DP3 -.-> LP3
+    DP4 -.-> LP1
 ```
 
 ### Architectural and Design Patterns
 
-- **Bevy ECS Pattern:** Complete ECS implementation using Bevy's battle-tested architecture - _Rationale:_ Production-ready ECS with built-in serialization, change detection, and resource management
+- **Stateless Process Pattern:** Each process receives complete state, performs computation, returns updated state - _Rationale:_ Pure functional design enables horizontal scaling, fault tolerance, and deterministic behavior
 
-- **NIF System Pattern:** Each game system (battle, evolution, stats) implemented as dedicated NIF function operating on Bevy World - _Rationale:_ Complete system logic runs at native speed with rich ECS features
+- **Async Message Coordination:** Coordinator orchestrates multi-step workflows via message passing without blocking - _Rationale:_ Leverages AO's async-only design while maintaining complex workflow capabilities
 
-- **Custom GameState Serialization:** Custom GameState struct serialized across NIF boundaries, converted to Bevy World internally - _Rationale:_ Efficient serialization with full Bevy ECS benefits inside NIFs
+- **Process Specialization:** Data processes (pure reference data) vs Logic processes (pure computation) - _Rationale:_ Optimal resource utilization and clear separation of concerns within 500KB constraints
 
-- **Lua Message Orchestration:** Lightweight Lua handlers route messages to appropriate NIF systems - _Rationale:_ Simple message routing with minimal overhead, leveraging AO's native Lua environment
+- **Generic Response Protocol:** All processes return via uniform "SaveState" action regardless of input specificity - _Rationale:_ Simplifies client handling while preserving type safety on input side
 
-- **ECS Resources for Game Data:** Pokemon species, moves, and items stored as Bevy Resources - _Rationale:_ Type-safe global data access within ECS systems, compile-time optimization
+- **Self-Contained Process Design:** Each process embeds all required data and functionality in single deployable file - _Rationale:_ Eliminates dependencies, ensures deployment consistency, enables independent scaling
 
-- **Component-Based Pokemon:** Pokemon represented as entities with modular components (Stats, Status, Moves) - _Rationale:_ Flexible composition enables easy extension and efficient queries
+- **Operation State Machine:** Coordinator maintains operation lifecycle (pending → active → completed) - _Rationale:_ Enables complex multi-step workflows with proper error handling and recovery
 
-- **Bevy Change Detection:** Track component modifications between NIF calls - _Rationale:_ Enables efficient delta updates and optimized processing
+- **Client-Side State Persistence:** GameState persisted by client or external systems, not within processes - _Rationale:_ Maintains stateless design while enabling complex game state management
 
-- **Query-Based Agent Interface:** Bevy's rich query system enables complex agent state access - _Rationale:_ Powerful filtering and iteration capabilities for AI decision-making
+- **Deterministic Computation:** All random operations use seeded RNG passed as message data - _Rationale:_ Enables replay, debugging, and cross-platform consistency without process-local state
 
-- **HyperBeam State Pathing:** Direct HTTP GET access to process state fields via URL navigation - _Rationale:_ Enables read-only state access without message overhead, perfect for agent polling and UI updates
+- **Size-Constrained Optimization:** Aggressive inlining and data compression within 500KB limits - _Rationale:_ Maximizes functionality while respecting AO platform constraints
 
 ## Tech Stack
 
@@ -136,18 +143,18 @@ graph TB
 
 | Category | Technology | Version | Purpose | Rationale |
 |----------|------------|---------|---------|-----------|
-| **Process Runtime** | AO (ArOS) | Latest | Lua execution environment | Standard AO runtime with NIF support |
-| **NIF Language** | Rust | 1.70+ | Complete ECS systems implementation | Type safety, performance, rich ecosystem |
-| **NIF Compilation** | Native Shared Library | Latest | ECS systems as Lua-callable functions | Maximum performance for complete game logic |
-| **ECS Implementation** | Bevy ECS | 0.12+ | Entity-Component-System with built-in serialization | Production-ready ECS with serde support for NIF boundaries |
-| **Game Data Storage** | Bevy Resources | - | Pokemon/move/item databases as ECS resources | Zero-latency access, type-safe global state |
-| **State Management** | Custom GameState | - | Serializable game state converted to Bevy World in NIFs | Efficient Lua-Rust serialization with internal ECS benefits |
-| **Message Protocol** | AO Messages (JSON) | - | Player/agent communication | Native AO protocol, AOConnect compatible |
-| **RNG System** | NIF + Battle Seeds | - | Deterministic randomness | Native performance with cross-call consistency |
-| **Development Tools** | Cargo + Rustler | Latest | Rust NIF toolchain | Industry standard Rust-Lua integration |
-| **Testing Framework** | Lua + NIF testing | Latest | ECS + NIF integration tests | Lightweight testing with TypeScript parity validation |
-| **Process Discovery** | AO Info Protocol | Latest | Standard process discovery | Native AO documentation compliance |
-| **HTTP State Access** | HyperBeam Pathing | Latest | GET request state reading | Direct URL-based access to process state fields |
+| **Process Runtime** | AO (ArOS) | Latest | Lua execution environment for 26 processes | Standard AO runtime with message passing support |
+| **Process Language** | Lua | 5.3+ | All 26 processes implemented in pure Lua | Native AO language, sandboxed execution, deterministic |
+| **Message Coordination** | AO Messages (JSON) | - | Inter-process communication and orchestration | Native AO async message passing with operation tracking |
+| **State Serialization** | JSON | - | GameState serialization between processes | Efficient cross-process data transfer, human-readable |
+| **Data Storage** | Embedded Lua Tables | - | Pokemon/move/item databases embedded in processes | Zero external dependencies, sub-millisecond access |
+| **Process Orchestration** | coordinator-process.lua | - | Async workflow coordination and state management | Central orchestration with distributed execution |
+| **RNG System** | Deterministic Seeded RNG | - | Passed as message data, no process-local randomness | Reproducible game behavior, cross-process consistency |
+| **Development Tools** | aolite + aos-local | Latest | Local AO process testing and deployment | Official AO development toolchain |
+| **Testing Framework** | aolite + Jest + Custom Lua | Latest | Multi-level testing (unit, integration, parity, chaos) | Comprehensive validation including TypeScript parity |
+| **Process Discovery** | Fixed Process Topology | - | Predefined process addresses, no dynamic discovery | Eliminates discovery overhead, predictable routing |
+| **Size Validation** | Custom Lua Linter | - | 500KB constraint enforcement and AO sandbox validation | Prevents deployment of oversized or incompatible processes |
+| **Error Handling** | Client-Side Timeout Management | - | Process failure detection and retry logic | Leverages client capabilities, maintains stateless design |
 
 ## Data Models
 

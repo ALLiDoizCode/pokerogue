@@ -229,8 +229,8 @@ WebFetch: https://github.com/permaweb/HyperBEAM
 
 ## AO Process Implementation Guidelines
 
-### CRITICAL: AO Compliance Requirements
-All Lua processes MUST follow these patterns to comply with AO runtime:
+### CRITICAL: AO + ADP Compliance Requirements
+All Lua processes MUST follow these patterns to comply with AO runtime and ADP (AO Documentation Protocol) v1.0 specification:
 
 #### 1. Monolithic Design (REQUIRED)
 ```lua
@@ -290,7 +290,39 @@ end
 - `debug` - Debug library unavailable
 - Network operations (only through ao.send)
 
-#### 6. Testing Pattern for AO Processes
+#### 6. ADP v1.0 Compliance (REQUIRED)
+```lua
+-- ✅ REQUIRED: Info handler for self-documentation
+Handlers.add("info",
+    Handlers.utils.hasMatchingTag("Action", "Info"),
+    function(msg)
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = {
+                process = {
+                    name = "Process Name",
+                    version = "1.0.0",
+                    adpVersion = "1.0",
+                    capabilities = {"operation1", "operation2"},
+                    messageSchemas = {
+                        ProcessLogic = {
+                            required = {"Action", "Data", "Timestamp"}
+                        }
+                    }
+                },
+                handlers = {"ProcessLogic", "HealthCheck", "Info"},
+                documentation = {
+                    adpCompliance = "v1.0",
+                    selfDocumenting = true
+                }
+            }
+        })
+    end
+)
+```
+
+#### 7. Testing Pattern for AO Processes
 ```lua
 -- Mock AO environment for testing
 local function setupTestEnvironment()
@@ -311,12 +343,56 @@ local function setupTestEnvironment()
 end
 ```
 
+## ADP (AO Documentation Protocol) v1.0 Standards
+
+### What is ADP?
+ADP (AO Documentation Protocol) v1.0 is a standardized protocol that enables AO processes to automatically document their capabilities, handlers, and interfaces. This enables self-documentation and intelligent tool integration.
+
+### ADP Core Requirements
+1. **Protocol Identifier**: `adpVersion: "1.0"`
+2. **Info Handler**: Required handler that responds to `Action: "Info"` with process metadata
+3. **Message Schemas**: Defined schemas for all supported message types
+4. **Process Metadata**: Name, version, capabilities, and documentation
+5. **Self-Documentation**: Processes can be queried for their capabilities
+
+### ADP Benefits
+- **Autonomous Tool Integration**: AI tools can discover and interact with processes automatically
+- **Self-Documenting Architecture**: Reduces maintenance overhead
+- **Standardized Discovery**: Consistent way to query process capabilities
+- **Future-Proof**: Ensures compatibility with evolving AO ecosystem
+
+### ADP Implementation Example
+See `processes/battle-engine-adp.lua` for a complete ADP v1.0 compliant implementation.
+
+### Process Development Standard: Permamind-First Approach
+**ALL new AO processes MUST be generated using Permamind** for ADP v1.0 compliance:
+
+```bash
+# Generate ADP-compliant process using Permamind
+mcp://permamind/generateLuaProcess {
+    "userRequest": "Create a [process description with functionality]",
+    "includeExplanation": true
+}
+```
+
+#### Why Permamind-First?
+- **ADP v1.0 Compliance**: Automatic compliance with self-documentation standards
+- **Production-Ready**: Complete game mechanics and error handling
+- **Consistent Quality**: Standardized structure and validation
+- **Future-Proof**: Compatible with autonomous AI agents
+- **Development Speed**: Instant generation vs manual template development
+
+#### Manual Templates Deprecated
+Manual templates have been archived to `archive/templates/` as they are superseded by Permamind's superior output quality and ADP compliance.
+
 ## Notes
 - **Project Status**: Stateless AO Process Architecture (Phase 1-2 Complete)
 - **Architecture**: 26-Process Stateless AO with Async Coordination
 - **Performance**: Sub-5-second execution with 500KB process limits
 - **Platform**: Arweave AO with monolithic process design
-- **Legacy Archive**: Previous implementation archived in `archive/` directory
+- **ADP Compliance**: All new processes MUST implement ADP v1.0 for future compatibility
+- **Development Standard**: Permamind-first approach for all process generation
+- **Legacy Archive**: Previous implementation and manual templates archived in `archive/` directory
 - **AO Compliance**: All processes now follow monolithic design with proper handler patterns
 - MCP servers provide additional capabilities for memory management and documentation access
 

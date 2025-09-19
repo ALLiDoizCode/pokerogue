@@ -2,97 +2,117 @@
 
 ## Technical Summary
 
-The PokéRogue AO migration employs an **AO Actor Model architecture** with HyperBeam NIF device orchestration, transforming the existing object-oriented TypeScript codebase into a distributed actor-based system. The architecture leverages AO's cryptographically linked message patterns and pluggable NIF device system to achieve **100% behavioral parity** while enabling autonomous agent participation as first-class actors. Core architectural patterns include Actor Model message passing, HyperBeam NIF-based computation, cryptographically verifiable game states through HashPaths, and trustless battle resolution, directly supporting the PRD's goal of creating the world's first fully UI-agnostic roguelike where AI agents battle as independent actors in a verifiable computation graph.
+The PokéRogue AO migration employs a **26-process stateless architecture with async coordination**, transforming the existing object-oriented TypeScript codebase into specialized, stateless Lua processes that communicate through message passing. The architecture prioritizes **100% behavioral parity** with the current implementation while leveraging process specialization for data and logic separation. Core architectural patterns include async message coordination, stateless process design, specialized data/logic process separation, and comprehensive TDD with parity validation, directly supporting the PRD's goal of creating the world's first fully UI-agnostic roguelike where AI agents battle as first-class citizens.
 
 ## High Level Overview
 
-**Architectural Style:** **AO Actor Model with HyperBeam NIF Device Orchestration**
-- Independent actor processes communicating exclusively through cryptographically linked messages
-- HyperBeam NIF device system providing pluggable, high-performance computation engines
-- Message paths creating trustless, mathematically verifiable game state progression
+**Architectural Style:** **26-Process Stateless Architecture with Async Coordination**
+- 26 specialized stateless Lua processes (data processes, logic processes, coordinator)
+- Async message passing coordination via coordinator-process for complex workflows
+- Each process under 500KB size constraint with complete self-contained functionality
+- No persistent state within processes - GameState flows through processes
 
-**Repository Structure:** **Distributed Actor System** (from AO Core patterns)
-- `/actors/` - Independent actor processes (Game Manager, Battle Resolver, State Keeper)
-- `/nif-devices/` - HyperBeam pluggable native computation devices
-- `/message-schemas/` - Cryptographically linked message definitions
+**Repository Structure:** **Monorepo** (from PRD Technical Assumptions)
+- `/processes/` - 26 stateless Lua processes (battle-processor.lua, pokemon-species-db.lua, etc.)
+- `/testing/` - Comprehensive TDD framework (aolite unit tests, aos-local integration, parity validation)
+- `/tools/` - AO sandbox validation, process size monitoring, performance testing
+- `/fixtures/` - Test data and golden master outputs for parity validation
 - `/typescript-reference/` - Current implementation for parity testing
 
-**Service Architecture:** **Multi-Actor System with Device Orchestration**
-- GameManager actor: Coordinates game flow and player sessions
-- BattleResolver actor: Handles combat resolution and state transitions  
-- StateKeeper actor: Manages permanent game state and progression
-- QueryHandler actor: Provides trustless state queries for agents
-- HyperBeam NIF devices: Native pluggable computation engines for game logic execution
+**Service Architecture:** **Distributed Process Topology with Coordinator-Led Orchestration**
+- Data processes (pokemon-species-db, moves-database, items-database, abilities-database)
+- Logic processes (battle-engine, evolution-engine, capture-engine, status-effects-engine)  
+- Coordinator process orchestrates multi-step async workflows
+- Client-side or coordinator-side GameState persistence
+- Fixed process topology - all processes known at deployment
 
-**Primary Data Flow:** **Actor Message Passing with Cryptographic Verification**
-1. Players/agents send cryptographically signed messages to GameManager actor
-2. GameManager routes messages to appropriate actors (BattleResolver, StateKeeper)
-3. Actors execute game logic through HyperBeam NIF devices, creating verifiable computation paths
-4. State changes propagated through HashPath message chains for trustless verification
-5. Results returned through cryptographically linked response messages
+**Primary Data Flow:** **Client → Coordinator → Data Processes → Logic Processes → Final Result → Client**
+1. Client sends coordinated request to coordinator-process with GameState
+2. Coordinator orchestrates async data collection from specialized data processes
+3. Coordinator sends collected data + GameState to appropriate logic process
+4. Logic process performs calculations and returns updated GameState
+5. Coordinator returns final result to client with updated GameState
 
 **Key Architectural Decisions:**
-- **Actor Model Over Monoliths:** Independent actors with message-only communication
-- **NIF-Based Computation:** HyperBeam pluggable native devices for extensible game logic
-- **Cryptographic Verification:** HashPath message chains enable trustless state verification
-- **Trustless Battle Resolution:** Mathematical verifiability of all game outcomes
-- **Resilient Distribution:** Network-wide redundancy through AO's distributed architecture
+- **Process Specialization:** Data processes (pure reference data) vs Logic processes (pure computation)
+- **Stateless Design:** No persistent state in processes - GameState flows through system
+- **Async Coordination:** Coordinator orchestrates complex multi-step workflows via message passing
+- **Size Optimization:** Each process <500KB through aggressive inlining and data compression
+- **Agent-First:** Rich query interfaces and standardized message protocols for agents
+- **Generic Response Pattern:** All processes return via "SaveState" action for uniform client handling
 
 ## High Level Project Diagram
 
 ```mermaid
 graph TB
-    subgraph "Actor Network: Independent Processes"
-        GM[GameManager Actor<br/>Session coordination]
-        BR[BattleResolver Actor<br/>Combat resolution]
-        SK[StateKeeper Actor<br/>Permanent state]
-        QH[QueryHandler Actor<br/>Trustless queries]
-    end
-    
-    subgraph "HyperBeam NIF Device Layer"
-        D1[~battle-engine<br/>Combat calculations (NIF)]
-        D2[~state-manager<br/>Data persistence (NIF)]
-        D3[~crypto-verifier<br/>HashPath validation (NIF)]
-        D4[~query-processor<br/>Agent interfaces (NIF)]
-    end
-    
-    subgraph "Player/Agent Interfaces"
+    subgraph "Player Interfaces"
         P1[Human Players<br/>Phase 2: AOConnect UI]
-        P2[AI Agents<br/>Phase 3: Actor Messages]
+        P2[AI Agents<br/>Phase 3: AO Messages]
+        P3[Client Applications<br/>GameState Management]
     end
     
-    subgraph "Cryptographic Infrastructure"
-        HP[HashPaths<br/>Message verification]
-        CV[Computation Graph<br/>Trustless validation]
+    subgraph "Coordinator Process"
+        COORD[coordinator-process.lua<br/>Async workflow orchestration<br/>Operation state management<br/>Error handling & timeouts]
     end
     
-    P1 -.->|Signed Messages| GM
-    P2 -.->|Actor Messages| GM
+    subgraph "Data Processes (~500KB each)"
+        DP1[pokemon-species-db.lua<br/>Species + evolution data]
+        DP2[moves-database.lua<br/>Moves + type effectiveness]  
+        DP3[items-database.lua<br/>Items + berries + effects]
+        DP4[abilities-database.lua<br/>Abilities + mechanics]
+    end
     
-    GM <-->|Message Routes| BR
-    GM <-->|State Queries| SK
-    GM <-->|Agent Requests| QH
+    subgraph "Logic Processes (~400KB each)"
+        LP1[battle-engine.lua<br/>Damage + turn resolution]
+        LP2[evolution-engine.lua<br/>Evolution logic only]
+        LP3[capture-engine.lua<br/>Capture mechanics]
+        LP4[status-effects-engine.lua<br/>Status + weather + terrain]
+    end
     
-    BR -->|NIF Calls| D1
-    SK -->|NIF Calls| D2
-    QH -->|NIF Calls| D4
+    subgraph "Specialized Processes"
+        SP1[state-validator.lua<br/>Data integrity + validation]
+        SP2[query-processor.lua<br/>Agent queries + aggregation]
+    end
     
-    D1 -->|HashPath Links| HP
-    D2 -->|HashPath Links| HP
-    D3 -->|Verification| CV
-    HP -->|Computation Graph| CV
+    P1 --> COORD
+    P2 --> COORD
+    P3 --> COORD
+    
+    COORD --> DP1
+    COORD --> DP2
+    COORD --> DP3
+    COORD --> DP4
+    
+    COORD --> LP1
+    COORD --> LP2
+    COORD --> LP3
+    COORD --> LP4
+    
+    COORD --> SP1
+    COORD --> SP2
+    
+    DP1 -.-> LP1
+    DP2 -.-> LP1
+    DP3 -.-> LP3
+    DP4 -.-> LP1
 ```
 
 ## Architectural and Design Patterns
 
-- **Actor Model Message Passing:** Independent actors communicate exclusively through cryptographically linked messages - _Rationale:_ Enables distributed, resilient computation with mathematical verifiability of all game state transitions
+- **Stateless Process Pattern:** Each process receives complete state, performs computation, returns updated state - _Rationale:_ Pure functional design enables horizontal scaling, fault tolerance, and deterministic behavior
 
-- **HyperBeam NIF Device Orchestration:** Pluggable native computation devices handle specialized game logic execution - _Rationale:_ Modular, extensible architecture supporting high-performance computational environments and third-party game mechanics
+- **Async Message Coordination:** Coordinator orchestrates multi-step workflows via message passing without blocking - _Rationale:_ Leverages AO's async-only design while maintaining complex workflow capabilities
 
-- **HashPath Verification:** Message chains create cryptographically verifiable computation graphs - _Rationale:_ Enables trustless battle resolution where outcomes can be mathematically verified without trust in any single actor
+- **Process Specialization:** Data processes (pure reference data) vs Logic processes (pure computation) - _Rationale:_ Optimal resource utilization and clear separation of concerns within 500KB constraints
 
-- **Distributed State Management:** Game state distributed across specialized actors with message-based synchronization - _Rationale:_ Eliminates single points of failure while maintaining state consistency through AO's resilient network
+- **Generic Response Protocol:** All processes return via uniform "SaveState" action regardless of input specificity - _Rationale:_ Simplifies client handling while preserving type safety on input side
 
-- **Trustless Agent Integration:** AI agents participate as first-class actors with full access to verifiable game state - _Rationale:_ Creates truly autonomous agent gameplay where agents can verify all game outcomes independently
+- **Self-Contained Process Design:** Each process embeds all required data and functionality in single deployable file - _Rationale:_ Eliminates dependencies, ensures deployment consistency, enables independent scaling
 
-- **Permissionless Extensibility:** NIF device system enables third-party game mechanics without core system modifications - _Rationale:_ Supports infinite game evolution through community-developed native devices and custom computational logic
+- **Operation State Machine:** Coordinator maintains operation lifecycle (pending → active → completed) - _Rationale:_ Enables complex multi-step workflows with proper error handling and recovery
+
+- **Client-Side State Persistence:** GameState persisted by client or external systems, not within processes - _Rationale:_ Maintains stateless design while enabling complex game state management
+
+- **Deterministic Computation:** All random operations use seeded RNG passed as message data - _Rationale:_ Enables replay, debugging, and cross-platform consistency without process-local state
+
+- **Size-Constrained Optimization:** Aggressive inlining and data compression within 500KB limits - _Rationale:_ Maximizes functionality while respecting AO platform constraints
