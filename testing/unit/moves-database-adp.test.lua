@@ -25,7 +25,7 @@ local function test_adp_info_handler()
     
     local infoMessage = {
         Action = "Info",
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -58,7 +58,7 @@ local function test_get_move_handler()
     local moveMessage = {
         Action = "GetMove",
         Data = {id = 1}, -- Pound
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -88,7 +88,7 @@ local function test_get_moves_by_type_handler()
     local typeMessage = {
         Action = "GetMovesByType",
         Data = {type = "normal"},
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -117,7 +117,7 @@ local function test_health_check_handler()
     
     local healthMessage = {
         Action = "HealthCheck",
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -150,7 +150,7 @@ local function test_error_handling()
     local invalidMessage = {
         Action = "GetMove",
         Data = {}, -- Missing required id or name
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     

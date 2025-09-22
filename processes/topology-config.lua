@@ -344,7 +344,7 @@ local function initializeTopology()
         }
     }
     
-    State.lastUpdated = os.time()
+    State.lastUpdated = msg and msg.Timestamp or 0
 end
 
 -- Utility Functions
@@ -354,12 +354,12 @@ local function validateInput(data)
     return true, nil
 end
 
-local function createResponse(action, data, error)
+local function createResponse(action, data, error, msg)
     return {
         Action = action,
         Data = data or {},
         Error = error,
-        Timestamp = os.time(),
+        Timestamp = msg and msg.Timestamp or 0,
         ProcessId = ao.id
     }
 end
@@ -402,7 +402,7 @@ local function getProcessHealth(processName)
         status = "unknown",
         capabilities = process.capabilities,
         dependencies = process.dependencies,
-        lastChecked = os.time()
+        lastChecked = msg and msg.Timestamp or 0
     }
     
     -- If processId is set, consider it healthy (would normally ping the process)
@@ -457,7 +457,7 @@ end
 local function handleGetTopology(msg)
     local success, error = validateInput(msg)
     if not success then
-        return createResponse("TopologyError", nil, error)
+        return createResponse("TopologyError", nil, error, msg)
     end
     
     local topology = {
@@ -488,42 +488,42 @@ local function handleGetTopology(msg)
         }
     }
     
-    return createResponse("TopologyResponse", topology)
+    return createResponse("TopologyResponse", topology, nil, msg)
 end
 
 local function handleValidateProcess(msg)
     local success, error = validateInput(msg)
     if not success then
-        return createResponse("ValidationError", nil, error)
+        return createResponse("ValidationError", nil, error, msg)
     end
     
     local processName = msg.ProcessName or msg.Data.processName
     if not processName then
-        return createResponse("ValidationError", nil, "ProcessName required")
+        return createResponse("ValidationError", nil, "ProcessName required", msg)
     end
     
     local healthSuccess, health = getProcessHealth(processName)
     if not healthSuccess then
-        return createResponse("ValidationError", nil, health)
+        return createResponse("ValidationError", nil, health, msg)
     end
     
-    return createResponse("ProcessValidation", health)
+    return createResponse("ProcessValidation", health, nil, msg)
 end
 
 local function handleGetProcessMetadata(msg)
     local success, error = validateInput(msg)
     if not success then
-        return createResponse("MetadataError", nil, error)
+        return createResponse("MetadataError", nil, error, msg)
     end
     
     local processName = msg.ProcessName or msg.Data.processName
     if not processName then
-        return createResponse("MetadataError", nil, "ProcessName required")
+        return createResponse("MetadataError", nil, "ProcessName required", msg)
     end
     
     local process = findProcessByName(processName)
     if not process then
-        return createResponse("MetadataError", nil, "Process not found")
+        return createResponse("MetadataError", nil, "Process not found", msg)
     end
     
     local metadata = {
@@ -537,13 +537,13 @@ local function handleGetProcessMetadata(msg)
         lastUpdated = State.lastUpdated
     }
     
-    return createResponse("ProcessMetadata", metadata)
+    return createResponse("ProcessMetadata", metadata, nil, msg)
 end
 
 local function handleDiscoverProcesses(msg)
     local success, error = validateInput(msg)
     if not success then
-        return createResponse("DiscoveryError", nil, error)
+        return createResponse("DiscoveryError", nil, error, msg)
     end
     
     local filters = msg.Filters or msg.Data.filters or {}
@@ -589,7 +589,7 @@ local function handleDiscoverProcesses(msg)
         totalFound = #discovered,
         processes = discovered,
         filters = filters
-    })
+    }, nil, msg)
 end
 
 local function handleHealthCheck(msg)
@@ -625,7 +625,7 @@ local function handleHealthCheck(msg)
         end
     end
     
-    return createResponse("HealthReport", healthReport)
+    return createResponse("HealthReport", healthReport, nil, msg)
 end
 
 local function handleInfo(msg)
@@ -687,7 +687,7 @@ local function handleInfo(msg)
         }
     }
     
-    return createResponse("ProcessInfo", info)
+    return createResponse("ProcessInfo", info, nil, msg)
 end
 
 -- Initialize topology on startup

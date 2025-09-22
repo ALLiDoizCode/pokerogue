@@ -411,7 +411,7 @@ function tests.testMessageHandling()
                 move = mockMove
             }
         },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-sender"
     }
     

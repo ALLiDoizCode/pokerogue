@@ -20,9 +20,9 @@ The Stateless AO Process architecture addresses fundamental scalability bottlene
 
 | Date | Version | Description | Author |
 |------|---------|-------------|---------|
-| 2025-09-08 | 1.0.0 | Initial ECS HyperBeam PRD for greenfield architecture | Product Manager |
+| 2025-09-08 | 1.0.0 | Initial ECS PRD for greenfield architecture | Product Manager |
 | 2025-09-10 | 2.0.0 | **MAJOR REVISION**: 26-Process Stateless AO Architecture | Product Manager |
-| 2025-09-11 | 3.0.0 | **ARCHITECTURE ALIGNMENT**: Removed HyperBeam, updated to stateless AO processes | BMad Master |
+| 2025-09-11 | 3.0.0 | **ARCHITECTURE ALIGNMENT**: Updated to stateless AO processes | BMad Master |
 
 ## Requirements
 
@@ -1877,11 +1877,11 @@ so that **session management maintains identical identity tracking and continuit
 
 ## Epic 27: Integration & Deployment
 
-Complete HyperBeam-AO integration with comprehensive device orchestration, performance optimization, and production deployment while ensuring system reliability and deployment success.
+Complete AO process integration with comprehensive orchestration, performance optimization, and production deployment while ensuring system reliability and deployment success.
 
-### Story 27.1: HyperBeam-AO Integration Completion
+### Story 27.1: AO Process Integration Completion
 As a **integration engineer**,  
-I want **complete HyperBeam-AO platform integration finalized**,  
+I want **complete AO platform integration finalized**,  
 so that **all processes deploy successfully and communicate reliably within AO ecosystem**.
 
 #### Acceptance Criteria
@@ -1942,7 +1942,7 @@ so that **production system maintains optimal reliability and operational excell
 ## Next Steps
 
 ### Architect Prompt
-Please review this HyperBeam migration PRD and create the detailed technical architecture for migrating PokéRogue to HyperBeam AO processes with Rust WASM devices, ensuring 100% functional parity with the existing TypeScript implementation while achieving <500KB bundle size through external data storage.
+Please review this migration PRD and create the detailed technical architecture for migrating PokéRogue to stateless AO processes, ensuring 100% functional parity with the existing TypeScript implementation while achieving <500KB bundle size through external data storage.
 
 ### Development Team Prompt  
-Begin Epic 1 implementation by establishing the HyperBeam process foundation, ECS world state management, and automated parity testing framework against the preserved TypeScript reference implementation.
+Begin Epic 1 implementation by establishing the AO process foundation, ECS world state management, and automated parity testing framework against the preserved TypeScript reference implementation.

@@ -107,8 +107,8 @@ local function validateInput(message)
     return true, nil
 end
 
-local function checkRateLimit(address)
-    local currentTime = os.time()
+local function checkRateLimit(address, msg)
+    local currentTime = msg and msg.Timestamp or 0
     local currentMinute = math.floor(currentTime / 60)
     
     if not rateLimitCounters[address] then 
@@ -133,7 +133,7 @@ local function createSuccessResponse(data, processId)
     return { 
         Action = "SaveState", 
         Data = data, 
-        Timestamp = os.time(), 
+        Timestamp = msg and msg.Timestamp or 0, 
         ProcessId = processId or PROCESS_ID 
     }
 end
@@ -143,7 +143,7 @@ local function createErrorResponse(errorMessage, processId)
         Action = "SaveState", 
         Error = errorMessage, 
         ProcessId = processId or PROCESS_ID, 
-        Timestamp = os.time() 
+        Timestamp = msg and msg.Timestamp or 0 
     }
 end
 
@@ -154,7 +154,7 @@ local function handleMessage(message, processId, queryHandler)
     end
     
     local senderAddress = message.From or "unknown"
-    local rateLimitOk, rateLimitError = checkRateLimit(senderAddress)
+    local rateLimitOk, rateLimitError = checkRateLimit(senderAddress, message)
     if not rateLimitOk then 
         return createErrorResponse(rateLimitError, processId) 
     end
@@ -659,7 +659,7 @@ Handlers.add("items-query",
                 Action = "SaveState",
                 Error = "Handler execution failed: " .. tostring(response),
                 ProcessId = PROCESS_ID,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
         end
     end
@@ -699,7 +699,7 @@ Handlers.add("health-check",
                 Action = "SaveState",
                 Data = result,
                 ProcessId = PROCESS_ID,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
         else
             ao.send({
@@ -707,7 +707,7 @@ Handlers.add("health-check",
                 Action = "SaveState",
                 Error = "Health check failed: " .. tostring(result),
                 ProcessId = PROCESS_ID,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
         end
     end
@@ -763,7 +763,7 @@ Handlers.add("info",
                 Action = "SaveState",
                 Data = result,
                 ProcessId = PROCESS_ID,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
         else
             ao.send({
@@ -771,7 +771,7 @@ Handlers.add("info",
                 Action = "SaveState",
                 Error = "Info handler failed: " .. tostring(result),
                 ProcessId = PROCESS_ID,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
         end
     end

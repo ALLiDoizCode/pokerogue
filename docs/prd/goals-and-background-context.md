@@ -18,5 +18,5 @@ The Stateless AO Process architecture addresses fundamental scalability bottlene
 
 | Date | Version | Description | Author |
 |------|---------|-------------|---------|
-| 2025-09-08 | 1.0.0 | Initial ECS HyperBeam PRD for greenfield architecture | Product Manager |
+| 2025-09-08 | 1.0.0 | Initial ECS PRD for greenfield architecture | Product Manager |
 | 2025-09-10 | 2.0.0 | **MAJOR REVISION**: 26-Process Stateless AO Architecture | Product Manager |

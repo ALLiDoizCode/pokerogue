@@ -310,7 +310,7 @@ end
 
 -- Rate limiting check
 local function checkRateLimit(address)
-    local currentTime = os.time()
+    local currentTime = msg and msg.Timestamp or 0
     local currentMinute = math.floor(currentTime / 60)
     
     if not rateLimitCounters[address] then
@@ -577,7 +577,7 @@ function EvolutionEngine.evolvePokemon(pokemon, targetSpeciesId, evolutionContex
     -- Update evolution metadata
     evolvedPokemon.evolutionLevel = pokemon.level
     evolvedPokemon.evolutionMethod = evolutionContext.method or "unknown"
-    evolvedPokemon.evolvedAt = os.time()
+    evolvedPokemon.evolvedAt = msg and msg.Timestamp or 0
     evolvedPokemon.preEvolutionSpecies = pokemon.speciesId
     
     -- Preserve important data
@@ -743,7 +743,7 @@ function EvolutionEngine.processFormChange(gameState, pokemonIndex, newForm, for
     -- Update form data
     changedPokemon.form = newForm
     changedPokemon.formChangeMethod = formContext.method or "unknown"
-    changedPokemon.formChangedAt = os.time()
+    changedPokemon.formChangedAt = msg and msg.Timestamp or 0
     changedPokemon.previousForm = pokemon.form
     
     -- Form changes might affect stats, types, abilities
@@ -882,7 +882,7 @@ local function handleMessage(message)
             Action = "SaveState",
             Error = validationError,
             ProcessId = PROCESS_ID,
-            Timestamp = os.time()
+            Timestamp = msg and msg.Timestamp or 0
         }
     end
     
@@ -894,7 +894,7 @@ local function handleMessage(message)
             Error = rateLimitError,
             GameState = message.Data.gameState,
             ProcessId = PROCESS_ID,
-            Timestamp = os.time()
+            Timestamp = msg and msg.Timestamp or 0
         }
     end
     
@@ -913,13 +913,13 @@ local function handleMessage(message)
             Error = "Logic operation exceeded " .. LOGIC_OPERATION_TIMEOUT .. "ms timeout (took " .. responseTime .. "ms)",
             GameState = originalGameState,
             ProcessId = PROCESS_ID,
-            Timestamp = os.time()
+            Timestamp = msg and msg.Timestamp or 0
         }
     end
     
     if success then
         if result and result.gameState then
-            result.gameState.timestamp = os.time()
+            result.gameState.timestamp = msg and msg.Timestamp or 0
             if originalGameState.version then
                 result.gameState.version = (originalGameState.version or 0) + 1
             end
@@ -931,7 +931,7 @@ local function handleMessage(message)
                 gameState = result and result.gameState or originalGameState,
                 result = result
             },
-            Timestamp = os.time(),
+            Timestamp = msg and msg.Timestamp or 0,
             ProcessId = PROCESS_ID
         }
     else
@@ -940,7 +940,7 @@ local function handleMessage(message)
             Error = "Logic operation failed: " .. tostring(result),
             GameState = originalGameState,
             ProcessId = PROCESS_ID,
-            Timestamp = os.time()
+            Timestamp = msg and msg.Timestamp or 0
         }
     end
 end
@@ -977,7 +977,7 @@ Handlers.add("health-check",
                 processId = ao.id,
                 processType = "logic",
                 status = "healthy",
-                timestamp = os.time(),
+                timestamp = msg and msg.Timestamp or 0,
                 operations = {
                     "processEvolution",
                     "checkEvolutionConditions",
@@ -987,7 +987,7 @@ Handlers.add("health-check",
                 }
             },
             ProcessId = PROCESS_ID,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )
@@ -1082,7 +1082,7 @@ Handlers.add("info",
                 }
             },
             ProcessId = PROCESS_ID,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )

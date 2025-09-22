@@ -358,7 +358,7 @@ local function testSpecificMessageSchemas(validator)
     local authData = {
         walletAddress = "test_wallet_address_12345_longname_40chars",
         signature = "valid_signature",
-        timestamp = os.time()
+        timestamp = 1234567890
     }
     local authMessage = createValidMessage("AuthenticatePlayer", authData)
     result = validator.validateMessage(authMessage)
@@ -368,7 +368,7 @@ local function testSpecificMessageSchemas(validator)
     local invalidAuthData = {
         walletAddress = "invalid wallet address!", -- Contains invalid characters
         signature = "valid_signature",
-        timestamp = os.time()
+        timestamp = 1234567890
     }
     authMessage = createValidMessage("AuthenticatePlayer", invalidAuthData)
     result = validator.validateMessage(authMessage)
@@ -472,9 +472,9 @@ local function runAllTests()
             elseif str == "invalid_battleaction_json" then
                 return {actionType = "INVALID_ACTION", pokemonIndex = 0, moveIndex = 1}
             elseif str == "auth_json" then
-                return {walletAddress = "test_wallet_address_12345_longname_40chars", signature = "valid_signature", timestamp = os.time()}
+                return {walletAddress = "test_wallet_address_12345_longname_40chars", signature = "valid_signature", timestamp = 1234567890}
             elseif str == "invalid_auth_json" then
-                return {walletAddress = "invalid wallet address!", signature = "valid_signature", timestamp = os.time()}
+                return {walletAddress = "invalid wallet address!", signature = "valid_signature", timestamp = 1234567890}
             elseif string.find(str, "invalid json") then
                 error("Invalid JSON")
             else

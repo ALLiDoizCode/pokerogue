@@ -2,13 +2,13 @@
 
 Establish comprehensive Test-Driven Development infrastructure using aolite for AO process testing, aos-local for deployment validation, and Rust testing frameworks to validate TypeScript→Rust migration parity before implementation of any epic functionality.
 
-## Story 2.1: aolite Unit Testing Framework for HyperBeam Lua Process
+## Story 2.1: aolite Unit Testing Framework for AO Lua Processes
 As a **TDD engineer**,  
-I want **comprehensive aolite-based unit testing framework for HyperBeam AO handlers and Lua process logic**,  
-so that **I can write failing tests for Lua handlers first, then implement HyperBeam Lua functionality to make tests pass**.
+I want **comprehensive aolite-based unit testing framework for AO process handlers and Lua process logic**,  
+so that **I can write failing tests for Lua handlers first, then implement AO Lua functionality to make tests pass**.
 
 ### Acceptance Criteria
-1. aolite testing environment configured with concurrent process emulation using coroutines for HyperBeam process
+1. aolite testing environment configured with concurrent process emulation using coroutines for AO process
 2. Message passing test framework validates Lua AO handler responses against expected game action outcomes
 3. Handler unit testing covers all game action message types with comprehensive Lua test cases
 4. Process state inspection allows validation of ECS world state after Lua handler execution
@@ -19,12 +19,12 @@ so that **I can write failing tests for Lua handlers first, then implement Hyper
 
 ## Story 2.2: aos-local Deployment Testing Integration
 As a **deployment validation engineer**,  
-I want **aos-local integration for testing complete HyperBeam process deployment and validation**,  
+I want **aos-local integration for testing complete AO process deployment and validation**,  
 so that **I can validate process deployment, bundling, and real AO environment compatibility**.
 
 ### Acceptance Criteria
 1. aos-local environment configured for local AO process testing and validation
-2. HyperBeam process deployment testing validates bundle size, initialization, and functionality
+2. AO process deployment testing validates bundle size, initialization, and functionality
 3. Device loading and registration testing ensures all Rust WASM devices deploy correctly
 4. End-to-end testing validates complete game scenarios from process deployment to gameplay
 5. Performance benchmarking validates response times and resource usage in AO environment
@@ -42,10 +42,10 @@ so that **I can write failing Rust unit tests first, then implement device logic
 2. Property-based testing using proptest crate validates device logic across comprehensive input ranges
 3. Unit tests with #[test] annotations cover all device functions with TDD test-first methodology
 4. Benchmark testing using criterion crate measures device performance against TypeScript reference
-5. Mock input/output testing isolates device logic from HyperBeam integration concerns using test doubles
+5. Mock input/output testing isolates device logic from AO process integration concerns using test doubles
 6. Cross-compilation testing validates device functionality across target platforms (wasm32-unknown-unknown)
 7. Memory safety testing ensures no unsafe operations or memory leaks in devices using miri
-8. Serialization testing validates data integrity between HyperBeam and device communication using serde
+8. Serialization testing validates data integrity between AO process communication using serde
 
 ## Story 2.4: TypeScript-Rust Parity Validation Suite
 As a **parity validation specialist**,  
@@ -79,17 +79,17 @@ so that **no functionality is implemented without corresponding failing tests fi
 
 ## Story 2.6: Dual-Path Integration Testing Framework
 As a **integration testing engineer**,  
-I want **comprehensive testing that validates seamless communication between HyperBeam Lua process and Rust WASM devices**,  
+I want **comprehensive testing that validates seamless communication between AO Lua processes**,  
 so that **both paths work together correctly with 100% parity to TypeScript reference**.
 
 ### Acceptance Criteria
-1. Integration tests validate message passing between HyperBeam Lua handlers and Rust WASM devices
+1. Integration tests validate message passing between AO Lua process handlers
 2. Device orchestration testing ensures proper loading, registration, and communication of Rust devices
 3. End-to-end game scenario testing validates complete workflows across both Lua process and Rust devices
 4. State synchronization testing ensures ECS world state consistency across Lua-Rust boundaries
 5. Performance testing validates that dual-path architecture meets or exceeds TypeScript performance
 6. Error handling testing validates graceful degradation when devices fail or become unavailable
-7. Serialization testing validates data integrity across HyperBeam-device communication boundaries
+7. Serialization testing validates data integrity across AO inter-process communication boundaries
 8. Parity testing ensures identical outcomes whether logic runs in Lua handlers or Rust devices
 
 ## Story 2.7: Continuous Integration Testing Pipeline

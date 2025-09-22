@@ -141,7 +141,7 @@ local function testMessageRoutingAndDiscovery()
             test = function()
                 local process = {
                     status = "healthy",
-                    lastHealth = os.time() * 1000,
+                    lastHealth = 1234567890 * 1000,
                     responseTime = 200,
                     errorRate = 0.05,
                     load = 30,
@@ -191,7 +191,7 @@ local function testMessageRoutingAndDiscovery()
                 
                 -- Simulate cache operations
                 local cacheKey = "battle-engine_ProcessMove"
-                cache.entries[cacheKey] = {processId = "proc1", timestamp = os.time() * 1000}
+                cache.entries[cacheKey] = {processId = "proc1", timestamp = 1234567890 * 1000}
                 cache.hitCount = 50
                 cache.missCount = 10
                 
@@ -281,7 +281,7 @@ local function testTimeoutAndFailureManagement()
                     table.insert(dlq.messages, {
                         id = "msg_" .. i,
                         error = "timeout",
-                        timestamp = os.time() * 1000
+                        timestamp = 1234567890 * 1000
                     })
                 end
                 
@@ -437,7 +437,7 @@ local function testGameStatePersistence()
                     player = {id = "player1", name = "Ash", money = 1000},
                     party = {{species = "Pikachu", level = 25}},
                     scene = "town",
-                    timestamp = os.time() * 1000
+                    timestamp = 1234567890 * 1000
                 }
                 
                 local invalidGameState = {
@@ -463,13 +463,13 @@ local function testGameStatePersistence()
             test = function()
                 local clientState = {
                     player = {money = 1500},
-                    timestamp = os.time() * 1000,
+                    timestamp = 1234567890 * 1000,
                     version = "v1"
                 }
                 
                 local serverState = {
                     player = {money = 1200},
-                    timestamp = os.time() * 1000 - 10000, -- 10 seconds older
+                    timestamp = 1234567890 * 1000 - 10000, -- 10 seconds older
                     version = "v0"
                 }
                 
@@ -488,7 +488,7 @@ local function testGameStatePersistence()
                     player = {id = "p1", name = "Ash", money = 1000},
                     party = {{species = "Pikachu"}},
                     scene = "town",
-                    timestamp = os.time() * 1000
+                    timestamp = 1234567890 * 1000
                 }
                 
                 -- Mock compression

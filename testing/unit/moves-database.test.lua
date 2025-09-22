@@ -71,7 +71,7 @@ function testMoveDataStructure()
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.FLAMETHROWER },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -89,7 +89,7 @@ function testGetMoveByID()
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.THUNDERBOLT },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -125,7 +125,7 @@ function testGetMoveByName()
     local testMessage = {
         Action = "GetMove",
         Data = { name = "Flamethrower" },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -159,7 +159,7 @@ function testGetMovesByType()
     local testMessage = {
         Action = "GetMovesByType",
         Data = { type = POKEMON_TYPE.WATER },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -191,7 +191,7 @@ function testTypeEffectiveness()
             attackingType = POKEMON_TYPE.WATER,
             defendingTypes = {POKEMON_TYPE.FIRE, POKEMON_TYPE.ROCK}
         },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -219,7 +219,7 @@ function testTypeEffectivenessChart()
     local testMessage = {
         Action = "GetTypeEffectiveness",
         Data = { attackingType = POKEMON_TYPE.FIRE },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -251,7 +251,7 @@ function testMoveCategories()
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.EARTHQUAKE },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -297,7 +297,7 @@ function testMovePowerAndAccuracy()
         local testMessage = {
             Action = "GetMove",
             Data = { id = moveData.id },
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "test-address"
         }
         
@@ -323,7 +323,7 @@ function testPriorityMoves()
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.QUICK_ATTACK },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -350,7 +350,7 @@ function testInvalidQueries()
     local invalidMessage = {
         Action = "GetMove",
         Data = {}, -- Missing id or name
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -382,7 +382,7 @@ function testResponseFormat()
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.TACKLE },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -415,7 +415,7 @@ function testPerformanceRequirements()
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.FLAMETHROWER },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -451,7 +451,7 @@ function testDataIntegrity()
         local testMessage = {
             Action = "GetMove",
             Data = { id = moveId },
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "test-address"
         }
         

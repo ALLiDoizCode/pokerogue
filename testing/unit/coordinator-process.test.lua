@@ -156,7 +156,7 @@ local function testADPCoordinatorProcess()
             ProcessName = "battle-engine",
             ProcessId = "test-battle-engine",
             Data = {},
-            Timestamp = os.time()
+            Timestamp = 1234567890
         }
         
         local responses = sendTestMessage("process-discovery", discoveryMessage)

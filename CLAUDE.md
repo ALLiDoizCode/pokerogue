@@ -262,7 +262,19 @@ Handlers.add("process-logic",
 )
 ```
 
-#### 3. Error Handling (REQUIRED)
+#### 3. Timestamp Handling (REQUIRED)
+```lua
+-- ❌ FORBIDDEN: os.time() in AO processes
+local timestamp = os.time()
+
+-- ✅ REQUIRED: Use msg.Timestamp in handlers
+local timestamp = msg.Timestamp or 0
+
+-- ✅ TESTING: Mock timestamp for test files
+local mockTimestamp = 1234567890
+```
+
+#### 4. Error Handling (REQUIRED)
 ```lua
 -- ✅ REQUIRED: Wrap all operations in pcall
 local success, response = pcall(processLogic, msg)
@@ -277,20 +289,21 @@ else
 end
 ```
 
-#### 4. Available AO Globals
+#### 5. Available AO Globals
 - `ao.send()` - Send messages to other processes
 - `ao.id` - Current process ID
 - `Handlers` - Message handler registry
 - `json` - JSON encode/decode utilities
 - Standard Lua: string, table, math, os (limited subset)
 
-#### 5. Forbidden Operations
+#### 6. Forbidden Operations
 - `require()` - No external module loading
 - `io` - No file system access
 - `debug` - Debug library unavailable
+- `os.time()` - Use `msg.Timestamp` instead
 - Network operations (only through ao.send)
 
-#### 6. ADP v1.0 Compliance (REQUIRED)
+#### 7. ADP v1.0 Compliance (REQUIRED)
 ```lua
 -- ✅ REQUIRED: Info handler for self-documentation
 Handlers.add("info",
@@ -322,7 +335,7 @@ Handlers.add("info",
 )
 ```
 
-#### 7. Testing Pattern for AO Processes
+#### 8. Testing Pattern for AO Processes
 ```lua
 -- Mock AO environment for testing
 local function setupTestEnvironment()

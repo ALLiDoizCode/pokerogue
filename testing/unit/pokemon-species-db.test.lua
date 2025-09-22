@@ -145,7 +145,7 @@ local function testPokemonSpeciesDB()
             Data = {
                 speciesId = SPECIES.PIKACHU
             },
-            Timestamp = os.time()
+            Timestamp = 1234567890
         }
         
         local responses = sendTestMessage("pokemon-species-query", speciesMessage)
@@ -168,7 +168,7 @@ local function testPokemonSpeciesDB()
             Data = {
                 speciesId = SPECIES.CHARMANDER
             },
-            Timestamp = os.time()
+            Timestamp = 1234567890
         }
         
         local responses = sendTestMessage("pokemon-species-query", evolutionMessage)
@@ -191,7 +191,7 @@ local function testPokemonSpeciesDB()
             Data = {
                 speciesId = SPECIES.BULBASAUR
             },
-            Timestamp = os.time()
+            Timestamp = 1234567890
         }
         
         local responses = sendTestMessage("pokemon-species-query", baseStatsMessage)
@@ -212,7 +212,7 @@ local function testPokemonSpeciesDB()
             From = "test-client",
             Action = "HealthCheck",
             Data = {},
-            Timestamp = os.time()
+            Timestamp = 1234567890
         }
         
         local responses = sendTestMessage("health-check", healthMessage)
@@ -236,7 +236,7 @@ local function testPokemonSpeciesDB()
             Data = {
                 speciesId = 99999 -- Invalid ID
             },
-            Timestamp = os.time()
+            Timestamp = 1234567890
         }
         
         local responses = sendTestMessage("pokemon-species-query", invalidMessage)
@@ -282,7 +282,7 @@ local function testPokemonSpeciesDB()
                 Data = {
                     speciesId = SPECIES.SQUIRTLE
                 },
-                Timestamp = os.time()
+                Timestamp = 1234567890
             }
             
             local responses = sendTestMessage("pokemon-species-query", message)
@@ -305,7 +305,7 @@ local function testPokemonSpeciesDB()
                 Data = {
                     speciesId = SPECIES.PIKACHU
                 },
-                Timestamp = os.time()
+                Timestamp = 1234567890
             }
             
             local responses = sendTestMessage("pokemon-species-query", message)
@@ -320,7 +320,7 @@ local function testPokemonSpeciesDB()
     tests["test_performance_monitoring"] = function()
         loadPokemonSpeciesDB()
         
-        local startTime = os.time()
+        local startTime = 1234567890
         
         local message = {
             From = "test-client",

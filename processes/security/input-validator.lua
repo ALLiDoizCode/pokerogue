@@ -557,7 +557,7 @@ Handlers.add("validate-input",
             Action = "InputValidationResult",
             Data = json.encode(validationResult),
             ProcessId = ao.id,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )
@@ -583,7 +583,7 @@ Handlers.add("health-check",
                 }
             }),
             ProcessId = ao.id,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )
@@ -644,7 +644,7 @@ Handlers.add("info",
                 }
             }),
             ProcessId = ao.id,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )

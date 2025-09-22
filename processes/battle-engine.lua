@@ -27,7 +27,7 @@ local PROCESS_METADATA = {
     processId = ao.id or "battle-engine-adp",
     processType = "logic",
     adpVersion = "1.0",
-    created = os.time(),
+    created = msg and msg.Timestamp or 0,
     capabilities = {
         "processBattleTurn",
         "calculateDamage",
@@ -257,7 +257,7 @@ end
 
 -- Rate limiting check for production performance
 local function checkRateLimit(address)
-    local currentTime = os.time()
+    local currentTime = msg and msg.Timestamp or 0
     local currentMinute = math.floor(currentTime / 60)
 
     if not rateLimitCounters[address] then
@@ -657,7 +657,7 @@ function BattleEngine.processBattleTurn(gameState, battleCommand, rngState)
     if battleEnded then
         battle.status = "completed"
         battle.winner = winner
-        battle.endTime = os.time()
+        battle.endTime = msg and msg.Timestamp or 0
     end
 
     return {
@@ -734,7 +734,7 @@ local function handleMessage(message)
             Action = "SaveState",
             Error = validationError,
             ProcessId = PROCESS_METADATA.processId,
-            Timestamp = os.time()
+            Timestamp = msg and msg.Timestamp or 0
         }
     end
 
@@ -746,7 +746,7 @@ local function handleMessage(message)
             Error = rateLimitError,
             GameState = message.Data.gameState,
             ProcessId = PROCESS_METADATA.processId,
-            Timestamp = os.time()
+            Timestamp = msg and msg.Timestamp or 0
         }
     end
 
@@ -764,7 +764,7 @@ local function handleMessage(message)
                 Error = "RNG initialization failed: " .. rngError,
                 GameState = originalGameState,
                 ProcessId = PROCESS_METADATA.processId,
-                Timestamp = os.time()
+                Timestamp = msg and msg.Timestamp or 0
             }
         end
         rngState = rngInitSuccess
@@ -783,13 +783,13 @@ local function handleMessage(message)
             Error = "Logic operation exceeded " .. LOGIC_OPERATION_TIMEOUT .. "ms timeout (took " .. responseTime .. "ms)",
             GameState = originalGameState,
             ProcessId = PROCESS_METADATA.processId,
-            Timestamp = os.time()
+            Timestamp = msg and msg.Timestamp or 0
         }
     end
 
     if success then
         if result and result.gameState then
-            result.gameState.timestamp = os.time()
+            result.gameState.timestamp = msg and msg.Timestamp or 0
             if originalGameState.version then
                 result.gameState.version = (originalGameState.version or 0) + 1
             end
@@ -801,7 +801,7 @@ local function handleMessage(message)
                 gameState = result and result.gameState or originalGameState,
                 result = result
             },
-            Timestamp = os.time(),
+            Timestamp = msg and msg.Timestamp or 0,
             ProcessId = PROCESS_METADATA.processId
         }
     else
@@ -810,7 +810,7 @@ local function handleMessage(message)
             Error = "Logic operation failed: " .. tostring(result),
             GameState = originalGameState,
             ProcessId = PROCESS_METADATA.processId,
-            Timestamp = os.time()
+            Timestamp = msg and msg.Timestamp or 0
         }
     end
 end
@@ -847,7 +847,7 @@ Handlers.add("health-check",
                 processId = PROCESS_METADATA.processId,
                 processType = PROCESS_METADATA.processType,
                 status = "healthy",
-                timestamp = os.time(),
+                timestamp = msg and msg.Timestamp or 0,
                 operations = PROCESS_METADATA.capabilities,
                 performance = {
                     rateLimitMax = RATE_LIMIT_MAX,
@@ -855,7 +855,7 @@ Handlers.add("health-check",
                 }
             },
             ProcessId = PROCESS_METADATA.processId,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )
@@ -886,7 +886,7 @@ Handlers.add("info",
                 }
             },
             ProcessId = PROCESS_METADATA.processId,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )

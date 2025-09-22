@@ -43,8 +43,8 @@ local function validateInput(message)
     return true, nil
 end
 
-local function checkRateLimit(address)
-    local currentTime = os.time()
+local function checkRateLimit(address, msg)
+    local currentTime = msg and msg.Timestamp or 0
     local currentMinute = math.floor(currentTime / 60)
     if not rateLimitCounters[address] then
         rateLimitCounters[address] = { minute = currentMinute, count = 0 }
@@ -65,7 +65,7 @@ local function createSuccessResponse(data, processId)
     return {
         Action = "SaveState",
         Data = data,
-        Timestamp = os.time(),
+        Timestamp = msg and msg.Timestamp or 0,
         ProcessId = processId or ao.id
     }
 end
@@ -75,7 +75,7 @@ local function createErrorResponse(errorMessage, processId)
         Action = "SaveState",
         Error = errorMessage,
         ProcessId = processId or ao.id,
-        Timestamp = os.time()
+        Timestamp = msg and msg.Timestamp or 0
     }
 end
 
@@ -525,7 +525,7 @@ local function handleMessage(message, processId, queryHandler)
     end
     
     local senderAddress = message.From or "unknown"
-    local rateLimitOk, rateLimitError = checkRateLimit(senderAddress)
+    local rateLimitOk, rateLimitError = checkRateLimit(senderAddress, message)
     if not rateLimitOk then
         return createErrorResponse(rateLimitError, processId)
     end
@@ -609,7 +609,7 @@ Handlers.add("info",
                 }
             },
             ProcessId = ao.id,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )
@@ -656,7 +656,7 @@ Handlers.add("health-check",
                 }
             },
             ProcessId = ao.id,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )

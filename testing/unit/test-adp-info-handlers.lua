@@ -39,7 +39,7 @@ for _, process in ipairs(processes) do
     local infoMessage = {
         Action = "Info",
         Data = {},
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     

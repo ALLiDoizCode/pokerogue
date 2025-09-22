@@ -76,7 +76,7 @@ function testAbilityDataStructure()
     local testMessage = {
         Action = "GetAbility",
         Data = { id = ABILITY.OVERGROW },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -94,7 +94,7 @@ function testGetAbilityByID()
     local testMessage = {
         Action = "GetAbility",
         Data = { id = ABILITY.STATIC },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -128,7 +128,7 @@ function testGetAbilityByName()
     local testMessage = {
         Action = "GetAbility",
         Data = { name = "Overgrow" },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -159,7 +159,7 @@ function testGetAbilitiesByTrigger()
     local testMessage = {
         Action = "GetAbilitiesByTrigger",
         Data = { trigger = TRIGGER_TYPE.ON_CONTACT },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -195,7 +195,7 @@ function testStarterAbilities()
         local testMessage = {
             Action = "GetAbility",
             Data = { id = ability.id },
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "test-address"
         }
         
@@ -227,7 +227,7 @@ function testContactAbilities()
         local testMessage = {
             Action = "GetAbility",
             Data = { id = ability.id },
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "test-address"
         }
         
@@ -259,7 +259,7 @@ function testAbsorptionAbilities()
         local testMessage = {
             Action = "GetAbility",
             Data = { id = ability.id },
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "test-address"
         }
         
@@ -293,7 +293,7 @@ function testWeatherAbilities()
         local testMessage = {
             Action = "GetAbility",
             Data = { id = ability.id },
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "test-address"
         }
         
@@ -324,7 +324,7 @@ function testImmunityAbilities()
         local testMessage = {
             Action = "GetAbility",
             Data = { id = ability.id },
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "test-address"
         }
         
@@ -348,7 +348,7 @@ function testStatBoostAbilities()
     local testMessage = {
         Action = "GetAbility",
         Data = { id = ABILITY.HUGE_POWER },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -381,7 +381,7 @@ function testSpecialAbilities()
         local testMessage = {
             Action = "GetAbility",
             Data = { id = ability.id },
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "test-address"
         }
         
@@ -409,7 +409,7 @@ function testGetAbilityActivation()
             id = ABILITY.STATIC,
             context = { moveType = "contact", damage = 50 }
         },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -442,7 +442,7 @@ function testTriggerConditions()
     local testMessage = {
         Action = "GetAbility",
         Data = { id = ABILITY.NATURAL_CURE },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -468,7 +468,7 @@ function testInvalidQueries()
     local invalidMessage = {
         Action = "GetAbility",
         Data = {}, -- Missing id or name
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -500,7 +500,7 @@ function testResponseFormat()
     local testMessage = {
         Action = "GetAbility",
         Data = { id = ABILITY.COMPOUND_EYES },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -530,7 +530,7 @@ function testPerformanceRequirements()
     local testMessage = {
         Action = "GetAbility",
         Data = { id = ABILITY.OVERGROW },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     

@@ -65,7 +65,7 @@ function testItemDataStructure()
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.POTION },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -83,7 +83,7 @@ function testGetItemByID()
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.MASTER_BALL },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -116,7 +116,7 @@ function testGetItemByName()
     local testMessage = {
         Action = "GetItem",
         Data = { name = "Potion" },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -148,7 +148,7 @@ function testGetItemsByCategory()
     local testMessage = {
         Action = "GetItemsByCategory",
         Data = { category = ITEM_CATEGORY.BERRY },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -177,7 +177,7 @@ function testBerryEffects()
     local testMessage = {
         Action = "GetBerryEffect",
         Data = { id = ITEM.CHERI_BERRY },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -208,7 +208,7 @@ function testHealingBerries()
     local testMessage = {
         Action = "GetBerryEffect",
         Data = { id = ITEM.ORAN_BERRY },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -260,7 +260,7 @@ function testItemCategories()
         local testMessage = {
             Action = "GetItem",
             Data = { id = test.id },
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "test-address"
         }
         
@@ -290,7 +290,7 @@ function testHealingItems()
         local testMessage = {
             Action = "GetItem",
             Data = { id = test.id },
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "test-address"
         }
         
@@ -314,7 +314,7 @@ function testStatusCureItems()
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.ANTIDOTE },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -355,7 +355,7 @@ function testRevivalItems()
         local testMessage = {
             Action = "GetItem",
             Data = { id = test.id },
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "test-address"
         }
         
@@ -379,7 +379,7 @@ function testEvolutionStones()
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.THUNDER_STONE },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -405,7 +405,7 @@ function testValuableItems()
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.NUGGET },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -431,7 +431,7 @@ function testGetItemEffect()
     local testMessage = {
         Action = "GetItemEffect",
         Data = { id = ITEM.RARE_CANDY },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -463,7 +463,7 @@ function testInvalidQueries()
     local invalidMessage = {
         Action = "GetItem",
         Data = {}, -- Missing id or name
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -495,7 +495,7 @@ function testResponseFormat()
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.POKE_BALL },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     
@@ -527,7 +527,7 @@ function testPerformanceRequirements()
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.POTION },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-address"
     }
     

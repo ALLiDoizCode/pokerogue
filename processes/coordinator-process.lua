@@ -165,7 +165,7 @@ local QueueConfig = {
 
 -- Utility Functions
 local function getCurrentTimestamp()
-    return math.floor(os.time() * 1000)
+    return math.floor((msg and msg.Timestamp or 0) * 1000)
 end
 
 local function generateWorkflowId()

@@ -25,7 +25,7 @@ local function test_adp_info_handler()
     
     local infoMessage = {
         Action = "Info",
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -58,7 +58,7 @@ local function test_get_ability_handler()
     local abilityMessage = {
         Action = "GetAbility",
         Data = {id = 65}, -- Overgrow
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -88,7 +88,7 @@ local function test_get_abilities_by_trigger_handler()
     local triggerMessage = {
         Action = "GetAbilitiesByTrigger",
         Data = {trigger = "on_contact"},
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -117,7 +117,7 @@ local function test_health_check_handler()
     
     local healthMessage = {
         Action = "HealthCheck",
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -150,7 +150,7 @@ local function test_error_handling()
     local invalidMessage = {
         Action = "GetAbility",
         Data = {}, -- Missing required id or name
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     

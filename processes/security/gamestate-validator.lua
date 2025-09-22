@@ -263,7 +263,7 @@ local function validateAtProcessBoundary(gameState, operationType)
             valid = false,
             error = "Validation system error: " .. tostring(isValid),
             operationType = operationType,
-            timestamp = tostring(os.time())
+            timestamp = tostring(msg and msg.Timestamp or 0)
         }
     end
     
@@ -272,14 +272,14 @@ local function validateAtProcessBoundary(gameState, operationType)
             valid = false,
             violations = validationErrors,
             operationType = operationType,
-            timestamp = tostring(os.time())
+            timestamp = tostring(msg and msg.Timestamp or 0)
         }
     end
     
     return {
         valid = true,
         operationType = operationType,
-        timestamp = tostring(os.time())
+        timestamp = tostring(msg and msg.Timestamp or 0)
     }
 end
 
@@ -295,7 +295,7 @@ Handlers.add("validate-gamestate",
                 Action = "ValidationError",
                 Error = "Invalid JSON in GameState data",
                 ProcessId = ao.id,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
             return
         end
@@ -307,7 +307,7 @@ Handlers.add("validate-gamestate",
             Action = "ValidationResult",
             Data = json.encode(validationResult),
             ProcessId = ao.id,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )
@@ -332,7 +332,7 @@ Handlers.add("health-check",
                 }
             }),
             ProcessId = ao.id,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )
@@ -382,7 +382,7 @@ Handlers.add("info",
                 }
             }),
             ProcessId = ao.id,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )

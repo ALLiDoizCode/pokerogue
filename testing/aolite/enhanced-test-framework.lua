@@ -244,7 +244,7 @@ local function createTestFixtures()
       Action = "Test",
       Data = "test data",
       Tags = { Action = "Test" },
-      Timestamp = tostring(os.time())
+      Timestamp = tostring(1234567890)
     }
   }
 end

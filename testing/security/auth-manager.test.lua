@@ -229,7 +229,7 @@ local function testSessionExpiry(authManager)
     local session = authManager.createSession(walletAddress, {"player"})
     
     -- Manually set session to expired state for testing
-    session.lastActivity = os.time() - 4000 -- 4000 seconds ago (expired)
+    session.lastActivity = 1234567890 - 4000 -- 4000 seconds ago (expired)
     
     local expiredSession, err = authManager.getSession(session.id)
     assert(expiredSession == nil, "Expired session should not be accessible")

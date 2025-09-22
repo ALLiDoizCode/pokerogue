@@ -1,0 +1,49 @@
+{
+  "id": "end-to-end-battle",
+  "name": "End-to-End Battle Workflow",
+  "description": "Complete battle from initialization to result",
+  "requiredProcesses": [
+    "coordinator-process.lua",
+    "battle-engine.lua"
+  ],
+  "steps": [
+    {
+      "name": "Initialize battle",
+      "type": "send_message",
+      "targetProcess": "battle-engine",
+      "action": "InitializeBattle",
+      "data": {
+        "player1": {
+          "pokemon": [
+            {
+              "species": "Charizard",
+              "level": 50
+            }
+          ]
+        },
+        "player2": {
+          "pokemon": [
+            {
+              "species": "Blastoise",
+              "level": 50
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Simulate battle turns",
+      "type": "simulate_battle",
+      "description": "Process multiple battle turns"
+    },
+    {
+      "name": "Validate battle result",
+      "type": "validate_state",
+      "description": "Ensure battle concluded properly",
+      "expectedState": {
+        "status": "completed",
+        "winner": "player1"
+      }
+    }
+  ]
+}

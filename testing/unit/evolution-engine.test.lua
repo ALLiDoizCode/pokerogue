@@ -365,7 +365,7 @@ function tests.testMessageHandling()
                 evolutionContext = {}
             }
         },
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-sender"
     }
     

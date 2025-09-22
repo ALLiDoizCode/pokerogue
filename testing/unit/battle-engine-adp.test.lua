@@ -229,7 +229,7 @@ test("battle turn processing", function()
     
     local gameState = {
         playerId = "test-player",
-        timestamp = os.time(),
+        timestamp = 1234567890,
         version = 1,
         player = {
             party = {{

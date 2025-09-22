@@ -639,4 +639,4 @@ export class AosLocalIntegrationFramework {
   }
 }
 
-export { AosLocalIntegrationFramework };
+// Export already defined above with class declaration

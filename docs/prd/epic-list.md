@@ -1,7 +1,7 @@
 # Epic List
 
-## Epic 1: HyperBeam Foundation & Security
-Establish HyperBeam process with ECS world state, device orchestration, and security framework for type-safe game logic processing.
+## Epic 1: AO Process Foundation & Security
+Establish AO process foundation with ECS world state, process orchestration, and security framework for type-safe game logic processing.
 
 ## Epic 2: TDD Testing Suite & Validation Framework
 Establish comprehensive Test-Driven Development infrastructure using aolite, aos-local, and Rust testing frameworks to validate TypeScript→Rust migration parity before implementation.
@@ -76,4 +76,4 @@ Migrate battle statistics, collection analytics, economic statistics, and advanc
 Migrate run lifecycle management, naming/customization, historical records, and session identity/continuity.
 
 ## Epic 27: Integration & Deployment
-Complete HyperBeam-AO integration with comprehensive device orchestration, performance optimization, and production deployment.
+Complete AO process integration with comprehensive orchestration, performance optimization, and production deployment.

@@ -333,7 +333,7 @@ adpTests.testInfoHandler = function()
     local mockMessage = {
         Action = "Info",
         Data = {},
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     

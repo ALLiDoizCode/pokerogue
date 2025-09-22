@@ -26,7 +26,7 @@ function testDataProcessesIntegration()
         local testMessage = {
             Action = testQueries[i].action,
             Data = testQueries[i].data,
-            Timestamp = os.time(),
+            Timestamp = 1234567890,
             From = "integration-test"
         }
         

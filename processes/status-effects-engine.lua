@@ -376,7 +376,7 @@ end
 
 -- Rate limiting check
 local function checkRateLimit(address)
-    local currentTime = os.time()
+    local currentTime = msg and msg.Timestamp or 0
     local currentMinute = math.floor(currentTime / 60)
     
     if not rateLimitCounters[address] then
@@ -1008,7 +1008,7 @@ Handlers.add("process-logic",
                 Target = msg.From,
                 Action = "Error",
                 Error = validationError,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
             return
         end
@@ -1020,7 +1020,7 @@ Handlers.add("process-logic",
                 Target = msg.From,
                 Action = "Error", 
                 Error = rateLimitError,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
             return
         end
@@ -1039,7 +1039,7 @@ Handlers.add("process-logic",
                     Target = msg.From,
                     Action = "Error",
                     Error = "RNG initialization failed: " .. rngError,
-                    Timestamp = tostring(os.time())
+                    Timestamp = tostring(msg and msg.Timestamp or 0)
                 })
                 return
             end
@@ -1056,14 +1056,14 @@ Handlers.add("process-logic",
                 Target = msg.From,
                 Action = "Error",
                 Error = "Operation exceeded " .. OPERATION_TIMEOUT .. "ms timeout",
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
             return
         end
         
         if success then
             if result and result.gameState then
-                result.gameState.timestamp = os.time()
+                result.gameState.timestamp = msg and msg.Timestamp or 0
                 result.gameState.version = (gameState.version or 0) + 1
             end
             
@@ -1071,14 +1071,14 @@ Handlers.add("process-logic",
                 Target = msg.From,
                 Action = "ProcessResult",
                 Data = result,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
         else
             ao.send({
                 Target = msg.From,
                 Action = "Error",
                 Error = "Operation failed: " .. tostring(result),
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
         end
     end
@@ -1095,11 +1095,11 @@ Handlers.add("health-check",
                 processId = ao.id,
                 processType = "status-effects-engine",
                 status = "healthy",
-                timestamp = os.time(),
+                timestamp = msg and msg.Timestamp or 0,
                 capabilities = PROCESS_METADATA.capabilities,
                 version = PROCESS_METADATA.version
             },
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )
@@ -1124,7 +1124,7 @@ Handlers.add("info",
                     description = "Comprehensive Pokemon status effects management system with damage calculations, probability checks, and interaction rules supporting all major and minor status conditions"
                 }
             },
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )

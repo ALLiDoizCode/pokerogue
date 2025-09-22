@@ -29,39 +29,6 @@ local function generateCorrelationId()
     return "corr_" .. tostring(os.time()) .. "_" .. tostring(math.random(100000, 999999))
 end
 
--- Create comprehensive audit log entry
-local function createAuditLogEntry(eventType, walletAddress, operation, details)
-    local entry = {
-        id = "audit_" .. tostring(os.time()) .. "_" .. tostring(math.random(10000, 99999)),
-        timestamp = os.time(),
-        eventType = eventType,
-        walletAddress = walletAddress or "unknown",
-        operation = operation,
-        details = details or {},
-        processId = ao.id,
-        correlationId = details and details.correlationId or generateCorrelationId(),
-        severity = details and details.severity or "INFO"
-    }
-    
-    -- Add contextual information
-    entry.context = {
-        processVersion = "1.0.0",
-        aoProtocol = "current",
-        networkId = "ao_mainnet"
-    }
-    
-    -- Add before/after state tracking for GameState changes
-    if details and details.beforeState and details.afterState then
-        entry.stateChange = {
-            before = details.beforeState,
-            after = details.afterState,
-            diff = calculateStateDiff(details.beforeState, details.afterState)
-        }
-    end
-    
-    return entry
-end
-
 -- Calculate differences between game states
 local function calculateStateDiff(beforeState, afterState)
     local diff = {}
@@ -125,6 +92,40 @@ local function calculateStateDiff(beforeState, afterState)
     return diff
 end
 
+-- Create comprehensive audit log entry
+local function createAuditLogEntry(eventType, walletAddress, operation, details)
+    local entry = {
+        id = "audit_" .. tostring(os.time()) .. "_" .. tostring(math.random(10000, 99999)),
+        timestamp = os.time(),
+        eventType = eventType,
+        walletAddress = walletAddress or "unknown",
+        operation = operation,
+        details = details or {},
+        processId = ao.id,
+        correlationId = details and details.correlationId or generateCorrelationId(),
+        severity = details and details.severity or "INFO"
+    }
+    
+    -- Add contextual information
+    entry.context = {
+        processVersion = "1.0.0",
+        aoProtocol = "current",
+        networkId = "ao_mainnet"
+    }
+    
+    -- Add before/after state tracking for GameState changes
+    if details and details.beforeState and details.afterState then
+        entry.stateChange = {
+            before = details.beforeState,
+            after = details.afterState,
+            diff = calculateStateDiff(details.beforeState, details.afterState)
+        }
+    end
+    
+    return entry
+end
+
+
 -- Log GameState modifications with full attribution
 local function logGameStateModification(walletAddress, operation, beforeState, afterState, correlationId)
     local details = {
@@ -155,25 +156,6 @@ local function logGameStateModification(walletAddress, operation, beforeState, a
     return auditEntry
 end
 
--- Log security events with high priority
-local function logSecurityEvent(eventType, walletAddress, operation, severity, details)
-    local securityDetails = details or {}
-    securityDetails.severity = severity or "MEDIUM"
-    securityDetails.correlationId = securityDetails.correlationId or generateCorrelationId()
-    securityDetails.alertGenerated = true
-    
-    local auditEntry = createAuditLogEntry(eventType, walletAddress, operation, securityDetails)
-    table.insert(auditLogs, auditEntry)
-    table.insert(securityEvents, auditEntry)
-    
-    -- Generate alert for high-severity events
-    if severity == "HIGH" or severity == "CRITICAL" then
-        generateSecurityAlert(auditEntry)
-    end
-    
-    return auditEntry
-end
-
 -- Generate security alerts for critical events
 local function generateSecurityAlert(auditEntry)
     local alert = {
@@ -194,6 +176,25 @@ local function generateSecurityAlert(auditEntry)
     table.insert(auditLogs, alert)
     
     return alert
+end
+
+-- Log security events with high priority
+local function logSecurityEvent(eventType, walletAddress, operation, severity, details)
+    local securityDetails = details or {}
+    securityDetails.severity = severity or "MEDIUM"
+    securityDetails.correlationId = securityDetails.correlationId or generateCorrelationId()
+    securityDetails.alertGenerated = true
+    
+    local auditEntry = createAuditLogEntry(eventType, walletAddress, operation, securityDetails)
+    table.insert(auditLogs, auditEntry)
+    table.insert(securityEvents, auditEntry)
+    
+    -- Generate alert for high-severity events
+    if severity == "HIGH" or severity == "CRITICAL" then
+        generateSecurityAlert(auditEntry)
+    end
+    
+    return auditEntry
 end
 
 -- Track operation timelines and patterns
@@ -283,11 +284,11 @@ end
 -- Generate investigation reports
 local function generateInvestigationReport(walletAddress, timeRange)
     local startTime = timeRange and timeRange.start or (os.time() - 86400) -- Default: last 24 hours
-    local endTime = timeRange and timeRange.end or os.time()
+    local endTime = timeRange and timeRange["end"] or os.time()
     
     local report = {
         walletAddress = walletAddress,
-        timeRange = {start = startTime, end = endTime},
+        timeRange = {start = startTime, ["end"] = endTime},
         timestamp = os.time(),
         summary = {
             totalEvents = 0,

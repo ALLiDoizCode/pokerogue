@@ -25,7 +25,7 @@ local function test_adp_info_handler()
     
     local infoMessage = {
         Action = "Info",
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -58,7 +58,7 @@ local function test_get_item_handler()
     local itemMessage = {
         Action = "GetItem",
         Data = {id = 1}, -- Poke Ball
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -88,7 +88,7 @@ local function test_get_items_by_category_handler()
     local categoryMessage = {
         Action = "GetItemsByCategory",
         Data = {category = "pokeball"},
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -117,7 +117,7 @@ local function test_health_check_handler()
     
     local healthMessage = {
         Action = "HealthCheck",
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     
@@ -150,7 +150,7 @@ local function test_error_handling()
     local invalidMessage = {
         Action = "GetItem",
         Data = {}, -- Missing required id or name
-        Timestamp = os.time(),
+        Timestamp = 1234567890,
         From = "test-client"
     }
     

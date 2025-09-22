@@ -141,7 +141,7 @@ end
 
 -- Rate limiting implementation
 local function checkRateLimit(address)
-    local currentTime = os.time()
+    local currentTime = msg and msg.Timestamp or 0
     local currentMinute = math.floor(currentTime / 60)
     
     if not rateLimitCounters[address] then
@@ -535,7 +535,7 @@ Handlers.add("info",
                 Action = "SaveState",
                 Error = result or "Invalid input for Info",
                 ProcessId = ao.id,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
             return
         end
@@ -566,7 +566,7 @@ Handlers.add("info",
                 }
             },
             ProcessId = ao.id,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )
@@ -586,7 +586,7 @@ Handlers.add("pokemon-species-query",
                 Action = "SaveState",
                 Error = validationError or "Input validation failed",
                 ProcessId = ao.id,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
             return
         end
@@ -600,7 +600,7 @@ Handlers.add("pokemon-species-query",
                 Action = "SaveState",
                 Error = rateLimitError,
                 ProcessId = ao.id,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
             return
         end
@@ -646,7 +646,7 @@ Handlers.add("pokemon-species-query",
                 Action = "SaveState",
                 Data = result,
                 ProcessId = ao.id,
-                Timestamp = tostring(os.time()),
+                Timestamp = tostring(msg and msg.Timestamp or 0),
                 ResponseTime = responseTime and (responseTime .. "ms") or "unknown"
             })
         else
@@ -655,7 +655,7 @@ Handlers.add("pokemon-species-query",
                 Action = "SaveState",
                 Error = "Query processing failed: " .. tostring(result),
                 ProcessId = ao.id,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
         end
     end
@@ -676,7 +676,7 @@ Handlers.add("health-check",
                 Action = "SaveState",
                 Error = result or "Invalid input for HealthCheck",
                 ProcessId = ao.id,
-                Timestamp = tostring(os.time())
+                Timestamp = tostring(msg and msg.Timestamp or 0)
             })
             return
         end
@@ -701,7 +701,7 @@ Handlers.add("health-check",
                 responseTime = responseTime and (responseTime .. "ms") or "unknown"
             },
             ProcessId = ao.id,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )

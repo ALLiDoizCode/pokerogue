@@ -67,7 +67,7 @@ print("\n🔍 Testing Info Handler (ADP v1.0 Self-Documentation):")
 local infoMessage = {
     From = "demo-client",
     Action = "Info",
-    Timestamp = os.time()
+    Timestamp = 1234567890
 }
 
 -- Simulate Info handler call
@@ -78,7 +78,7 @@ print("\n🏥 Testing HealthCheck Handler:")
 local healthMessage = {
     From = "demo-client", 
     Action = "HealthCheck",
-    Timestamp = os.time()
+    Timestamp = 1234567890
 }
 
 print("  Sending HealthCheck request...")
@@ -88,7 +88,7 @@ print("\n⚔️  Testing ProcessLogic Handler with Sample Battle:")
 
 local gameState = {
     playerId = "demo-player-123",
-    timestamp = os.time(),
+    timestamp = 1234567890,
     version = 1,
     player = {
         party = {{
@@ -149,7 +149,7 @@ local battleMessage = {
             }
         }
     },
-    Timestamp = os.time()
+    Timestamp = 1234567890
 }
 
 print("  Battle Setup:")

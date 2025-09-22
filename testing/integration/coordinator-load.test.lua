@@ -51,7 +51,7 @@ local function testConcurrentWorkflowCreation()
     local maxConcurrentWorkflows = 1000
     local workflowsCreated = 0
     local workflowsRejected = 0
-    local startTime = os.time()
+    local startTime = 1234567890
     
     -- Simulate concurrent workflow creation
     for i = 1, maxConcurrentWorkflows + 100 do
@@ -66,7 +66,7 @@ local function testConcurrentWorkflowCreation()
         end
     end
     
-    local endTime = os.time()
+    local endTime = 1234567890
     local duration = endTime - startTime
     
     print("Created workflows: " .. workflowsCreated)
@@ -440,7 +440,7 @@ local function runLoadTests()
     
     local passedTests = 0
     local totalTests = #loadTests
-    local startTime = os.time()
+    local startTime = 1234567890
     
     for _, loadTest in ipairs(loadTests) do
         local success, err = pcall(loadTest.test)
@@ -451,7 +451,7 @@ local function runLoadTests()
         end
     end
     
-    local endTime = os.time()
+    local endTime = 1234567890
     local totalDuration = endTime - startTime
     
     print("\\n=== Load Test Results ===")
