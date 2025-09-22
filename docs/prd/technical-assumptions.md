@@ -20,8 +20,8 @@ Single repository approach for coordinated stateless process development:
 
 ## Testing Requirements: Migration Parity Validation
 **Critical Requirement:** 100% functional parity with existing TypeScript implementation
-- **Parity Testing:** Automated comparison of TypeScript vs Rust device outcomes for identical inputs
-- **Device Testing:** Unit testing of individual Rust WASM devices with TypeScript reference validation
+- **Parity Testing:** Automated comparison of TypeScript vs AO Lua process outcomes for identical inputs
+- **Process Testing:** Unit testing of individual AO Lua processes with TypeScript reference validation
 - **Integration Testing:** AO process coordination with inter-process communication and external data fetching
 - **End-to-End Testing:** Complete game scenarios comparing TypeScript vs AO process implementations
 
@@ -29,17 +29,17 @@ Single repository approach for coordinated stateless process development:
 
 **Core Architecture:**
 - **AO Process Architecture:** 26 stateless processes with ECS world state and coordinator-based orchestration
-- **Rust WASM Devices:** Stateless, type-safe computational units for game logic (~pokemon-stats@1.0, ~battle-engine@1.0, etc.)
+- **AO Lua Processes:** Stateless, monolithic computational units for game logic (pokemon-stats-process.lua, battle-engine-process.lua, etc.)
 - **External Data Storage:** Arweave transactions for Pokemon species, moves, and items databases (2MB+ data moved external)
 - **Process Communication:** AO message routing between processes based on action type
 
 **Migration Approach:**
 - **TypeScript Reference:** Preserve existing implementation for parity validation
-- **Rust Device Logic:** Migrate battle calculations, stat computations, evolution logic to type-safe Rust
+- **AO Lua Process Logic:** Migrate battle calculations, stat computations, evolution logic to stateless AO Lua processes
 - **External Data Migration:** Move static game data to Arweave for bundle size optimization
 - **State Synchronization:** ECS entity state managed through stateless AO process coordination
 
 **Performance Requirements:**
 - **Bundle Size:** <500KB per AO process through external data references  
-- **Parity Validation:** Zero functional differences between TypeScript and Rust implementations
+- **Parity Validation:** Zero functional differences between TypeScript and AO Lua implementations
 - **Response Time:** Battle turns complete within existing game performance expectations
