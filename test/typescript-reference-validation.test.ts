@@ -40,7 +40,7 @@ describe("TypeScript Reference Preservation", () => {
           const dirPath = path.join(srcDir, dir);
           const dirStats = await fs.stat(dirPath);
           expect(dirStats.isDirectory()).toBe(true);
-        } catch (error) {
+        } catch (_error) {
           // Some directories might be nested differently
           console.warn(`Directory ${dir} not found at expected location`);
         }
@@ -64,7 +64,7 @@ describe("TypeScript Reference Preservation", () => {
         // Check script is executable
         try {
           await fs.access(scriptPath, fs.constants.X_OK);
-        } catch (error) {
+        } catch (_error) {
           throw new Error(`Script ${script} is not executable`);
         }
       }

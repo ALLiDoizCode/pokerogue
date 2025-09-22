@@ -15,7 +15,7 @@ export class IntegrationEnvironmentConfig {
     this.config = {
       environment: "integration-testing",
       version: "1.0.0",
-      ...options.config
+      ...options.config,
     };
   }
 
@@ -51,25 +51,25 @@ export class IntegrationEnvironmentConfig {
       path.join(this.workspaceDir, "scenarios"),
       path.join(this.workspaceDir, "configs"),
       path.join(this.workspaceDir, "logs"),
-      
+
       // Integration testing specific
       path.join(this.workspaceDir, "deployment"),
       path.join(this.workspaceDir, "performance"),
       path.join(this.workspaceDir, "recovery"),
-      
+
       // Reports and artifacts
       path.join(process.cwd(), "testing/reports/deployment"),
       path.join(process.cwd(), "testing/reports/performance"),
       path.join(process.cwd(), "testing/reports/integration"),
-      
+
       // Fixtures and test data
       path.join(process.cwd(), "testing/fixtures/scenarios"),
       path.join(process.cwd(), "testing/fixtures/performance"),
       path.join(process.cwd(), "testing/fixtures/recovery"),
-      
+
       // Development tools integration
       path.join(process.cwd(), "development-tools/integration-testing/process-templates"),
-      path.join(process.cwd(), "development-tools/integration-testing/monitoring")
+      path.join(process.cwd(), "development-tools/integration-testing/monitoring"),
     ];
 
     for (const dir of directories) {
@@ -93,30 +93,30 @@ export class IntegrationEnvironmentConfig {
       AOLITE_MEMORY_LIMIT: "512", // 512MB memory limit
       AOLITE_PROCESS_LIMIT: "26", // Support all 26 processes
       AOLITE_CONCURRENT_MESSAGES: "10", // Allow 10 concurrent messages
-      
-      // Integration testing configuration  
+
+      // Integration testing configuration
       INTEGRATION_TEST_MODE: "true",
       INTEGRATION_MAX_PROCESSES: "26",
       INTEGRATION_DEPLOYMENT_TIMEOUT: "30000", // 30 second deployment timeout
       INTEGRATION_RESPONSE_TIMEOUT: "5000", // 5 second response timeout
       INTEGRATION_RETRY_COUNT: "3", // Retry failed operations 3 times
-      
+
       // Performance monitoring
       PERFORMANCE_MONITORING: "true",
       PERFORMANCE_BASELINE_PATH: path.join(process.cwd(), "testing/fixtures/performance-baselines.js"),
       PERFORMANCE_REPORT_INTERVAL: "1000", // Report every 1000ms
-      
+
       // Recovery testing
       RECOVERY_TEST_ENABLED: "true",
       RECOVERY_MAX_RESTART_TIME: "5000", // 5 second max restart time
       RECOVERY_STATE_VALIDATION: "true",
-      
+
       // Workspace paths
       INTEGRATION_WORKSPACE: this.workspaceDir,
       INTEGRATION_PROCESSES_DIR: this.processesDir,
       INTEGRATION_AOLITE_DIR: this.aoliteDir,
       INTEGRATION_REPORTS_DIR: path.join(process.cwd(), "testing/reports"),
-      INTEGRATION_TEMP_DIR: path.join(this.workspaceDir, "temp")
+      INTEGRATION_TEMP_DIR: path.join(this.workspaceDir, "temp"),
     };
 
     // Set environment variables
@@ -141,7 +141,7 @@ export class IntegrationEnvironmentConfig {
       { name: "Lua availability", check: () => this.validateLuaAvailability() },
       { name: "aolite framework", check: () => this.validateAoliteFramework() },
       { name: "Process files", check: () => this.validateProcessFiles() },
-      { name: "Test fixtures", check: () => this.validateTestFixtures() }
+      { name: "Test fixtures", check: () => this.validateTestFixtures() },
     ];
 
     const results = [];
@@ -170,12 +170,12 @@ export class IntegrationEnvironmentConfig {
    */
   async validateNodeVersion() {
     const version = process.version;
-    const majorVersion = parseInt(version.substring(1).split(".")[0]);
-    
+    const majorVersion = Number.parseInt(version.substring(1).split(".")[0]);
+
     if (majorVersion < 14) {
       throw new Error(`Node.js version ${version} is too old. Requires Node.js 14+`);
     }
-    
+
     return version;
   }
 
@@ -184,22 +184,22 @@ export class IntegrationEnvironmentConfig {
    */
   async validateLuaAvailability() {
     const { spawn } = await import("child_process");
-    
+
     return new Promise((resolve, reject) => {
       const lua = spawn("lua", ["-v"]);
-      
+
       let output = "";
-      lua.stdout.on("data", (data) => output += data.toString());
-      lua.stderr.on("data", (data) => output += data.toString());
-      
-      lua.on("close", (code) => {
+      lua.stdout.on("data", data => (output += data.toString()));
+      lua.stderr.on("data", data => (output += data.toString()));
+
+      lua.on("close", code => {
         if (code === 0) {
           resolve(output.trim());
         } else {
           reject(new Error("Lua not available. Please install Lua 5.3+"));
         }
       });
-      
+
       lua.on("error", () => {
         reject(new Error("Lua not available. Please install Lua 5.3+"));
       });
@@ -215,7 +215,7 @@ export class IntegrationEnvironmentConfig {
       "enhanced-test-framework.lua",
       "assertion-library.lua",
       "mock-system.lua",
-      "state-inspector.lua"
+      "state-inspector.lua",
     ];
 
     const missingFiles = [];
@@ -223,7 +223,7 @@ export class IntegrationEnvironmentConfig {
       const filePath = path.join(this.aoliteDir, file);
       try {
         await fs.access(filePath);
-      } catch (error) {
+      } catch (_error) {
         missingFiles.push(file);
       }
     }
@@ -242,11 +242,11 @@ export class IntegrationEnvironmentConfig {
     try {
       const files = await fs.readdir(this.processesDir);
       const luaFiles = files.filter(f => f.endsWith(".lua"));
-      
+
       if (luaFiles.length === 0) {
         throw new Error("No Lua process files found");
       }
-      
+
       return `${luaFiles.length} process files found`;
     } catch (error) {
       throw new Error(`Cannot access processes directory: ${error.message}`);
@@ -262,8 +262,8 @@ export class IntegrationEnvironmentConfig {
       await fs.access(fixturesDir);
       const files = await fs.readdir(fixturesDir);
       return `${files.length} fixture files found`;
-    } catch (error) {
-      console.warn(chalk.yellow(`Warning: Test fixtures directory not found, will create defaults`));
+    } catch (_error) {
+      console.warn(chalk.yellow("Warning: Test fixtures directory not found, will create defaults"));
       return "fixtures will be created";
     }
   }
@@ -280,26 +280,26 @@ export class IntegrationEnvironmentConfig {
         maxConcurrentDeployments: 5,
         deploymentTimeout: 30000, // 30 seconds
         maxRetries: 3,
-        retryDelay: 1000 // 1 second
+        retryDelay: 1000, // 1 second
       },
       process: {
         maxProcessSize: 500000, // 500KB
         maxMemoryUsage: 100, // 100MB per process
         maxResponseTime: 5000, // 5 seconds
-        healthCheckInterval: 10000 // 10 seconds
+        healthCheckInterval: 10000, // 10 seconds
       },
       performance: {
         baselineTolerancePercent: 10, // Allow 10% variance from baseline
         maxPerformanceRegressionPercent: 20, // Fail if >20% regression
         performanceReportingEnabled: true,
-        detailedMetricsEnabled: true
+        detailedMetricsEnabled: true,
       },
       recovery: {
         maxRestartTime: 5000, // 5 seconds
         stateValidationTimeout: 3000, // 3 seconds
         recoveryRetryCount: 3,
-        recoveryRetryDelay: 2000 // 2 seconds
-      }
+        recoveryRetryDelay: 2000, // 2 seconds
+      },
     };
 
     const constraintsPath = path.join(this.workspaceDir, "configs/resource-constraints.json");
@@ -308,18 +308,18 @@ export class IntegrationEnvironmentConfig {
     // Process limits configuration
     const processLimits = {
       aolite: {
-        logLevel: parseInt(process.env.AOLITE_LOG_LEVEL),
-        timeout: parseInt(process.env.AOLITE_TIMEOUT),
-        memoryLimit: parseInt(process.env.AOLITE_MEMORY_LIMIT),
-        processLimit: parseInt(process.env.AOLITE_PROCESS_LIMIT),
-        concurrentMessages: parseInt(process.env.AOLITE_CONCURRENT_MESSAGES)
+        logLevel: Number.parseInt(process.env.AOLITE_LOG_LEVEL),
+        timeout: Number.parseInt(process.env.AOLITE_TIMEOUT),
+        memoryLimit: Number.parseInt(process.env.AOLITE_MEMORY_LIMIT),
+        processLimit: Number.parseInt(process.env.AOLITE_PROCESS_LIMIT),
+        concurrentMessages: Number.parseInt(process.env.AOLITE_CONCURRENT_MESSAGES),
       },
       validation: {
         bundleSizeLimit: 500000, // 500KB
         handlerResponseTimeout: 2000, // 2 seconds
         initializationTimeout: 3000, // 3 seconds
-        adpComplianceRequired: true
-      }
+        adpComplianceRequired: true,
+      },
     };
 
     const limitsPath = path.join(this.workspaceDir, "configs/process-limits.json");
@@ -337,7 +337,7 @@ export class IntegrationEnvironmentConfig {
       timestamp: new Date().toISOString(),
       environment: "integration-testing",
       status: "unknown",
-      checks: []
+      checks: [],
     };
 
     try {
@@ -360,7 +360,6 @@ export class IntegrationEnvironmentConfig {
       if (failedChecks.length > 0) {
         health.issues = failedChecks.map(c => `${c.name}: ${c.details.error || "degraded"}`);
       }
-
     } catch (error) {
       health.status = "unhealthy";
       health.error = error.message;
@@ -377,10 +376,10 @@ export class IntegrationEnvironmentConfig {
       // Check if workspace directories exist and are writable
       const tempDir = path.join(this.workspaceDir, "temp");
       const testFile = path.join(tempDir, "health-check.tmp");
-      
+
       await fs.writeFile(testFile, "health check");
       await fs.unlink(testFile);
-      
+
       return { status: "healthy", writeable: true };
     } catch (error) {
       return { status: "unhealthy", error: error.message };
@@ -391,14 +390,10 @@ export class IntegrationEnvironmentConfig {
    * Check environment variables
    */
   checkEnvironmentVariables() {
-    const requiredVars = [
-      "AOLITE_LOG_LEVEL",
-      "INTEGRATION_TEST_MODE", 
-      "INTEGRATION_WORKSPACE"
-    ];
+    const requiredVars = ["AOLITE_LOG_LEVEL", "INTEGRATION_TEST_MODE", "INTEGRATION_WORKSPACE"];
 
     const missingVars = requiredVars.filter(varName => !process.env[varName]);
-    
+
     if (missingVars.length > 0) {
       return { status: "unhealthy", error: `Missing variables: ${missingVars.join(", ")}` };
     }
@@ -413,11 +408,11 @@ export class IntegrationEnvironmentConfig {
     try {
       const { AoliteFramework } = await import("../aolite/aolite-framework.js");
       const aolite = new AoliteFramework();
-      
+
       // Try to initialize aolite (this will validate Lua and aolite files)
       await aolite.initialize();
       await aolite.cleanup();
-      
+
       return { status: "healthy", initialized: true };
     } catch (error) {
       return { status: "unhealthy", error: error.message };
@@ -441,7 +436,7 @@ export class IntegrationEnvironmentConfig {
         aoliteLogLevel: process.env.AOLITE_LOG_LEVEL,
         integrationTestMode: process.env.INTEGRATION_TEST_MODE,
         maxProcesses: process.env.INTEGRATION_MAX_PROCESSES,
-        deploymentTimeout: process.env.INTEGRATION_DEPLOYMENT_TIMEOUT
+        deploymentTimeout: process.env.INTEGRATION_DEPLOYMENT_TIMEOUT,
       },
       directories: {
         workspace: this.workspaceDir,
@@ -449,8 +444,8 @@ export class IntegrationEnvironmentConfig {
         scenarios: path.join(this.workspaceDir, "scenarios"),
         configs: path.join(this.workspaceDir, "configs"),
         reports: path.join(process.cwd(), "testing/reports"),
-        fixtures: path.join(process.cwd(), "testing/fixtures")
-      }
+        fixtures: path.join(process.cwd(), "testing/fixtures"),
+      },
     };
   }
 

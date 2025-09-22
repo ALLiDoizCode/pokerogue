@@ -6,8 +6,8 @@
 import fs from "fs/promises";
 import path from "path";
 import chalk from "chalk";
-import { ProcessDeployer } from "./process-deployer.js";
 import { AoliteFramework } from "../aolite/aolite-framework.js";
+import { ProcessDeployer } from "./process-deployer.js";
 
 export class ScenarioExecutor {
   constructor(options = {}) {
@@ -24,13 +24,13 @@ export class ScenarioExecutor {
    */
   async initialize() {
     console.log(chalk.blue("🎬 Initializing scenario executor..."));
-    
+
     await this.aoliteFramework.initialize();
     await this.processDeployer.initialize();
-    
+
     // Create scenarios directory if it doesn't exist
     await fs.mkdir(this.scenariosDir, { recursive: true });
-    
+
     console.log(chalk.green("✅ Scenario executor ready"));
   }
 
@@ -52,7 +52,7 @@ export class ScenarioExecutor {
       performance: {},
       validation: {},
       duration: 0,
-      errors: []
+      errors: [],
     };
 
     this.activeScenarios.set(scenario.id, result);
@@ -70,7 +70,7 @@ export class ScenarioExecutor {
       for (let i = 0; i < scenario.steps.length; i++) {
         const step = scenario.steps[i];
         console.log(chalk.yellow(`  📋 Step ${i + 1}/${scenario.steps.length}: ${step.type}`));
-        
+
         const stepResult = await this.executeScenarioStep(step, scenario, result);
         result.steps.push(stepResult);
 
@@ -89,7 +89,6 @@ export class ScenarioExecutor {
 
       result.status = "passed";
       console.log(chalk.green(`  ✅ Scenario completed: ${scenario.name}`));
-
     } catch (error) {
       result.status = "failed";
       result.errors.push(error.message);
@@ -111,13 +110,10 @@ export class ScenarioExecutor {
 
     try {
       const deploymentConfigs = await this.createDeploymentConfigs(scenario.processes);
-      const deploymentResults = await this.processDeployer.deployMultipleProcesses(
-        deploymentConfigs,
-        {
-          respectDependencies: true,
-          parallel: scenario.parallelDeployment || false
-        }
-      );
+      const deploymentResults = await this.processDeployer.deployMultipleProcesses(deploymentConfigs, {
+        respectDependencies: true,
+        parallel: scenario.parallelDeployment || false,
+      });
 
       // Track deployed processes
       for (const deploymentResult of deploymentResults) {
@@ -127,7 +123,7 @@ export class ScenarioExecutor {
             processName: deploymentResult.processName,
             processType: deploymentResult.processType,
             deploymentTime: deploymentResult.deploymentTime,
-            status: "deployed"
+            status: "deployed",
           });
         }
       }
@@ -139,12 +135,11 @@ export class ScenarioExecutor {
         const failedDeployments = deploymentResults.filter(r => r.status === "failed");
         return {
           success: false,
-          error: `Failed to deploy: ${failedDeployments.map(f => f.processName).join(", ")}`
+          error: `Failed to deploy: ${failedDeployments.map(f => f.processName).join(", ")}`,
         };
       }
 
       return { success: true, deployments: deploymentResults };
-
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -167,7 +162,7 @@ export class ScenarioExecutor {
         processPath,
         maxSize: 500000,
         requiredHandlers: this.getRequiredHandlers(processName),
-        dependencies: this.getProcessDependencies(processName)
+        dependencies: this.getProcessDependencies(processName),
       };
 
       configs.push(config);
@@ -179,9 +174,9 @@ export class ScenarioExecutor {
   /**
    * Execute individual scenario step
    */
-  async executeScenarioStep(step, scenario, result) {
+  async executeScenarioStep(step, _scenario, result) {
     const stepStart = Date.now();
-    
+
     try {
       let stepResult;
 
@@ -223,20 +218,19 @@ export class ScenarioExecutor {
       stepResult.status = stepResult.status || "completed";
 
       console.log(chalk.green(`    ✅ ${stepResult.stepName} (${stepResult.duration}ms)`));
-      
-      return stepResult;
 
+      return stepResult;
     } catch (error) {
       const stepResult = {
         stepType: step.type,
         stepName: step.name || step.type,
         status: "failed",
         error: error.message,
-        duration: Date.now() - stepStart
+        duration: Date.now() - stepStart,
       };
 
       console.log(chalk.red(`    ❌ ${stepResult.stepName}: ${error.message}`));
-      
+
       return stepResult;
     }
   }
@@ -254,25 +248,25 @@ export class ScenarioExecutor {
       Action: step.action,
       Data: step.data || {},
       Tags: step.tags || {},
-      ...step.messageExtras
+      ...step.messageExtras,
     };
 
     const response = await this.aoliteFramework.sendMessage(targetProcess.processId, message);
-    
+
     // Log message for debugging
     result.messages.push({
       timestamp: Date.now(),
       from: "scenario-executor",
       to: step.target,
       action: step.action,
-      response: response?.success || false
+      response: response?.success || false,
     });
 
     return {
       messageId: response?.messageId || "unknown",
       response,
       targetProcess: step.target,
-      action: step.action
+      action: step.action,
     };
   }
 
@@ -291,18 +285,15 @@ export class ScenarioExecutor {
     while (Date.now() - startTime < timeout) {
       // Check for messages from the source process
       const messages = await this.aoliteFramework.getProcessMessages(sourceProcess.processId);
-      
+
       // Look for expected response
-      const expectedResponse = messages.find(msg => 
-        msg.Action === step.expectedAction ||
-        (step.responseFilter && step.responseFilter(msg))
-      );
+      const expectedResponse = messages.find(msg => msg.Action === step.expectedAction || step.responseFilter?.(msg));
 
       if (expectedResponse) {
         return {
           response: expectedResponse,
           waitTime: Date.now() - startTime,
-          source: step.source
+          source: step.source,
         };
       }
 
@@ -324,7 +315,7 @@ export class ScenarioExecutor {
 
     // Get current process state
     const currentState = await this.aoliteFramework.getProcessState(targetProcess.processId);
-    
+
     // Perform validation based on step configuration
     const validationResult = await this.performStateValidation(currentState, step);
 
@@ -335,7 +326,7 @@ export class ScenarioExecutor {
     return {
       validation: validationResult,
       currentState: currentState,
-      target: step.target
+      target: step.target,
     };
   }
 
@@ -357,17 +348,17 @@ export class ScenarioExecutor {
       const message = {
         Action: interaction.action,
         Data: interaction.data || {},
-        From: sourceProcess.processId
+        From: sourceProcess.processId,
       };
 
       const response = await this.aoliteFramework.sendMessage(targetProcess.processId, message);
-      
+
       interactions.push({
         from: interaction.from,
         to: interaction.to,
         action: interaction.action,
         response: response?.success || false,
-        responseTime: Date.now()
+        responseTime: Date.now(),
       });
 
       // Log for debugging
@@ -376,14 +367,14 @@ export class ScenarioExecutor {
         from: interaction.from,
         to: interaction.to,
         action: interaction.action,
-        response: response?.success || false
+        response: response?.success || false,
       });
     }
 
     return {
       interactions,
       totalInteractions: interactions.length,
-      successfulInteractions: interactions.filter(i => i.response).length
+      successfulInteractions: interactions.filter(i => i.response).length,
     };
   }
 
@@ -398,13 +389,13 @@ export class ScenarioExecutor {
 
     const battleConfig = step.battleConfig || {
       player1: { pokemon: [{ species: "Charizard", level: 50 }] },
-      player2: { pokemon: [{ species: "Blastoise", level: 50 }] }
+      player2: { pokemon: [{ species: "Blastoise", level: 50 }] },
     };
 
     // Initialize battle
     const initResponse = await this.aoliteFramework.sendMessage(battleEngine.processId, {
       Action: "InitializeBattle",
-      Data: battleConfig
+      Data: battleConfig,
     });
 
     if (!initResponse?.success) {
@@ -421,16 +412,16 @@ export class ScenarioExecutor {
         Data: {
           turn,
           player1Action: step.player1Actions?.[turn - 1] || { type: "attack", moveIndex: 0 },
-          player2Action: step.player2Actions?.[turn - 1] || { type: "attack", moveIndex: 0 }
-        }
+          player2Action: step.player2Actions?.[turn - 1] || { type: "attack", moveIndex: 0 },
+        },
       };
 
       const turnResponse = await this.aoliteFramework.sendMessage(battleEngine.processId, turnAction);
-      
+
       turns.push({
         turn,
         response: turnResponse?.success || false,
-        result: turnResponse?.data
+        result: turnResponse?.data,
       });
 
       // Check if battle ended
@@ -443,7 +434,7 @@ export class ScenarioExecutor {
       battleInitialized: initResponse.success,
       totalTurns: turns.length,
       turns,
-      battleResult: turns[turns.length - 1]?.result
+      battleResult: turns[turns.length - 1]?.result,
     };
   }
 
@@ -464,36 +455,38 @@ export class ScenarioExecutor {
       // Query data from both processes
       const sourceData = await this.aoliteFramework.sendMessage(sourceProcess.processId, {
         Action: check.query,
-        Data: check.queryData || {}
+        Data: check.queryData || {},
       });
 
       const targetData = await this.aoliteFramework.sendMessage(targetProcess.processId, {
         Action: check.query,
-        Data: check.queryData || {}
+        Data: check.queryData || {},
       });
 
       // Compare results
       const isConsistent = this.compareData(sourceData?.data, targetData?.data, check.compareFields);
-      
+
       checks.push({
         source: check.source,
         target: check.target,
         query: check.query,
         consistent: isConsistent,
         sourceData: sourceData?.data,
-        targetData: targetData?.data
+        targetData: targetData?.data,
       });
     }
 
     const inconsistentChecks = checks.filter(c => !c.consistent);
     if (inconsistentChecks.length > 0) {
-      throw new Error(`Data inconsistency detected: ${inconsistentChecks.map(c => `${c.source}-${c.target}`).join(", ")}`);
+      throw new Error(
+        `Data inconsistency detected: ${inconsistentChecks.map(c => `${c.source}-${c.target}`).join(", ")}`,
+      );
     }
 
     return {
       checks,
       totalChecks: checks.length,
-      consistentChecks: checks.filter(c => c.consistent).length
+      consistentChecks: checks.filter(c => c.consistent).length,
     };
   }
 
@@ -510,20 +503,20 @@ export class ScenarioExecutor {
       }
 
       const startTime = Date.now();
-      
+
       // Send test message to measure response time
       const response = await this.aoliteFramework.sendMessage(targetProcess.processId, {
         Action: metric.action || "HealthCheck",
-        Data: metric.data || {}
+        Data: metric.data || {},
       });
 
       const responseTime = Date.now() - startTime;
-      
+
       metrics[metric.target] = {
         responseTime,
         success: response?.success || false,
         threshold: metric.maxResponseTime || 1000,
-        passed: responseTime <= (metric.maxResponseTime || 1000)
+        passed: responseTime <= (metric.maxResponseTime || 1000),
       };
     }
 
@@ -535,7 +528,7 @@ export class ScenarioExecutor {
     return {
       metrics,
       totalTargets: Object.keys(metrics).length,
-      passedTargets: Object.values(metrics).filter(m => m.passed).length
+      passedTargets: Object.values(metrics).filter(m => m.passed).length,
     };
   }
 
@@ -572,7 +565,7 @@ export class ScenarioExecutor {
       errorType: step.errorType,
       injectionResult,
       errorHandled,
-      target: step.target
+      target: step.target,
     };
   }
 
@@ -588,7 +581,7 @@ export class ScenarioExecutor {
       processes: result.processes,
       messages: result.messages,
       aoliteFramework: this.aoliteFramework,
-      scenario: step
+      scenario: step,
     };
 
     const validationResult = await step.validator(validationContext);
@@ -607,7 +600,7 @@ export class ScenarioExecutor {
     const validation = {
       success: true,
       checks: [],
-      error: null
+      error: null,
     };
 
     try {
@@ -615,13 +608,13 @@ export class ScenarioExecutor {
       for (const [processName, process] of result.processes) {
         const healthCheck = await this.aoliteFramework.sendMessage(process.processId, {
           Action: "HealthCheck",
-          Data: {}
+          Data: {},
         });
 
         validation.checks.push({
           check: `${processName} health`,
           passed: healthCheck?.success || false,
-          details: healthCheck
+          details: healthCheck,
         });
 
         if (!healthCheck?.success) {
@@ -634,7 +627,7 @@ export class ScenarioExecutor {
         for (const check of scenario.finalValidation) {
           const checkResult = await this.runFinalValidationCheck(check, result);
           validation.checks.push(checkResult);
-          
+
           if (!checkResult.passed) {
             validation.success = false;
           }
@@ -644,7 +637,6 @@ export class ScenarioExecutor {
       if (!validation.success) {
         validation.error = "One or more validation checks failed";
       }
-
     } catch (error) {
       validation.success = false;
       validation.error = error.message;
@@ -660,14 +652,14 @@ export class ScenarioExecutor {
     const possiblePaths = [
       path.join(process.cwd(), "processes", `${processName}.lua`),
       path.join(process.cwd(), "processes", processName),
-      path.join(process.cwd(), "processes", `${processName}-process.lua`)
+      path.join(process.cwd(), "processes", `${processName}-process.lua`),
     ];
 
     for (const processPath of possiblePaths) {
       try {
         await fs.access(processPath);
         return processPath;
-      } catch (error) {
+      } catch (_error) {
         // Continue to next path
       }
     }
@@ -679,8 +671,15 @@ export class ScenarioExecutor {
    * Helper method to determine process type
    */
   determineProcessType(processName) {
-    if (processName.includes("coordinator")) return "coordinator";
-    if (processName.includes("data") || processName.includes("species") || processName.includes("move") || processName.includes("item")) {
+    if (processName.includes("coordinator")) {
+      return "coordinator";
+    }
+    if (
+      processName.includes("data") ||
+      processName.includes("species") ||
+      processName.includes("move") ||
+      processName.includes("item")
+    ) {
       return "data";
     }
     return "logic";
@@ -691,7 +690,7 @@ export class ScenarioExecutor {
    */
   getRequiredHandlers(processName) {
     const baseHandlers = ["Info", "HealthCheck"];
-    
+
     if (processName.includes("coordinator")) {
       return [...baseHandlers, "ProcessLogic", "CoordinateAction"];
     }
@@ -701,7 +700,7 @@ export class ScenarioExecutor {
     if (processName.includes("data")) {
       return [...baseHandlers, "QueryData"];
     }
-    
+
     return [...baseHandlers, "ProcessLogic"];
   }
 
@@ -727,7 +726,7 @@ export class ScenarioExecutor {
       const matches = this.deepCompare(currentState, step.expectedState);
       return {
         valid: matches,
-        error: matches ? null : "State does not match expected state"
+        error: matches ? null : "State does not match expected state",
       };
     }
 
@@ -780,7 +779,7 @@ export class ScenarioExecutor {
       successRate: total > 0 ? (passed / total) * 100 : 0,
       totalDuration,
       averageDuration,
-      executionResults: this.executionResults
+      executionResults: this.executionResults,
     };
   }
 

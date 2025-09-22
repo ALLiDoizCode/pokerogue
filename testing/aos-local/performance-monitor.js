@@ -26,15 +26,15 @@ export class PerformanceMonitor {
    */
   async initialize() {
     console.log(chalk.blue("📊 Initializing performance monitor..."));
-    
+
     await this.aoliteFramework.initialize();
-    
+
     // Load performance baselines
     await this.loadPerformanceBaselines();
-    
+
     // Ensure reports directory exists
     await fs.mkdir(this.reportsDir, { recursive: true });
-    
+
     console.log(chalk.green("✅ Performance monitor ready"));
   }
 
@@ -46,7 +46,7 @@ export class PerformanceMonitor {
       const baselineModule = await import(this.baselineFile);
       this.baselines = baselineModule.performanceBaselines || baselineModule.default || {};
       console.log(chalk.blue(`📈 Loaded performance baselines from ${this.baselineFile}`));
-    } catch (error) {
+    } catch (_error) {
       console.warn(chalk.yellow(`Warning: Could not load baselines from ${this.baselineFile}, using defaults`));
       this.baselines = this.getDefaultBaselines();
     }
@@ -60,26 +60,26 @@ export class PerformanceMonitor {
       deploymentTime: {
         coordinator: 2000,
         dataProcess: 1500,
-        logicProcess: 3000
+        logicProcess: 3000,
       },
       responseTime: {
         coordinator: 1000,
         dataProcess: 500,
-        logicProcess: 2000
+        logicProcess: 2000,
       },
       memoryUsage: {
         coordinator: 50,
         dataProcess: 30,
-        logicProcess: 80
+        logicProcess: 80,
       },
       throughput: {
         messagesPerSecond: 100,
-        queriesPerSecond: 200
+        queriesPerSecond: 200,
       },
       errorRates: {
         maxErrorRate: 0.05, // 5%
-        maxTimeoutRate: 0.02 // 2%
-      }
+        maxTimeoutRate: 0.02, // 2%
+      },
     };
   }
 
@@ -93,10 +93,10 @@ export class PerformanceMonitor {
     }
 
     console.log(chalk.blue("📊 Starting real-time performance monitoring..."));
-    
+
     this.isMonitoring = true;
     this.monitoredProcesses = processes || new Map();
-    
+
     this.monitoringTimer = setInterval(async () => {
       await this.collectRealTimeMetrics();
     }, this.monitoringInterval);
@@ -113,9 +113,9 @@ export class PerformanceMonitor {
     }
 
     console.log(chalk.blue("📊 Stopping real-time performance monitoring..."));
-    
+
     this.isMonitoring = false;
-    
+
     if (this.monitoringTimer) {
       clearInterval(this.monitoringTimer);
       this.monitoringTimer = null;
@@ -129,23 +129,23 @@ export class PerformanceMonitor {
    */
   async collectRealTimeMetrics() {
     const timestamp = Date.now();
-    
+
     try {
       // Get framework statistics
       const stats = await this.aoliteFramework.getStatistics();
-      
+
       // Collect metrics for each monitored process
       for (const [processName, processInfo] of this.monitoredProcesses) {
         const processMetrics = await this.collectProcessMetrics(processInfo.processId);
-        
+
         if (!this.realTimeMetrics.has(processName)) {
           this.realTimeMetrics.set(processName, []);
         }
-        
+
         this.realTimeMetrics.get(processName).push({
           timestamp,
           ...processMetrics,
-          frameworkStats: stats
+          frameworkStats: stats,
         });
 
         // Keep only last 100 measurements to prevent memory bloat
@@ -154,7 +154,6 @@ export class PerformanceMonitor {
           metrics.splice(0, metrics.length - 100);
         }
       }
-
     } catch (error) {
       console.warn(chalk.yellow(`Warning: Real-time metrics collection failed: ${error.message}`));
     }
@@ -165,28 +164,27 @@ export class PerformanceMonitor {
    */
   async collectProcessMetrics(processId) {
     const startTime = Date.now();
-    
+
     try {
       // Test process responsiveness
       const healthResponse = await this.aoliteFramework.sendMessage(processId, {
         Action: "HealthCheck",
-        Data: {}
+        Data: {},
       });
-      
+
       const responseTime = Date.now() - startTime;
-      
+
       // Get process messages for throughput calculation
       const messages = await this.aoliteFramework.getProcessMessages(processId);
-      
+
       return {
         responseTime,
         responsive: healthResponse?.success || false,
         messageCount: messages?.length || 0,
         estimatedMemoryUsage: this.estimateMemoryUsage(processId),
         cpuUsage: this.estimateCpuUsage(processId),
-        errorCount: this.countErrors(messages)
+        errorCount: this.countErrors(messages),
       };
-
     } catch (error) {
       return {
         responseTime: -1,
@@ -195,7 +193,7 @@ export class PerformanceMonitor {
         estimatedMemoryUsage: 0,
         cpuUsage: 0,
         errorCount: 1,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -205,7 +203,7 @@ export class PerformanceMonitor {
    */
   async runPerformanceBenchmark(processes, config = {}) {
     console.log(chalk.blue("🚀 Running comprehensive performance benchmark..."));
-    
+
     const benchmark = {
       id: `benchmark-${Date.now()}`,
       timestamp: new Date().toISOString(),
@@ -214,7 +212,7 @@ export class PerformanceMonitor {
       tests: [],
       summary: {},
       duration: 0,
-      status: "running"
+      status: "running",
     };
 
     const benchmarkStart = Date.now();
@@ -224,7 +222,7 @@ export class PerformanceMonitor {
       const responseTimeTest = await this.benchmarkResponseTimes(processes, config);
       benchmark.tests.push(responseTimeTest);
 
-      // Test 2: Throughput Benchmark  
+      // Test 2: Throughput Benchmark
       const throughputTest = await this.benchmarkThroughput(processes, config);
       benchmark.tests.push(throughputTest);
 
@@ -247,7 +245,6 @@ export class PerformanceMonitor {
       // Generate summary
       benchmark.summary = this.generateBenchmarkSummary(benchmark.tests);
       benchmark.status = "completed";
-
     } catch (error) {
       benchmark.status = "failed";
       benchmark.error = error.message;
@@ -258,7 +255,7 @@ export class PerformanceMonitor {
     this.benchmarkResults.push(benchmark);
 
     console.log(chalk.green(`✅ Performance benchmark completed in ${benchmark.duration}ms`));
-    
+
     return benchmark;
   }
 
@@ -267,17 +264,17 @@ export class PerformanceMonitor {
    */
   async benchmarkResponseTimes(processes, config) {
     console.log(chalk.yellow("  📋 Testing response times..."));
-    
+
     const test = {
       name: "Response Time Benchmark",
       type: "response_time",
       results: {},
       passed: true,
-      metrics: {}
+      metrics: {},
     };
 
     const iterations = config.responseTimeIterations || 10;
-    
+
     for (const [processName, processInfo] of processes) {
       const responseTimes = [];
       const errors = [];
@@ -285,19 +282,18 @@ export class PerformanceMonitor {
       for (let i = 0; i < iterations; i++) {
         try {
           const startTime = Date.now();
-          
+
           const response = await this.aoliteFramework.sendMessage(processInfo.processId, {
             Action: "HealthCheck",
-            Data: { iteration: i }
+            Data: { iteration: i },
           });
-          
+
           const responseTime = Date.now() - startTime;
           responseTimes.push(responseTime);
-          
+
           if (!response?.success) {
             errors.push(`Iteration ${i}: Response failed`);
           }
-
         } catch (error) {
           errors.push(`Iteration ${i}: ${error.message}`);
           responseTimes.push(-1);
@@ -305,16 +301,17 @@ export class PerformanceMonitor {
       }
 
       const validResponseTimes = responseTimes.filter(rt => rt > 0);
-      const avgResponseTime = validResponseTimes.length > 0 
-        ? validResponseTimes.reduce((sum, rt) => sum + rt, 0) / validResponseTimes.length 
-        : -1;
-      
+      const avgResponseTime =
+        validResponseTimes.length > 0
+          ? validResponseTimes.reduce((sum, rt) => sum + rt, 0) / validResponseTimes.length
+          : -1;
+
       const maxResponseTime = validResponseTimes.length > 0 ? Math.max(...validResponseTimes) : -1;
       const minResponseTime = validResponseTimes.length > 0 ? Math.min(...validResponseTimes) : -1;
-      
+
       const baseline = this.baselines.responseTime?.[this.getProcessType(processName)] || 1000;
       const withinBaseline = avgResponseTime <= baseline && avgResponseTime > 0;
-      
+
       if (!withinBaseline) {
         test.passed = false;
       }
@@ -328,19 +325,21 @@ export class PerformanceMonitor {
         successRate: (validResponseTimes.length / iterations) * 100,
         baseline,
         withinBaseline,
-        responseTimes: validResponseTimes
+        responseTimes: validResponseTimes,
       };
     }
 
     test.metrics = {
-      overallAverageResponseTime: this.calculateOverallAverage(test.results, 'averageResponseTime'),
-      overallSuccessRate: this.calculateOverallAverage(test.results, 'successRate'),
+      overallAverageResponseTime: this.calculateOverallAverage(test.results, "averageResponseTime"),
+      overallSuccessRate: this.calculateOverallAverage(test.results, "successRate"),
       processesWithinBaseline: Object.values(test.results).filter(r => r.withinBaseline).length,
-      totalProcesses: Object.keys(test.results).length
+      totalProcesses: Object.keys(test.results).length,
     };
 
-    console.log(chalk.green(`    ✅ Response time test completed: ${test.metrics.overallAverageResponseTime.toFixed(1)}ms avg`));
-    
+    console.log(
+      chalk.green(`    ✅ Response time test completed: ${test.metrics.overallAverageResponseTime.toFixed(1)}ms avg`),
+    );
+
     return test;
   }
 
@@ -349,18 +348,18 @@ export class PerformanceMonitor {
    */
   async benchmarkThroughput(processes, config) {
     console.log(chalk.yellow("  📋 Testing throughput..."));
-    
+
     const test = {
-      name: "Throughput Benchmark", 
+      name: "Throughput Benchmark",
       type: "throughput",
       results: {},
       passed: true,
-      metrics: {}
+      metrics: {},
     };
 
     const duration = config.throughputDuration || 10000; // 10 seconds
     const messageInterval = config.messageInterval || 100; // 100ms between messages
-    
+
     for (const [processName, processInfo] of processes) {
       const startTime = Date.now();
       const endTime = startTime + duration;
@@ -371,24 +370,23 @@ export class PerformanceMonitor {
       while (Date.now() < endTime) {
         try {
           const messageStart = Date.now();
-          
+
           const response = await this.aoliteFramework.sendMessage(processInfo.processId, {
             Action: "HealthCheck",
-            Data: { throughputTest: true, messageId: messagesSent }
+            Data: { throughputTest: true, messageId: messagesSent },
           });
-          
+
           const messageResponseTime = Date.now() - messageStart;
           totalResponseTime += messageResponseTime;
           messagesSent++;
-          
+
           if (response?.success) {
             messagesSuccessful++;
           }
 
           // Wait for next message interval
           await new Promise(resolve => setTimeout(resolve, messageInterval));
-
-        } catch (error) {
+        } catch (_error) {
           messagesSent++;
           // Continue throughput test even on errors
         }
@@ -397,10 +395,10 @@ export class PerformanceMonitor {
       const actualDuration = Date.now() - startTime;
       const messagesPerSecond = (messagesSuccessful / actualDuration) * 1000;
       const averageResponseTime = messagesSuccessful > 0 ? totalResponseTime / messagesSuccessful : -1;
-      
+
       const baseline = this.baselines.throughput?.messagesPerSecond || 100;
       const meetsBaseline = messagesPerSecond >= baseline;
-      
+
       if (!meetsBaseline) {
         test.passed = false;
       }
@@ -413,19 +411,21 @@ export class PerformanceMonitor {
         averageResponseTime,
         duration: actualDuration,
         baseline,
-        meetsBaseline
+        meetsBaseline,
       };
     }
 
     test.metrics = {
-      overallMessagesPerSecond: this.calculateOverallAverage(test.results, 'messagesPerSecond'),
-      overallSuccessRate: this.calculateOverallAverage(test.results, 'successRate'),
+      overallMessagesPerSecond: this.calculateOverallAverage(test.results, "messagesPerSecond"),
+      overallSuccessRate: this.calculateOverallAverage(test.results, "successRate"),
       processesWithinBaseline: Object.values(test.results).filter(r => r.meetsBaseline).length,
-      totalMessages: Object.values(test.results).reduce((sum, r) => sum + r.totalMessagesSent, 0)
+      totalMessages: Object.values(test.results).reduce((sum, r) => sum + r.totalMessagesSent, 0),
     };
 
-    console.log(chalk.green(`    ✅ Throughput test completed: ${test.metrics.overallMessagesPerSecond.toFixed(1)} msg/s`));
-    
+    console.log(
+      chalk.green(`    ✅ Throughput test completed: ${test.metrics.overallMessagesPerSecond.toFixed(1)} msg/s`),
+    );
+
     return test;
   }
 
@@ -434,18 +434,18 @@ export class PerformanceMonitor {
    */
   async benchmarkMemoryUsage(processes, config) {
     console.log(chalk.yellow("  📋 Testing memory usage..."));
-    
+
     const test = {
       name: "Memory Usage Benchmark",
-      type: "memory_usage", 
+      type: "memory_usage",
       results: {},
       passed: true,
-      metrics: {}
+      metrics: {},
     };
 
     const samples = config.memorySamples || 10;
     const sampleInterval = config.memorySampleInterval || 1000; // 1 second
-    
+
     for (const [processName, processInfo] of processes) {
       const memoryReadings = [];
 
@@ -453,12 +453,11 @@ export class PerformanceMonitor {
         try {
           const memoryUsage = this.estimateMemoryUsage(processInfo.processId);
           memoryReadings.push(memoryUsage);
-          
+
           if (i < samples - 1) {
             await new Promise(resolve => setTimeout(resolve, sampleInterval));
           }
-
-        } catch (error) {
+        } catch (_error) {
           memoryReadings.push(0);
         }
       }
@@ -466,10 +465,10 @@ export class PerformanceMonitor {
       const averageMemoryUsage = memoryReadings.reduce((sum, mem) => sum + mem, 0) / memoryReadings.length;
       const maxMemoryUsage = Math.max(...memoryReadings);
       const minMemoryUsage = Math.min(...memoryReadings);
-      
+
       const baseline = this.baselines.memoryUsage?.[this.getProcessType(processName)] || 100;
       const withinBaseline = averageMemoryUsage <= baseline;
-      
+
       if (!withinBaseline) {
         test.passed = false;
       }
@@ -481,19 +480,21 @@ export class PerformanceMonitor {
         samples: samples,
         memoryReadings,
         baseline,
-        withinBaseline
+        withinBaseline,
       };
     }
 
     test.metrics = {
-      overallAverageMemoryUsage: this.calculateOverallAverage(test.results, 'averageMemoryUsage'),
+      overallAverageMemoryUsage: this.calculateOverallAverage(test.results, "averageMemoryUsage"),
       overallMaxMemoryUsage: Math.max(...Object.values(test.results).map(r => r.maxMemoryUsage)),
       processesWithinBaseline: Object.values(test.results).filter(r => r.withinBaseline).length,
-      totalProcesses: Object.keys(test.results).length
+      totalProcesses: Object.keys(test.results).length,
     };
 
-    console.log(chalk.green(`    ✅ Memory test completed: ${test.metrics.overallAverageMemoryUsage.toFixed(1)}MB avg`));
-    
+    console.log(
+      chalk.green(`    ✅ Memory test completed: ${test.metrics.overallAverageMemoryUsage.toFixed(1)}MB avg`),
+    );
+
     return test;
   }
 
@@ -502,17 +503,17 @@ export class PerformanceMonitor {
    */
   async benchmarkErrorHandling(processes, config) {
     console.log(chalk.yellow("  📋 Testing error handling performance..."));
-    
+
     const test = {
       name: "Error Handling Performance",
       type: "error_handling",
       results: {},
       passed: true,
-      metrics: {}
+      metrics: {},
     };
 
     const errorTests = config.errorTests || 5;
-    
+
     for (const [processName, processInfo] of processes) {
       const errorResponseTimes = [];
       const recoveryTimes = [];
@@ -522,31 +523,30 @@ export class PerformanceMonitor {
         try {
           // Send invalid message and measure error handling time
           const errorStart = Date.now();
-          
+
           await this.aoliteFramework.sendMessage(processInfo.processId, {
             Action: "InvalidAction",
-            Data: { invalidData: "test" }
+            Data: { invalidData: "test" },
           });
-          
+
           const errorResponseTime = Date.now() - errorStart;
           errorResponseTimes.push(errorResponseTime);
 
           // Test recovery with valid message
           const recoveryStart = Date.now();
-          
+
           const recoveryResponse = await this.aoliteFramework.sendMessage(processInfo.processId, {
             Action: "HealthCheck",
-            Data: {}
+            Data: {},
           });
-          
+
           const recoveryTime = Date.now() - recoveryStart;
           recoveryTimes.push(recoveryTime);
 
           if (recoveryResponse?.success) {
             successfulRecoveries++;
           }
-
-        } catch (error) {
+        } catch (_error) {
           // Expected for error handling test
           errorResponseTimes.push(-1);
           recoveryTimes.push(-1);
@@ -555,18 +555,20 @@ export class PerformanceMonitor {
 
       const validErrorResponseTimes = errorResponseTimes.filter(rt => rt > 0);
       const validRecoveryTimes = recoveryTimes.filter(rt => rt > 0);
-      
-      const averageErrorResponseTime = validErrorResponseTimes.length > 0 
-        ? validErrorResponseTimes.reduce((sum, rt) => sum + rt, 0) / validErrorResponseTimes.length 
-        : -1;
-      
-      const averageRecoveryTime = validRecoveryTimes.length > 0
-        ? validRecoveryTimes.reduce((sum, rt) => sum + rt, 0) / validRecoveryTimes.length
-        : -1;
+
+      const averageErrorResponseTime =
+        validErrorResponseTimes.length > 0
+          ? validErrorResponseTimes.reduce((sum, rt) => sum + rt, 0) / validErrorResponseTimes.length
+          : -1;
+
+      const averageRecoveryTime =
+        validRecoveryTimes.length > 0
+          ? validRecoveryTimes.reduce((sum, rt) => sum + rt, 0) / validRecoveryTimes.length
+          : -1;
 
       const recoveryRate = (successfulRecoveries / errorTests) * 100;
       const meetsRecoveryBaseline = recoveryRate >= 80; // 80% recovery rate baseline
-      
+
       if (!meetsRecoveryBaseline) {
         test.passed = false;
       }
@@ -577,19 +579,23 @@ export class PerformanceMonitor {
         recoveryRate,
         errorTests,
         successfulRecoveries,
-        meetsRecoveryBaseline
+        meetsRecoveryBaseline,
       };
     }
 
     test.metrics = {
-      overallRecoveryRate: this.calculateOverallAverage(test.results, 'recoveryRate'),
-      overallErrorResponseTime: this.calculateOverallAverage(test.results, 'averageErrorResponseTime'),
+      overallRecoveryRate: this.calculateOverallAverage(test.results, "recoveryRate"),
+      overallErrorResponseTime: this.calculateOverallAverage(test.results, "averageErrorResponseTime"),
       processesWithinBaseline: Object.values(test.results).filter(r => r.meetsRecoveryBaseline).length,
-      totalErrorTests: Object.values(test.results).reduce((sum, r) => sum + r.errorTests, 0)
+      totalErrorTests: Object.values(test.results).reduce((sum, r) => sum + r.errorTests, 0),
     };
 
-    console.log(chalk.green(`    ✅ Error handling test completed: ${test.metrics.overallRecoveryRate.toFixed(1)}% recovery rate`));
-    
+    console.log(
+      chalk.green(
+        `    ✅ Error handling test completed: ${test.metrics.overallRecoveryRate.toFixed(1)}% recovery rate`,
+      ),
+    );
+
     return test;
   }
 
@@ -598,21 +604,21 @@ export class PerformanceMonitor {
    */
   async benchmarkConcurrentLoad(processes, config) {
     console.log(chalk.yellow("  📋 Testing concurrent load..."));
-    
+
     const test = {
       name: "Concurrent Load Benchmark",
       type: "concurrent_load",
       results: {},
       passed: true,
-      metrics: {}
+      metrics: {},
     };
 
     const concurrentUsers = config.concurrentUsers || 5;
     const messagesPerUser = config.messagesPerUser || 10;
-    
+
     for (const [processName, processInfo] of processes) {
       const startTime = Date.now();
-      
+
       // Create concurrent message sending promises
       const userPromises = Array.from({ length: concurrentUsers }, async (_, userIndex) => {
         const userResults = {
@@ -620,26 +626,25 @@ export class PerformanceMonitor {
           messagesSent: 0,
           messagesSuccessful: 0,
           totalResponseTime: 0,
-          errors: []
+          errors: [],
         };
 
         for (let msgIndex = 0; msgIndex < messagesPerUser; msgIndex++) {
           try {
             const messageStart = Date.now();
-            
+
             const response = await this.aoliteFramework.sendMessage(processInfo.processId, {
               Action: "HealthCheck",
-              Data: { userId: userIndex, messageIndex: msgIndex }
+              Data: { userId: userIndex, messageIndex: msgIndex },
             });
-            
+
             const responseTime = Date.now() - messageStart;
             userResults.totalResponseTime += responseTime;
             userResults.messagesSent++;
-            
+
             if (response?.success) {
               userResults.messagesSuccessful++;
             }
-
           } catch (error) {
             userResults.errors.push(error.message);
             userResults.messagesSent++;
@@ -662,10 +667,10 @@ export class PerformanceMonitor {
       const successRate = (totalMessagesSuccessful / totalMessagesSent) * 100;
       const averageResponseTime = totalMessagesSuccessful > 0 ? totalResponseTime / totalMessagesSuccessful : -1;
       const messagesPerSecond = (totalMessagesSuccessful / totalDuration) * 1000;
-      
+
       const baseline = this.baselines.throughput?.messagesPerSecond || 100;
-      const meetsBaseline = messagesPerSecond >= (baseline * 0.7); // 70% of single-user baseline under load
-      
+      const meetsBaseline = messagesPerSecond >= baseline * 0.7; // 70% of single-user baseline under load
+
       if (!meetsBaseline) {
         test.passed = false;
       }
@@ -682,19 +687,21 @@ export class PerformanceMonitor {
         duration: totalDuration,
         baseline: baseline * 0.7,
         meetsBaseline,
-        userResults
+        userResults,
       };
     }
 
     test.metrics = {
-      overallSuccessRate: this.calculateOverallAverage(test.results, 'successRate'),
-      overallMessagesPerSecond: this.calculateOverallAverage(test.results, 'messagesPerSecond'),
+      overallSuccessRate: this.calculateOverallAverage(test.results, "successRate"),
+      overallMessagesPerSecond: this.calculateOverallAverage(test.results, "messagesPerSecond"),
       processesWithinBaseline: Object.values(test.results).filter(r => r.meetsBaseline).length,
-      totalConcurrentMessages: Object.values(test.results).reduce((sum, r) => sum + r.totalMessagesSent, 0)
+      totalConcurrentMessages: Object.values(test.results).reduce((sum, r) => sum + r.totalMessagesSent, 0),
     };
 
-    console.log(chalk.green(`    ✅ Concurrent load test completed: ${test.metrics.overallMessagesPerSecond.toFixed(1)} msg/s`));
-    
+    console.log(
+      chalk.green(`    ✅ Concurrent load test completed: ${test.metrics.overallMessagesPerSecond.toFixed(1)} msg/s`),
+    );
+
     return test;
   }
 
@@ -703,69 +710,72 @@ export class PerformanceMonitor {
    */
   async compareWithBaselines(tests) {
     console.log(chalk.yellow("  📋 Comparing with baselines..."));
-    
+
     const comparison = {
       name: "Baseline Comparison",
       type: "baseline_comparison",
       comparisons: {},
       overallScore: 0,
-      passed: true
+      passed: true,
     };
 
     // Analyze each test type against baselines
     for (const test of tests) {
-      if (test.type === 'baseline_comparison') continue;
+      if (test.type === "baseline_comparison") {
+        continue;
+      }
 
       const testComparison = {
         testName: test.name,
         passed: test.passed,
         score: 0,
-        details: {}
+        details: {},
       };
 
       switch (test.type) {
-        case 'response_time':
+        case "response_time":
           testComparison.score = this.calculateResponseTimeScore(test);
           testComparison.details = {
             avgResponseTime: test.metrics.overallAverageResponseTime,
             processesWithinBaseline: test.metrics.processesWithinBaseline,
-            totalProcesses: test.metrics.totalProcesses
+            totalProcesses: test.metrics.totalProcesses,
           };
           break;
 
-        case 'throughput':
+        case "throughput":
           testComparison.score = this.calculateThroughputScore(test);
           testComparison.details = {
             messagesPerSecond: test.metrics.overallMessagesPerSecond,
-            successRate: test.metrics.overallSuccessRate
+            successRate: test.metrics.overallSuccessRate,
           };
           break;
 
-        case 'memory_usage':
+        case "memory_usage":
           testComparison.score = this.calculateMemoryScore(test);
           testComparison.details = {
             avgMemoryUsage: test.metrics.overallAverageMemoryUsage,
-            maxMemoryUsage: test.metrics.overallMaxMemoryUsage
+            maxMemoryUsage: test.metrics.overallMaxMemoryUsage,
           };
           break;
 
-        case 'error_handling':
+        case "error_handling":
           testComparison.score = this.calculateErrorHandlingScore(test);
           testComparison.details = {
-            recoveryRate: test.metrics.overallRecoveryRate
+            recoveryRate: test.metrics.overallRecoveryRate,
           };
           break;
 
-        case 'concurrent_load':
+        case "concurrent_load":
           testComparison.score = this.calculateConcurrentLoadScore(test);
           testComparison.details = {
             successRate: test.metrics.overallSuccessRate,
-            messagesPerSecond: test.metrics.overallMessagesPerSecond
+            messagesPerSecond: test.metrics.overallMessagesPerSecond,
           };
           break;
       }
 
-      if (testComparison.score < 70) { // 70% minimum score
+      if (testComparison.score < 70) {
+        // 70% minimum score
         comparison.passed = false;
       }
 
@@ -776,8 +786,10 @@ export class PerformanceMonitor {
     const scores = Object.values(comparison.comparisons).map(c => c.score);
     comparison.overallScore = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
 
-    console.log(chalk.green(`    ✅ Baseline comparison completed: ${comparison.overallScore.toFixed(1)}% overall score`));
-    
+    console.log(
+      chalk.green(`    ✅ Baseline comparison completed: ${comparison.overallScore.toFixed(1)}% overall score`),
+    );
+
     return comparison;
   }
 
@@ -791,22 +803,22 @@ export class PerformanceMonitor {
       failedTests: tests.filter(t => t.passed === false).length,
       overallScore: 0,
       keyMetrics: {},
-      recommendations: []
+      recommendations: [],
     };
 
     // Extract key metrics from each test
     for (const test of tests) {
       switch (test.type) {
-        case 'response_time':
+        case "response_time":
           summary.keyMetrics.averageResponseTime = test.metrics?.overallAverageResponseTime || 0;
           break;
-        case 'throughput':
+        case "throughput":
           summary.keyMetrics.messagesPerSecond = test.metrics?.overallMessagesPerSecond || 0;
           break;
-        case 'memory_usage':
+        case "memory_usage":
           summary.keyMetrics.averageMemoryUsage = test.metrics?.overallAverageMemoryUsage || 0;
           break;
-        case 'baseline_comparison':
+        case "baseline_comparison":
           summary.overallScore = test.overallScore || 0;
           break;
       }
@@ -816,11 +828,11 @@ export class PerformanceMonitor {
     if (summary.keyMetrics.averageResponseTime > 1000) {
       summary.recommendations.push("Consider optimizing response times - average exceeds 1s");
     }
-    
+
     if (summary.keyMetrics.messagesPerSecond < 50) {
       summary.recommendations.push("Throughput is below recommended baseline - investigate bottlenecks");
     }
-    
+
     if (summary.keyMetrics.averageMemoryUsage > 100) {
       summary.recommendations.push("Memory usage is high - consider optimization");
     }
@@ -847,8 +859,8 @@ export class PerformanceMonitor {
       baselines: this.baselines,
       environment: {
         nodeVersion: process.version,
-        platform: process.platform
-      }
+        platform: process.platform,
+      },
     };
 
     // Write JSON report
@@ -870,7 +882,7 @@ export class PerformanceMonitor {
    */
   generateHtmlReport(report) {
     const latestBenchmark = report.benchmarkResults[report.benchmarkResults.length - 1];
-    
+
     return `
 <!DOCTYPE html>
 <html>
@@ -896,43 +908,67 @@ export class PerformanceMonitor {
         <h2>Summary</h2>
         <p><strong>Generated:</strong> ${report.timestamp}</p>
         <p><strong>Total Benchmarks:</strong> ${report.benchmarkResults.length}</p>
-        ${latestBenchmark ? `
+        ${
+          latestBenchmark
+            ? `
         <p><strong>Latest Benchmark:</strong> ${latestBenchmark.status}</p>
-        <p><strong>Overall Score:</strong> ${latestBenchmark.summary?.overallScore?.toFixed(1) || 'N/A'}%</p>
+        <p><strong>Overall Score:</strong> ${latestBenchmark.summary?.overallScore?.toFixed(1) || "N/A"}%</p>
         <p><strong>Tests Passed:</strong> <span class="passed">${latestBenchmark.summary?.passedTests || 0}</span></p>
         <p><strong>Tests Failed:</strong> <span class="failed">${latestBenchmark.summary?.failedTests || 0}</span></p>
-        ` : ''}
+        `
+            : ""
+        }
     </div>
     
-    ${latestBenchmark ? `
+    ${
+      latestBenchmark
+        ? `
     <h2>Key Metrics</h2>
     <div class="metric">
-        <h4>Response Time: ${latestBenchmark.summary?.keyMetrics?.averageResponseTime?.toFixed(1) || 'N/A'}ms</h4>
-        <h4>Throughput: ${latestBenchmark.summary?.keyMetrics?.messagesPerSecond?.toFixed(1) || 'N/A'} msg/s</h4>
-        <h4>Memory Usage: ${latestBenchmark.summary?.keyMetrics?.averageMemoryUsage?.toFixed(1) || 'N/A'}MB</h4>
+        <h4>Response Time: ${latestBenchmark.summary?.keyMetrics?.averageResponseTime?.toFixed(1) || "N/A"}ms</h4>
+        <h4>Throughput: ${latestBenchmark.summary?.keyMetrics?.messagesPerSecond?.toFixed(1) || "N/A"} msg/s</h4>
+        <h4>Memory Usage: ${latestBenchmark.summary?.keyMetrics?.averageMemoryUsage?.toFixed(1) || "N/A"}MB</h4>
     </div>
     
     <h2>Test Results</h2>
-    ${latestBenchmark.tests.map(test => `
+    ${latestBenchmark.tests
+      .map(
+        test => `
         <div class="test-result">
-            <h3>${test.name} <span class="${test.passed ? 'passed' : 'failed'}">${test.passed ? 'PASSED' : 'FAILED'}</span></h3>
-            ${test.metrics ? `
+            <h3>${test.name} <span class="${test.passed ? "passed" : "failed"}">${test.passed ? "PASSED" : "FAILED"}</span></h3>
+            ${
+              test.metrics
+                ? `
                 <div class="metric">
-                    ${Object.entries(test.metrics).map(([key, value]) => `
-                        <p><strong>${key}:</strong> ${typeof value === 'number' ? value.toFixed(2) : value}</p>
-                    `).join('')}
+                    ${Object.entries(test.metrics)
+                      .map(
+                        ([key, value]) => `
+                        <p><strong>${key}:</strong> ${typeof value === "number" ? value.toFixed(2) : value}</p>
+                    `,
+                      )
+                      .join("")}
                 </div>
-            ` : ''}
+            `
+                : ""
+            }
         </div>
-    `).join('')}
+    `,
+      )
+      .join("")}
     
-    ${latestBenchmark.summary?.recommendations?.length > 0 ? `
+    ${
+      latestBenchmark.summary?.recommendations?.length > 0
+        ? `
     <h2>Recommendations</h2>
     <ul>
-        ${latestBenchmark.summary.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+        ${latestBenchmark.summary.recommendations.map(rec => `<li>${rec}</li>`).join("")}
     </ul>
-    ` : ''}
-    ` : ''}
+    `
+        : ""
+    }
+    `
+        : ""
+    }
     
     <h2>Benchmark History</h2>
     <table>
@@ -943,15 +979,19 @@ export class PerformanceMonitor {
             <th>Tests</th>
             <th>Score</th>
         </tr>
-        ${report.benchmarkResults.map(benchmark => `
+        ${report.benchmarkResults
+          .map(
+            benchmark => `
             <tr>
                 <td>${new Date(benchmark.timestamp).toLocaleString()}</td>
                 <td class="${benchmark.status}">${benchmark.status.toUpperCase()}</td>
                 <td>${benchmark.duration}ms</td>
                 <td>${benchmark.tests?.length || 0}</td>
-                <td>${benchmark.summary?.overallScore?.toFixed(1) || 'N/A'}%</td>
+                <td>${benchmark.summary?.overallScore?.toFixed(1) || "N/A"}%</td>
             </tr>
-        `).join('')}
+        `,
+          )
+          .join("")}
     </table>
 </body>
 </html>`;
@@ -961,22 +1001,33 @@ export class PerformanceMonitor {
    * Helper methods
    */
   getProcessType(processName) {
-    if (processName.includes("coordinator")) return "coordinator";
-    if (processName.includes("data") || processName.includes("species") || processName.includes("move") || processName.includes("item")) {
+    if (processName.includes("coordinator")) {
+      return "coordinator";
+    }
+    if (
+      processName.includes("data") ||
+      processName.includes("species") ||
+      processName.includes("move") ||
+      processName.includes("item")
+    ) {
       return "dataProcess";
     }
     return "logicProcess";
   }
 
   calculateOverallAverage(results, field) {
-    const values = Object.values(results).map(r => r[field]).filter(v => v > 0);
+    const values = Object.values(results)
+      .map(r => r[field])
+      .filter(v => v > 0);
     return values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
   }
 
   calculateResponseTimeScore(test) {
     const baseline = 1000; // 1 second baseline
     const avgResponseTime = test.metrics?.overallAverageResponseTime || 0;
-    if (avgResponseTime <= 0) return 0;
+    if (avgResponseTime <= 0) {
+      return 0;
+    }
     return Math.max(0, Math.min(100, (baseline / avgResponseTime) * 100));
   }
 
@@ -989,7 +1040,9 @@ export class PerformanceMonitor {
   calculateMemoryScore(test) {
     const baseline = 100; // 100MB baseline
     const memoryUsage = test.metrics?.overallAverageMemoryUsage || 0;
-    if (memoryUsage <= 0) return 100;
+    if (memoryUsage <= 0) {
+      return 100;
+    }
     return Math.max(0, Math.min(100, (baseline / memoryUsage) * 100));
   }
 
@@ -1003,18 +1056,20 @@ export class PerformanceMonitor {
     return successRate;
   }
 
-  estimateMemoryUsage(processId) {
+  estimateMemoryUsage(_processId) {
     // Simplified memory estimation - in real implementation this would be more sophisticated
     return Math.random() * 50 + 20; // 20-70MB range
   }
 
-  estimateCpuUsage(processId) {
+  estimateCpuUsage(_processId) {
     // Simplified CPU estimation
     return Math.random() * 50; // 0-50% range
   }
 
   countErrors(messages) {
-    if (!messages || !Array.isArray(messages)) return 0;
+    if (!messages || !Array.isArray(messages)) {
+      return 0;
+    }
     return messages.filter(msg => msg.error || msg.Action === "Error").length;
   }
 
@@ -1028,8 +1083,8 @@ export class PerformanceMonitor {
           sampleCount: metrics.length,
           timeRange: {
             start: metrics[0].timestamp,
-            end: latest.timestamp
-          }
+            end: latest.timestamp,
+          },
         };
       }
     }

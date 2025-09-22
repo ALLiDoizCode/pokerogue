@@ -11,7 +11,7 @@ import { promisify } from "util";
 import chalk from "chalk";
 import { ParityTestFramework } from "../testing/parity/parity-test-framework.js";
 
-const execAsync = promisify(exec);
+const _execAsync = promisify(exec);
 
 async function main() {
   console.log(chalk.blue.bold("\n🚀 PokéRogue TypeScript ↔ AO Lua Parity Testing"));

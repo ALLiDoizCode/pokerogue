@@ -37,7 +37,7 @@ export class AosLocalIntegrationFramework {
     try {
       await execAsync("which aos-local || which aos");
       console.log(chalk.green("✅ aos-local environment available"));
-    } catch (error) {
+    } catch (_error) {
       throw new Error("aos-local not found. Please install aos-local for integration testing.");
     }
 
@@ -79,7 +79,7 @@ export class AosLocalIntegrationFramework {
 
     for (const processFile of processFiles) {
       const processPath = path.join(this.processesDir, processFile);
-      const processContent = await fs.readFile(processPath, "utf8");
+      const _processContent = await fs.readFile(processPath, "utf8");
 
       try {
         // Mock process deployment - real implementation would use aos-local API
@@ -160,7 +160,7 @@ export class AosLocalIntegrationFramework {
   /**
    * Execute individual test step
    */
-  async executeTestStep(step, scenario) {
+  async executeTestStep(step, _scenario) {
     const stepStart = Date.now();
 
     try {

@@ -3,17 +3,17 @@
  * Comprehensive testing for process failure and recovery scenarios
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "@jest/globals";
-import path from "path";
 import fs from "fs/promises";
-import { RecoveryTester } from "../aos-local/recovery-tester.js";
-import { ProcessDeployer } from "../aos-local/process-deployer.js";
+import path from "path";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "@jest/globals";
 import { IntegrationEnvironmentConfig } from "../../development-tools/integration-testing/environment-config.js";
-import { recoveryScenarios, recoveryConfigs, recoveryBaselines } from "../fixtures/recovery-scenarios.js";
+import { ProcessDeployer } from "../aos-local/process-deployer.js";
+import { RecoveryTester } from "../aos-local/recovery-tester.js";
+import { recoveryBaselines, recoveryConfigs, recoveryScenarios } from "../fixtures/recovery-scenarios.js";
 
 describe("Recovery Scenarios Tests", () => {
   let recoveryTester;
-  let processDeployer;
+  let _processDeployer;
   let environmentConfig;
   let tempDir;
   let testProcesses;
@@ -25,17 +25,17 @@ describe("Recovery Scenarios Tests", () => {
 
     // Initialize components
     environmentConfig = new IntegrationEnvironmentConfig({
-      workspaceDir: tempDir
+      workspaceDir: tempDir,
     });
 
     recoveryTester = new RecoveryTester({
       tempDir,
-      reportsDir: path.join(process.cwd(), "testing/reports")
+      reportsDir: path.join(process.cwd(), "testing/reports"),
     });
 
-    processDeployer = new ProcessDeployer({
+    _processDeployer = new ProcessDeployer({
       tempDir,
-      processesDir: path.join(process.cwd(), "processes")
+      processesDir: path.join(process.cwd(), "processes"),
     });
 
     // Initialize environment
@@ -74,12 +74,8 @@ describe("Recovery Scenarios Tests", () => {
       expect(restartTest.metrics.successfulRestarts).toBe(testProcesses.size);
 
       // Verify restart times are within acceptable limits
-      expect(restartTest.metrics.averageRestartTime).toBeLessThan(
-        recoveryBaselines.timeBaselines.maxRestartTime
-      );
-      expect(restartTest.metrics.averageRecoveryTime).toBeLessThan(
-        recoveryBaselines.timeBaselines.maxRecoveryTime
-      );
+      expect(restartTest.metrics.averageRestartTime).toBeLessThan(recoveryBaselines.timeBaselines.maxRestartTime);
+      expect(restartTest.metrics.averageRecoveryTime).toBeLessThan(recoveryBaselines.timeBaselines.maxRecoveryTime);
 
       // Verify individual process restart results
       for (const processResult of restartTest.processes) {
@@ -97,7 +93,7 @@ describe("Recovery Scenarios Tests", () => {
       const failingProcess = {
         processId: "failing-process-123",
         processName: "failing-process",
-        processType: "test"
+        processType: "test",
       };
       failingProcesses.set("failing-process", failingProcess);
 
@@ -114,14 +110,12 @@ describe("Recovery Scenarios Tests", () => {
 
     test("should verify state persistence across restarts", async () => {
       // Test with a single process that supports state persistence
-      const coordinatorProcess = new Map([
-        ["coordinator-process", testProcesses.get("coordinator-process")]
-      ]);
+      const coordinatorProcess = new Map([["coordinator-process", testProcesses.get("coordinator-process")]]);
 
       const restartTest = await recoveryTester.testProcessRestart(coordinatorProcess);
 
       expect(restartTest.overallSuccess).toBe(true);
-      
+
       const processResult = restartTest.processes[0];
       expect(processResult.stateVerification).toBeDefined();
       // Note: State persistence depends on process implementation
@@ -136,24 +130,19 @@ describe("Recovery Scenarios Tests", () => {
           type: "process_crash",
           targetSelection: "coordinator",
           recoveryStrategy: "restart",
-          detectionTimeout: 5000
-        }
+          detectionTimeout: 5000,
+        },
       ];
 
-      const injectionTest = await recoveryTester.testFailureInjection(
-        testProcesses,
-        crashFailureScenarios
-      );
+      const injectionTest = await recoveryTester.testFailureInjection(testProcesses, crashFailureScenarios);
 
       expect(injectionTest.type).toBe("failure_injection");
       expect(injectionTest.overallSuccess).toBe(true);
       expect(injectionTest.metrics.successfulRecoveries).toBe(1);
       expect(injectionTest.metrics.averageDetectionTime).toBeLessThan(
-        recoveryBaselines.timeBaselines.maxFailureDetectionTime
+        recoveryBaselines.timeBaselines.maxFailureDetectionTime,
       );
-      expect(injectionTest.metrics.averageRecoveryTime).toBeLessThan(
-        recoveryBaselines.timeBaselines.maxRecoveryTime
-      );
+      expect(injectionTest.metrics.averageRecoveryTime).toBeLessThan(recoveryBaselines.timeBaselines.maxRecoveryTime);
 
       const scenario = injectionTest.scenarios[0];
       expect(scenario.success).toBe(true);
@@ -167,26 +156,23 @@ describe("Recovery Scenarios Tests", () => {
           type: "process_crash",
           targetSelection: "data",
           recoveryStrategy: "restart",
-          detectionTimeout: 3000
+          detectionTimeout: 3000,
         },
         {
           type: "timeout",
           targetSelection: "logic",
           recoveryStrategy: "reset",
-          detectionTimeout: 2000
+          detectionTimeout: 2000,
         },
         {
           type: "corrupted_message",
           targetSelection: "coordinator",
           recoveryStrategy: "restart",
-          detectionTimeout: 4000
-        }
+          detectionTimeout: 4000,
+        },
       ];
 
-      const injectionTest = await recoveryTester.testFailureInjection(
-        testProcesses,
-        multipleFailureScenarios
-      );
+      const injectionTest = await recoveryTester.testFailureInjection(testProcesses, multipleFailureScenarios);
 
       expect(injectionTest.metrics.totalScenarios).toBe(3);
       expect(injectionTest.metrics.successfulRecoveries).toBeGreaterThanOrEqual(2); // At least 2/3 should succeed
@@ -205,14 +191,11 @@ describe("Recovery Scenarios Tests", () => {
           type: "process_crash",
           targetSelection: "random",
           recoveryStrategy: "restart",
-          detectionTimeout: 2000 // Short detection timeout
-        }
+          detectionTimeout: 2000, // Short detection timeout
+        },
       ];
 
-      const injectionTest = await recoveryTester.testFailureInjection(
-        testProcesses,
-        detectionScenarios
-      );
+      const injectionTest = await recoveryTester.testFailureInjection(testProcesses, detectionScenarios);
 
       const scenario = injectionTest.scenarios[0];
       if (scenario.success && scenario.detectionTime > 0) {
@@ -237,9 +220,7 @@ describe("Recovery Scenarios Tests", () => {
       // Check recovery times
       for (const partition of partitionTest.partitions) {
         if (partition.success) {
-          expect(partition.recoveryTime).toBeLessThan(
-            recoveryBaselines.timeBaselines.maxNetworkRecoveryTime
-          );
+          expect(partition.recoveryTime).toBeLessThan(recoveryBaselines.timeBaselines.maxNetworkRecoveryTime);
         }
       }
     }, 180000);
@@ -247,13 +228,13 @@ describe("Recovery Scenarios Tests", () => {
     test("should maintain system functionality during partition", async () => {
       // This test would verify that the system maintains some level of functionality
       // even during network partitions (e.g., using cached data, fallback mechanisms)
-      
+
       const limitedPartitionTest = await recoveryTester.testNetworkPartition(
-        new Map([["coordinator-process", testProcesses.get("coordinator-process")]])
+        new Map([["coordinator-process", testProcesses.get("coordinator-process")]]),
       );
 
       expect(limitedPartitionTest.metrics.totalPartitions).toBeGreaterThan(0);
-      
+
       // Even if some partitions fail, the test framework should handle it gracefully
       expect(limitedPartitionTest.partitions).toHaveLength(limitedPartitionTest.metrics.totalPartitions);
     }, 120000);
@@ -270,9 +251,7 @@ describe("Recovery Scenarios Tests", () => {
 
       // Verify state persistence rate meets baseline
       const persistenceRate = persistenceTest.metrics.successfulPersistence / persistenceTest.metrics.totalTests;
-      expect(persistenceRate).toBeGreaterThanOrEqual(
-        recoveryBaselines.successRateBaselines.minStatePersistenceRate
-      );
+      expect(persistenceRate).toBeGreaterThanOrEqual(recoveryBaselines.successRateBaselines.minStatePersistenceRate);
 
       // Check for data integrity issues
       expect(persistenceTest.metrics.dataIntegrityIssues).toBeLessThanOrEqual(1); // Allow minimal issues
@@ -281,11 +260,11 @@ describe("Recovery Scenarios Tests", () => {
     test("should handle state corruption and recovery", async () => {
       // Test how the system handles state corruption scenarios
       const corruptionTest = await recoveryTester.testStatePersistence(
-        new Map([["coordinator-process", testProcesses.get("coordinator-process")]])
+        new Map([["coordinator-process", testProcesses.get("coordinator-process")]]),
       );
 
       expect(corruptionTest.metrics.totalTests).toBeGreaterThan(0);
-      
+
       // Even with potential corruption, system should handle it gracefully
       const tests = corruptionTest.tests;
       for (const test of tests) {
@@ -312,13 +291,10 @@ describe("Recovery Scenarios Tests", () => {
         type,
         targetSelection: "random",
         recoveryStrategy: "restart",
-        detectionTimeout: 3000
+        detectionTimeout: 3000,
       }));
 
-      const injectionTest = await recoveryTester.testFailureInjection(
-        testProcesses,
-        quickFailureScenarios
-      );
+      const injectionTest = await recoveryTester.testFailureInjection(testProcesses, quickFailureScenarios);
       results.push(injectionTest);
 
       // Verify all tests completed within timeout
@@ -333,20 +309,14 @@ describe("Recovery Scenarios Tests", () => {
     test("should meet recovery baseline requirements", async () => {
       // Test key recovery scenarios against baselines
       const restartTest = await recoveryTester.testProcessRestart(testProcesses);
-      
+
       // Verify time baselines
-      expect(restartTest.metrics.averageRestartTime).toBeLessThan(
-        recoveryBaselines.timeBaselines.maxRestartTime
-      );
-      expect(restartTest.metrics.averageRecoveryTime).toBeLessThan(
-        recoveryBaselines.timeBaselines.maxRecoveryTime
-      );
+      expect(restartTest.metrics.averageRestartTime).toBeLessThan(recoveryBaselines.timeBaselines.maxRestartTime);
+      expect(restartTest.metrics.averageRecoveryTime).toBeLessThan(recoveryBaselines.timeBaselines.maxRecoveryTime);
 
       // Verify success rate baselines
       const successRate = restartTest.metrics.successfulRestarts / restartTest.metrics.totalProcesses;
-      expect(successRate).toBeGreaterThanOrEqual(
-        recoveryBaselines.successRateBaselines.minRecoverySuccessRate
-      );
+      expect(successRate).toBeGreaterThanOrEqual(recoveryBaselines.successRateBaselines.minRecoverySuccessRate);
     }, 150000);
   });
 
@@ -354,7 +324,7 @@ describe("Recovery Scenarios Tests", () => {
     test("should generate comprehensive recovery reports", async () => {
       // Run a few recovery tests to generate report data
       await recoveryTester.testProcessRestart(
-        new Map([["coordinator-process", testProcesses.get("coordinator-process")]])
+        new Map([["coordinator-process", testProcesses.get("coordinator-process")]]),
       );
 
       const failureScenarios = [
@@ -362,8 +332,8 @@ describe("Recovery Scenarios Tests", () => {
           type: "process_crash",
           targetSelection: "coordinator",
           recoveryStrategy: "restart",
-          detectionTimeout: 3000
-        }
+          detectionTimeout: 3000,
+        },
       ];
       await recoveryTester.testFailureInjection(testProcesses, failureScenarios);
 
@@ -374,8 +344,14 @@ describe("Recovery Scenarios Tests", () => {
       expect(reports.htmlReport).toBeDefined();
 
       // Verify report files exist
-      const jsonReportExists = await fs.access(reports.jsonReport).then(() => true).catch(() => false);
-      const htmlReportExists = await fs.access(reports.htmlReport).then(() => true).catch(() => false);
+      const jsonReportExists = await fs
+        .access(reports.jsonReport)
+        .then(() => true)
+        .catch(() => false);
+      const htmlReportExists = await fs
+        .access(reports.htmlReport)
+        .then(() => true)
+        .catch(() => false);
 
       expect(jsonReportExists).toBe(true);
       expect(htmlReportExists).toBe(true);
@@ -394,9 +370,9 @@ describe("Recovery Scenarios Tests", () => {
   describe("Edge Cases and Error Handling", () => {
     test("should handle recovery when no processes are available", async () => {
       const emptyProcesses = new Map();
-      
+
       const restartTest = await recoveryTester.testProcessRestart(emptyProcesses);
-      
+
       expect(restartTest.type).toBe("process_restart");
       expect(restartTest.metrics.totalProcesses).toBe(0);
       expect(restartTest.metrics.successfulRestarts).toBe(0);
@@ -409,14 +385,11 @@ describe("Recovery Scenarios Tests", () => {
           type: "unknown_failure_type",
           targetSelection: "nonexistent",
           recoveryStrategy: "invalid_strategy",
-          detectionTimeout: 1000
-        }
+          detectionTimeout: 1000,
+        },
       ];
 
-      const injectionTest = await recoveryTester.testFailureInjection(
-        testProcesses,
-        invalidScenarios
-      );
+      const injectionTest = await recoveryTester.testFailureInjection(testProcesses, invalidScenarios);
 
       expect(injectionTest.type).toBe("failure_injection");
       expect(injectionTest.metrics.totalScenarios).toBe(1);
@@ -432,14 +405,11 @@ describe("Recovery Scenarios Tests", () => {
           type: "timeout",
           targetSelection: "random",
           recoveryStrategy: "restart",
-          detectionTimeout: 100 // Very short timeout
-        }
+          detectionTimeout: 100, // Very short timeout
+        },
       ];
 
-      const injectionTest = await recoveryTester.testFailureInjection(
-        testProcesses,
-        timeoutScenarios
-      );
+      const injectionTest = await recoveryTester.testFailureInjection(testProcesses, timeoutScenarios);
 
       const scenario = injectionTest.scenarios[0];
       // Should either detect quickly or timeout gracefully
@@ -458,7 +428,7 @@ async function createRecoveryTestProcesses() {
   const testProcesses = {
     "coordinator-process.lua": createRecoveryCoordinatorProcess(),
     "data-process.lua": createRecoveryDataProcess(),
-    "logic-process.lua": createRecoveryLogicProcess()
+    "logic-process.lua": createRecoveryLogicProcess(),
   };
 
   for (const [filename, content] of Object.entries(testProcesses)) {
@@ -473,34 +443,34 @@ async function deployRecoveryTestProcesses() {
       processType: "coordinator",
       processPath: path.join(process.cwd(), "processes/coordinator-process.lua"),
       maxSize: 500000,
-      requiredHandlers: ["Info", "HealthCheck"]
+      requiredHandlers: ["Info", "HealthCheck"],
     },
     {
       processType: "data",
       processPath: path.join(process.cwd(), "processes/data-process.lua"),
       maxSize: 450000,
-      requiredHandlers: ["Info", "HealthCheck"]
+      requiredHandlers: ["Info", "HealthCheck"],
     },
     {
       processType: "logic",
       processPath: path.join(process.cwd(), "processes/logic-process.lua"),
       maxSize: 500000,
-      requiredHandlers: ["Info", "HealthCheck"]
-    }
+      requiredHandlers: ["Info", "HealthCheck"],
+    },
   ];
 
   const processDeployer = new ProcessDeployer();
   await processDeployer.initialize();
 
   const deploymentResults = await processDeployer.deployMultipleProcesses(processConfigs);
-  
+
   const deployedProcesses = new Map();
   for (const result of deploymentResults) {
     if (result.status === "deployed") {
       deployedProcesses.set(result.processName, {
         processId: result.processId,
         processName: result.processName,
-        processType: result.processType
+        processType: result.processType,
       });
     }
   }

@@ -12,6 +12,12 @@ Provides comprehensive process validation with advanced features:
 
 local EnhancedAoliteFramework = {}
 
+-- Load advanced testing components
+local CoordinationTesting = require('testing.aolite.coordination-testing')
+local PropertyBasedTesting = require('testing.aolite.property-based-testing')
+local AdvancedBenchmarks = require('testing.aolite.advanced-benchmarks')
+local StateManagementAdvanced = require('testing.aolite.state-management-advanced')
+
 -- Test execution metrics
 local TestMetrics = {
   totalTests = 0,
@@ -21,7 +27,11 @@ local TestMetrics = {
   startTime = 0,
   endTime = 0,
   coverage = {},
-  performance = {}
+  performance = {},
+  coordination = {},
+  properties = {},
+  benchmarks = {},
+  stateManagement = {}
 }
 
 -- Mock AO environment for isolated testing
@@ -325,6 +335,126 @@ function EnhancedAoliteFramework.runTests(testSuites)
   return success
 end
 
+-- Advanced testing integration functions
+function EnhancedAoliteFramework.runAdvancedTestSuite(suiteName, testConfig)
+  print(string.format("\n🚀 Running Advanced Test Suite: %s", suiteName))
+  print(string.rep("=", 60))
+  
+  local suiteStart = os.clock()
+  local results = {
+    basic = {},
+    coordination = {},
+    properties = {},
+    benchmarks = {},
+    stateManagement = {}
+  }
+  
+  -- Run basic unit tests
+  if testConfig.unitTests then
+    results.basic = EnhancedAoliteFramework.runTests(testConfig.unitTests)
+  end
+  
+  -- Run coordination tests
+  if testConfig.coordinationTests then
+    for scenarioName, scenario in pairs(testConfig.coordinationTests) do
+      results.coordination[scenarioName] = CoordinationTesting.testCoordinationScenario(
+        scenarioName, scenario.processes, scenario.messages, scenario.validations
+      )
+    end
+  end
+  
+  -- Run property-based tests
+  if testConfig.propertyTests then
+    PropertyBasedTesting.initialize(testConfig.propertyConfig)
+    for suiteName, properties in pairs(testConfig.propertyTests) do
+      results.properties[suiteName] = PropertyBasedTesting.runPropertySuite(suiteName, properties)
+    end
+  end
+  
+  -- Run benchmarks
+  if testConfig.benchmarks then
+    results.benchmarks = AdvancedBenchmarks.runBenchmarkSuite(
+      suiteName .. "_benchmarks", testConfig.benchmarks, testConfig.benchmarkConfig
+    )
+  end
+  
+  -- Run state management tests
+  if testConfig.stateTests then
+    for testName, stateTest in pairs(testConfig.stateTests) do
+      if stateTest.type == "synchronization" then
+        results.stateManagement[testName] = StateManagementAdvanced.testStateSynchronization(
+          stateTest.processes, stateTest.updates
+        )
+      elseif stateTest.type == "persistence" then
+        results.stateManagement[testName] = StateManagementAdvanced.testStatePersistence(
+          stateTest.worldState, stateTest.persistFunction, stateTest.loadFunction
+        )
+      elseif stateTest.type == "rollback" then
+        results.stateManagement[testName] = StateManagementAdvanced.testStateRollback(
+          stateTest.worldState, stateTest.mutationFunction, stateTest.rollbackFunction
+        )
+      end
+    end
+  end
+  
+  local suiteEnd = os.clock()
+  local totalTime = suiteEnd - suiteStart
+  
+  -- Generate comprehensive report
+  print(string.rep("=", 60))
+  print("📊 Advanced Test Suite Report")
+  print(string.rep("=", 60))
+  print(string.format("Total execution time: %.2fs", totalTime))
+  
+  -- Summary statistics
+  local totalTestCount = 0
+  local totalPassCount = 0
+  
+  if results.basic then
+    print(string.format("Unit Tests: %s", results.basic and "✅ Passed" or "❌ Failed"))
+  end
+  
+  if results.coordination then
+    local coordPassed = 0
+    local coordTotal = 0
+    for _, result in pairs(results.coordination) do
+      coordTotal = coordTotal + 1
+      if result.success then coordPassed = coordPassed + 1 end
+    end
+    print(string.format("Coordination Tests: %d/%d passed", coordPassed, coordTotal))
+  end
+  
+  if results.properties then
+    local propPassed = 0
+    local propTotal = 0
+    for _, suite in pairs(results.properties) do
+      propTotal = propTotal + suite.totalProperties
+      propPassed = propPassed + suite.passedProperties
+    end
+    print(string.format("Property Tests: %d/%d passed", propPassed, propTotal))
+  end
+  
+  if results.benchmarks then
+    print(string.format("Benchmarks: %d executed, %d regressions", 
+      results.benchmarks.summary.totalBenchmarks,
+      results.benchmarks.summary.regressions))
+  end
+  
+  if results.stateManagement then
+    local statePassed = 0
+    local stateTotal = 0
+    for _, result in pairs(results.stateManagement) do
+      stateTotal = stateTotal + 1
+      if result.synchronizationSuccessful or result.dataIntegrity or result.stateRestored then
+        statePassed = statePassed + 1
+      end
+    end
+    print(string.format("State Management Tests: %d/%d passed", statePassed, stateTotal))
+  end
+  
+  return results
+end
+
 -- Export framework functions for external use
 EnhancedAoliteFramework.setupMockAO = setupMockAOEnvironment
 EnhancedAoliteFramework.assert_equal = assert_equal
@@ -334,5 +464,11 @@ EnhancedAoliteFramework.assert_type = assert_type
 EnhancedAoliteFramework.profileFunction = profileFunction
 EnhancedAoliteFramework.createFixtures = createTestFixtures
 EnhancedAoliteFramework.trackCoverage = trackCoverage
+
+-- Export advanced testing components
+EnhancedAoliteFramework.coordination = CoordinationTesting
+EnhancedAoliteFramework.properties = PropertyBasedTesting
+EnhancedAoliteFramework.benchmarks = AdvancedBenchmarks
+EnhancedAoliteFramework.stateManagement = StateManagementAdvanced
 
 return EnhancedAoliteFramework

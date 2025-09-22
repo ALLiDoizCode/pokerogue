@@ -3,13 +3,13 @@
  * Comprehensive performance testing for deployment validation
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "@jest/globals";
-import path from "path";
 import fs from "fs/promises";
+import path from "path";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "@jest/globals";
+import { IntegrationEnvironmentConfig } from "../../development-tools/integration-testing/environment-config.js";
 import { PerformanceMonitor } from "../aos-local/performance-monitor.js";
 import { ProcessDeployer } from "../aos-local/process-deployer.js";
-import { IntegrationEnvironmentConfig } from "../../development-tools/integration-testing/environment-config.js";
-import { performanceBaselines, scenarioBaselines, alertThresholds } from "../fixtures/performance-baselines.js";
+import { performanceBaselines } from "../fixtures/performance-baselines.js";
 
 describe("Performance Benchmarks Tests", () => {
   let performanceMonitor;
@@ -25,18 +25,18 @@ describe("Performance Benchmarks Tests", () => {
 
     // Initialize components
     environmentConfig = new IntegrationEnvironmentConfig({
-      workspaceDir: tempDir
+      workspaceDir: tempDir,
     });
 
     performanceMonitor = new PerformanceMonitor({
       tempDir,
       baselineFile: path.join(process.cwd(), "testing/fixtures/performance-baselines.js"),
-      reportsDir: path.join(process.cwd(), "testing/reports")
+      reportsDir: path.join(process.cwd(), "testing/reports"),
     });
 
     processDeployer = new ProcessDeployer({
       tempDir,
-      processesDir: path.join(process.cwd(), "processes")
+      processesDir: path.join(process.cwd(), "processes"),
     });
 
     // Initialize environment and components
@@ -73,13 +73,10 @@ describe("Performance Benchmarks Tests", () => {
     test("should meet response time baselines for all process types", async () => {
       const responseTimeConfig = {
         responseTimeIterations: 15,
-        timeout: 30000
+        timeout: 30000,
       };
 
-      const benchmark = await performanceMonitor.runPerformanceBenchmark(
-        deployedProcesses,
-        responseTimeConfig
-      );
+      const benchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, responseTimeConfig);
 
       expect(benchmark.status).toBe("completed");
       expect(benchmark.tests).toHaveLength(6); // 6 test types
@@ -92,7 +89,7 @@ describe("Performance Benchmarks Tests", () => {
       for (const [processName, result] of Object.entries(responseTimeTest.results)) {
         const processType = getProcessType(processName);
         const baseline = performanceBaselines.responseTime[processType];
-        
+
         expect(result.averageResponseTime).toBeLessThan(baseline);
         expect(result.withinBaseline).toBe(true);
         expect(result.successRate).toBeGreaterThan(90); // At least 90% success rate
@@ -106,18 +103,15 @@ describe("Performance Benchmarks Tests", () => {
     test("should maintain consistent response times under repeated requests", async () => {
       const consistencyConfig = {
         responseTimeIterations: 25,
-        timeout: 45000
+        timeout: 45000,
       };
 
-      const benchmark = await performanceMonitor.runPerformanceBenchmark(
-        deployedProcesses,
-        consistencyConfig
-      );
+      const benchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, consistencyConfig);
 
       const responseTimeTest = benchmark.tests.find(test => test.type === "response_time");
-      
+
       // Check for consistency (max response time shouldn't be more than 3x average)
-      for (const [processName, result] of Object.entries(responseTimeTest.results)) {
+      for (const [_processName, result] of Object.entries(responseTimeTest.results)) {
         if (result.averageResponseTime > 0) {
           const responseTimeVariation = result.maxResponseTime / result.averageResponseTime;
           expect(responseTimeVariation).toBeLessThan(3); // Max should be less than 3x average
@@ -130,14 +124,11 @@ describe("Performance Benchmarks Tests", () => {
     test("should achieve minimum throughput baselines", async () => {
       const throughputConfig = {
         throughputDuration: 15000, // 15 seconds
-        messageInterval: 50,        // 50ms between messages
-        timeout: 30000
+        messageInterval: 50, // 50ms between messages
+        timeout: 30000,
       };
 
-      const benchmark = await performanceMonitor.runPerformanceBenchmark(
-        deployedProcesses,
-        throughputConfig
-      );
+      const benchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, throughputConfig);
 
       const throughputTest = benchmark.tests.find(test => test.type === "throughput");
       expect(throughputTest).toBeDefined();
@@ -145,12 +136,12 @@ describe("Performance Benchmarks Tests", () => {
 
       // Verify throughput meets baselines
       expect(throughputTest.metrics.overallMessagesPerSecond).toBeGreaterThan(
-        performanceBaselines.throughput.messagesPerSecond * 0.8 // 80% of baseline
+        performanceBaselines.throughput.messagesPerSecond * 0.8, // 80% of baseline
       );
       expect(throughputTest.metrics.overallSuccessRate).toBeGreaterThan(95);
 
       // Check individual process throughput
-      for (const [processName, result] of Object.entries(throughputTest.results)) {
+      for (const [_processName, result] of Object.entries(throughputTest.results)) {
         expect(result.successRate).toBeGreaterThan(90);
         expect(result.averageResponseTime).toBeLessThan(2000);
       }
@@ -159,20 +150,17 @@ describe("Performance Benchmarks Tests", () => {
     test("should maintain throughput under sustained load", async () => {
       const sustainedLoadConfig = {
         throughputDuration: 30000, // 30 seconds sustained load
-        messageInterval: 100,      // 100ms intervals
-        timeout: 45000
+        messageInterval: 100, // 100ms intervals
+        timeout: 45000,
       };
 
-      const benchmark = await performanceMonitor.runPerformanceBenchmark(
-        deployedProcesses,
-        sustainedLoadConfig
-      );
+      const benchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, sustainedLoadConfig);
 
       const throughputTest = benchmark.tests.find(test => test.type === "throughput");
-      
+
       // Under sustained load, allow some degradation but maintain minimum thresholds
       expect(throughputTest.metrics.overallMessagesPerSecond).toBeGreaterThan(
-        performanceBaselines.throughput.messagesPerSecond * 0.6 // 60% of baseline under load
+        performanceBaselines.throughput.messagesPerSecond * 0.6, // 60% of baseline under load
       );
       expect(throughputTest.metrics.overallSuccessRate).toBeGreaterThan(85); // 85% under load
     }, 60000);
@@ -183,13 +171,10 @@ describe("Performance Benchmarks Tests", () => {
       const memoryConfig = {
         memorySamples: 20,
         memorySampleInterval: 500, // Sample every 500ms
-        timeout: 25000
+        timeout: 25000,
       };
 
-      const benchmark = await performanceMonitor.runPerformanceBenchmark(
-        deployedProcesses,
-        memoryConfig
-      );
+      const benchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, memoryConfig);
 
       const memoryTest = benchmark.tests.find(test => test.type === "memory_usage");
       expect(memoryTest).toBeDefined();
@@ -199,7 +184,7 @@ describe("Performance Benchmarks Tests", () => {
       for (const [processName, result] of Object.entries(memoryTest.results)) {
         const processType = getProcessType(processName);
         const baseline = performanceBaselines.memoryUsage[processType];
-        
+
         expect(result.averageMemoryUsage).toBeLessThan(baseline);
         expect(result.maxMemoryUsage).toBeLessThan(baseline * 1.2); // Allow 20% spike
         expect(result.withinBaseline).toBe(true);
@@ -213,21 +198,21 @@ describe("Performance Benchmarks Tests", () => {
     test("should have stable memory usage over time", async () => {
       // Start monitoring to collect baseline data
       performanceMonitor.startMonitoring(deployedProcesses);
-      
+
       // Let monitoring run for a period
       await new Promise(resolve => setTimeout(resolve, 10000));
-      
+
       performanceMonitor.stopMonitoring();
-      
+
       // Verify memory usage is stable (no significant leaks)
       const realTimeMetrics = performanceMonitor.getRealTimeMetricsSummary();
-      
-      for (const [processName, summary] of Object.entries(realTimeMetrics)) {
+
+      for (const [_processName, summary] of Object.entries(realTimeMetrics)) {
         if (summary.sampleCount > 5) {
           // Memory usage should not increase significantly over time
           const firstSample = summary.latestMetrics.estimatedMemoryUsage;
           const latestSample = summary.latestMetrics.estimatedMemoryUsage;
-          
+
           // Allow some variation but detect major leaks
           expect(latestSample).toBeLessThan(firstSample * 2);
         }
@@ -239,13 +224,10 @@ describe("Performance Benchmarks Tests", () => {
     test("should handle errors efficiently and recover quickly", async () => {
       const errorHandlingConfig = {
         errorTests: 8,
-        timeout: 30000
+        timeout: 30000,
       };
 
-      const benchmark = await performanceMonitor.runPerformanceBenchmark(
-        deployedProcesses,
-        errorHandlingConfig
-      );
+      const benchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, errorHandlingConfig);
 
       const errorTest = benchmark.tests.find(test => test.type === "error_handling");
       expect(errorTest).toBeDefined();
@@ -256,7 +238,7 @@ describe("Performance Benchmarks Tests", () => {
       expect(errorTest.metrics.overallErrorResponseTime).toBeLessThan(2000); // Error handling under 2s
 
       // Check individual process error handling
-      for (const [processName, result] of Object.entries(errorTest.results)) {
+      for (const [_processName, result] of Object.entries(errorTest.results)) {
         expect(result.recoveryRate).toBeGreaterThan(70); // Individual 70% recovery
         expect(result.meetsRecoveryBaseline).toBe(true);
       }
@@ -269,13 +251,10 @@ describe("Performance Benchmarks Tests", () => {
 
       // Then test normal performance
       const performanceConfig = { responseTimeIterations: 10 };
-      const benchmark = await performanceMonitor.runPerformanceBenchmark(
-        deployedProcesses,
-        performanceConfig
-      );
+      const benchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, performanceConfig);
 
       const responseTimeTest = benchmark.tests.find(test => test.type === "response_time");
-      
+
       // Performance should still be acceptable after error handling
       expect(responseTimeTest.metrics.overallAverageResponseTime).toBeLessThan(2000);
       expect(responseTimeTest.metrics.overallSuccessRate).toBeGreaterThan(90);
@@ -287,13 +266,10 @@ describe("Performance Benchmarks Tests", () => {
       const concurrentConfig = {
         concurrentUsers: 8,
         messagesPerUser: 8,
-        timeout: 45000
+        timeout: 45000,
       };
 
-      const benchmark = await performanceMonitor.runPerformanceBenchmark(
-        deployedProcesses,
-        concurrentConfig
-      );
+      const benchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, concurrentConfig);
 
       const concurrentTest = benchmark.tests.find(test => test.type === "concurrent_load");
       expect(concurrentTest).toBeDefined();
@@ -304,7 +280,7 @@ describe("Performance Benchmarks Tests", () => {
       expect(concurrentTest.metrics.overallMessagesPerSecond).toBeGreaterThan(20); // Minimum throughput
 
       // Check individual process concurrent handling
-      for (const [processName, result] of Object.entries(concurrentTest.results)) {
+      for (const [_processName, result] of Object.entries(concurrentTest.results)) {
         expect(result.successRate).toBeGreaterThan(80);
         expect(result.averageResponseTime).toBeLessThan(3000); // Allow higher response time under load
       }
@@ -314,31 +290,25 @@ describe("Performance Benchmarks Tests", () => {
       // Test with lower load first
       const lowLoadConfig = {
         concurrentUsers: 3,
-        messagesPerUser: 5
+        messagesPerUser: 5,
       };
 
-      const lowLoadBenchmark = await performanceMonitor.runPerformanceBenchmark(
-        deployedProcesses,
-        lowLoadConfig
-      );
+      const lowLoadBenchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, lowLoadConfig);
 
       // Test with higher load
       const highLoadConfig = {
         concurrentUsers: 10,
-        messagesPerUser: 8
+        messagesPerUser: 8,
       };
 
-      const highLoadBenchmark = await performanceMonitor.runPerformanceBenchmark(
-        deployedProcesses,
-        highLoadConfig
-      );
+      const highLoadBenchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, highLoadConfig);
 
       const lowLoadTest = lowLoadBenchmark.tests.find(test => test.type === "concurrent_load");
       const highLoadTest = highLoadBenchmark.tests.find(test => test.type === "concurrent_load");
 
       // Performance should degrade gracefully under higher load
-      const performanceDegradation = 
-        (lowLoadTest.metrics.overallSuccessRate - highLoadTest.metrics.overallSuccessRate) / 
+      const performanceDegradation =
+        (lowLoadTest.metrics.overallSuccessRate - highLoadTest.metrics.overallSuccessRate) /
         lowLoadTest.metrics.overallSuccessRate;
 
       expect(performanceDegradation).toBeLessThan(0.3); // Less than 30% degradation
@@ -354,13 +324,10 @@ describe("Performance Benchmarks Tests", () => {
         memorySamples: 10,
         errorTests: 5,
         concurrentUsers: 5,
-        messagesPerUser: 5
+        messagesPerUser: 5,
       };
 
-      const benchmark = await performanceMonitor.runPerformanceBenchmark(
-        deployedProcesses,
-        fullBenchmarkConfig
-      );
+      const benchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, fullBenchmarkConfig);
 
       const baselineComparison = benchmark.tests.find(test => test.type === "baseline_comparison");
       expect(baselineComparison).toBeDefined();
@@ -371,7 +338,7 @@ describe("Performance Benchmarks Tests", () => {
       expect(Object.keys(baselineComparison.comparisons)).toHaveLength(5); // 5 test types compared
 
       // Check individual test scores
-      for (const [testType, comparison] of Object.entries(baselineComparison.comparisons)) {
+      for (const [_testType, comparison] of Object.entries(baselineComparison.comparisons)) {
         expect(comparison.score).toBeGreaterThan(60); // Minimum 60% per test
         expect(comparison.testName).toBeDefined();
       }
@@ -379,9 +346,9 @@ describe("Performance Benchmarks Tests", () => {
 
     test("should generate performance report with recommendations", async () => {
       // Run a benchmark to generate data
-      const benchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, {
+      const _benchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, {
         responseTimeIterations: 8,
-        throughputDuration: 8000
+        throughputDuration: 8000,
       });
 
       // Generate performance report
@@ -391,8 +358,14 @@ describe("Performance Benchmarks Tests", () => {
       expect(reports.htmlReport).toBeDefined();
 
       // Verify report files exist
-      const jsonReportExists = await fs.access(reports.jsonReport).then(() => true).catch(() => false);
-      const htmlReportExists = await fs.access(reports.htmlReport).then(() => true).catch(() => false);
+      const jsonReportExists = await fs
+        .access(reports.jsonReport)
+        .then(() => true)
+        .catch(() => false);
+      const htmlReportExists = await fs
+        .access(reports.htmlReport)
+        .then(() => true)
+        .catch(() => false);
 
       expect(jsonReportExists).toBe(true);
       expect(htmlReportExists).toBe(true);
@@ -415,14 +388,14 @@ describe("Performance Benchmarks Tests", () => {
       // Generate some load while monitoring
       const loadPromises = Array.from({ length: 5 }, async (_, i) => {
         await new Promise(resolve => setTimeout(resolve, i * 1000));
-        
-        for (const [processName, processInfo] of deployedProcesses) {
+
+        for (const [_processName, processInfo] of deployedProcesses) {
           try {
             await performanceMonitor.aoliteFramework.sendMessage(processInfo.processId, {
               Action: "HealthCheck",
-              Data: { monitoringTest: true }
+              Data: { monitoringTest: true },
             });
-          } catch (error) {
+          } catch (_error) {
             // Continue on errors
           }
         }
@@ -435,10 +408,10 @@ describe("Performance Benchmarks Tests", () => {
 
       // Verify metrics were collected
       const realTimeMetrics = performanceMonitor.getRealTimeMetricsSummary();
-      
+
       expect(Object.keys(realTimeMetrics)).toHaveLength(deployedProcesses.size);
-      
-      for (const [processName, summary] of Object.entries(realTimeMetrics)) {
+
+      for (const [_processName, summary] of Object.entries(realTimeMetrics)) {
         expect(summary.sampleCount).toBeGreaterThan(0);
         expect(summary.latestMetrics).toBeDefined();
         expect(summary.timeRange.start).toBeLessThan(summary.timeRange.end);
@@ -450,23 +423,23 @@ describe("Performance Benchmarks Tests", () => {
     test("should detect performance regressions", async () => {
       // Run baseline benchmark
       const baselineBenchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, {
-        responseTimeIterations: 5
+        responseTimeIterations: 5,
       });
 
       // Simulate performance regression by adding artificial delay
       // (In a real test, this would be a code change that causes regression)
-      
-      // Run comparison benchmark  
+
+      // Run comparison benchmark
       const regressionBenchmark = await performanceMonitor.runPerformanceBenchmark(deployedProcesses, {
-        responseTimeIterations: 5
+        responseTimeIterations: 5,
       });
 
       // Compare results (simplified regression detection)
-      const baselineResponseTime = baselineBenchmark.tests
-        .find(t => t.type === "response_time")?.metrics?.overallAverageResponseTime || 0;
-      
-      const regressionResponseTime = regressionBenchmark.tests
-        .find(t => t.type === "response_time")?.metrics?.overallAverageResponseTime || 0;
+      const baselineResponseTime =
+        baselineBenchmark.tests.find(t => t.type === "response_time")?.metrics?.overallAverageResponseTime || 0;
+
+      const regressionResponseTime =
+        regressionBenchmark.tests.find(t => t.type === "response_time")?.metrics?.overallAverageResponseTime || 0;
 
       // Both benchmarks should be reasonable (no major regression in this test)
       expect(regressionResponseTime).toBeLessThan(baselineResponseTime * 2); // Less than 2x slower
@@ -484,7 +457,7 @@ async function createPerformanceTestProcesses() {
   const testProcesses = {
     "coordinator-process.lua": createCoordinatorProcess(),
     "data-process.lua": createDataProcess(),
-    "logic-process.lua": createLogicProcess()
+    "logic-process.lua": createLogicProcess(),
   };
 
   for (const [filename, content] of Object.entries(testProcesses)) {
@@ -499,34 +472,34 @@ async function deployTestProcesses() {
       processType: "coordinator",
       processPath: path.join(process.cwd(), "processes/coordinator-process.lua"),
       maxSize: 500000,
-      requiredHandlers: ["Info", "HealthCheck", "ProcessLogic"]
+      requiredHandlers: ["Info", "HealthCheck", "ProcessLogic"],
     },
     {
       processType: "data",
       processPath: path.join(process.cwd(), "processes/data-process.lua"),
       maxSize: 450000,
-      requiredHandlers: ["Info", "HealthCheck", "QueryData"]
+      requiredHandlers: ["Info", "HealthCheck", "QueryData"],
     },
     {
       processType: "logic",
       processPath: path.join(process.cwd(), "processes/logic-process.lua"),
       maxSize: 500000,
-      requiredHandlers: ["Info", "HealthCheck", "ProcessLogic"]
-    }
+      requiredHandlers: ["Info", "HealthCheck", "ProcessLogic"],
+    },
   ];
 
   const processDeployer = new ProcessDeployer();
   await processDeployer.initialize();
 
   const deploymentResults = await processDeployer.deployMultipleProcesses(processConfigs);
-  
+
   const deployedProcesses = new Map();
   for (const result of deploymentResults) {
     if (result.status === "deployed") {
       deployedProcesses.set(result.processName, {
         processId: result.processId,
         processName: result.processName,
-        processType: result.processType
+        processType: result.processType,
       });
     }
   }
@@ -535,8 +508,12 @@ async function deployTestProcesses() {
 }
 
 function getProcessType(processName) {
-  if (processName.includes("coordinator")) return "coordinator";
-  if (processName.includes("data")) return "dataProcess";
+  if (processName.includes("coordinator")) {
+    return "coordinator";
+  }
+  if (processName.includes("data")) {
+    return "dataProcess";
+  }
   return "logicProcess";
 }
 

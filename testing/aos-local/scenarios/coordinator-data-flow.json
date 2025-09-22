@@ -2,15 +2,12 @@
   "id": "coordinator-data-flow",
   "name": "Coordinator to Data Process Flow",
   "description": "Test message flow from coordinator to data processes",
-  "requiredProcesses": [
-    "coordinator-process.lua",
-    "pokemon-species-data.lua"
-  ],
+  "requiredProcesses": ["coordinator-process.lua", "pokemon-species-db.lua"],
   "steps": [
     {
       "name": "Send species query",
       "type": "send_message",
-      "targetProcess": "pokemon-species-data",
+      "targetProcess": "pokemon-species-db",
       "action": "QuerySpecies",
       "data": {
         "speciesId": 1
@@ -19,7 +16,7 @@
     {
       "name": "Wait for species data",
       "type": "wait_for_response",
-      "fromProcess": "pokemon-species-data",
+      "fromProcess": "pokemon-species-db",
       "expectedAction": "SpeciesData",
       "timeout": 2000
     },
@@ -29,10 +26,7 @@
       "description": "Ensure species data is correct",
       "expectedState": {
         "name": "Bulbasaur",
-        "types": [
-          "Grass",
-          "Poison"
-        ]
+        "types": ["Grass", "Poison"]
       }
     }
   ],

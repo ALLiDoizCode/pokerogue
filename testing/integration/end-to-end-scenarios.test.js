@@ -3,12 +3,12 @@
  * Comprehensive end-to-end testing for complete game workflows
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "@jest/globals";
-import path from "path";
 import fs from "fs/promises";
-import { ScenarioExecutor } from "../aos-local/scenario-executor.js";
+import path from "path";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "@jest/globals";
 import { IntegrationEnvironmentConfig } from "../../development-tools/integration-testing/environment-config.js";
-import { testScenarios, scenarioConfigs, validationRules } from "../fixtures/test-scenarios.js";
+import { ScenarioExecutor } from "../aos-local/scenario-executor.js";
+import { scenarioConfigs, testScenarios, validationRules } from "../fixtures/test-scenarios.js";
 
 describe("End-to-End Scenario Tests", () => {
   let scenarioExecutor;
@@ -22,12 +22,12 @@ describe("End-to-End Scenario Tests", () => {
 
     // Initialize environment
     environmentConfig = new IntegrationEnvironmentConfig({
-      workspaceDir: tempDir
+      workspaceDir: tempDir,
     });
 
     scenarioExecutor = new ScenarioExecutor({
       tempDir,
-      scenariosDir: path.join(tempDir, "scenarios")
+      scenariosDir: path.join(tempDir, "scenarios"),
     });
 
     // Initialize components
@@ -58,14 +58,14 @@ describe("End-to-End Scenario Tests", () => {
   describe("Basic Process Communication", () => {
     test("should execute basic process communication scenario", async () => {
       const scenario = testScenarios.basicProcessCommunication;
-      
+
       const result = await scenarioExecutor.executeScenario(scenario);
 
       expect(result.status).toBe("passed");
       expect(result.errors).toHaveLength(0);
       expect(result.steps).toHaveLength(3);
       expect(result.duration).toBeLessThan(scenario.timeout);
-      
+
       // Verify all steps completed successfully
       const failedSteps = result.steps.filter(step => step.status === "failed");
       expect(failedSteps).toHaveLength(0);
@@ -89,15 +89,15 @@ describe("End-to-End Scenario Tests", () => {
             type: "send_message",
             target: "pokemon-species-data",
             action: "QuerySpecies",
-            data: { speciesId: 1 }
+            data: { speciesId: 1 },
           },
           {
             type: "wait_for_response",
             source: "pokemon-species-data",
             expectedAction: "NonExistentResponse", // This should timeout
-            timeout: 2000 // Short timeout
-          }
-        ]
+            timeout: 2000, // Short timeout
+          },
+        ],
       };
 
       const result = await scenarioExecutor.executeScenario(timeoutScenario);
@@ -110,7 +110,7 @@ describe("End-to-End Scenario Tests", () => {
   describe("Complete Game Workflow", () => {
     test("should execute complete game workflow scenario", async () => {
       const scenario = testScenarios.completeGameWorkflow;
-      
+
       const result = await scenarioExecutor.executeScenario(scenario);
 
       expect(result.status).toBe("passed");
@@ -159,15 +159,15 @@ describe("End-to-End Scenario Tests", () => {
                 from: "coordinator-process",
                 to: "pokemon-species-data",
                 action: "QuerySpecies",
-                data: { speciesId: 6 } // Charizard
+                data: { speciesId: 6 }, // Charizard
               },
               {
                 from: "coordinator-process",
                 to: "move-data",
                 action: "QueryMove",
-                data: { moveId: 52 } // Ember
-              }
-            ]
+                data: { moveId: 52 }, // Ember
+              },
+            ],
           },
           {
             type: "data_consistency_check",
@@ -177,11 +177,11 @@ describe("End-to-End Scenario Tests", () => {
                 source: "pokemon-species-data",
                 target: "move-data",
                 query: "GetDataVersion",
-                compareFields: ["version"]
-              }
-            ]
-          }
-        ]
+                compareFields: ["version"],
+              },
+            ],
+          },
+        ],
       };
 
       const result = await scenarioExecutor.executeScenario(consistencyScenario);
@@ -197,7 +197,7 @@ describe("End-to-End Scenario Tests", () => {
   describe("Error Handling Validation", () => {
     test("should handle and recover from errors gracefully", async () => {
       const scenario = testScenarios.errorHandlingValidation;
-      
+
       const result = await scenarioExecutor.executeScenario(scenario);
 
       expect(result.status).toBe("passed");
@@ -209,11 +209,9 @@ describe("End-to-End Scenario Tests", () => {
 
       // Verify processes recovered from errors
       expect(result.validation.success).toBe(true);
-      
+
       // Check that final messages were processed successfully after errors
-      const finalMessageStep = result.steps.find(step => 
-        step.stepName === "Send valid message after errors"
-      );
+      const finalMessageStep = result.steps.find(step => step.stepName === "Send valid message after errors");
       expect(finalMessageStep).toBeDefined();
       expect(finalMessageStep.status).toBe("completed");
     }, 60000);
@@ -231,22 +229,22 @@ describe("End-to-End Scenario Tests", () => {
             name: `Error injection ${i + 1}`,
             target: "pokemon-species-data",
             errorType: "invalid_message",
-            critical: false // Don't fail scenario on these errors
+            critical: false, // Don't fail scenario on these errors
           })),
           {
             type: "send_message",
             name: "Send valid message after errors",
             target: "pokemon-species-data",
             action: "HealthCheck",
-            data: {}
-          }
-        ]
+            data: {},
+          },
+        ],
       };
 
       const result = await scenarioExecutor.executeScenario(stabilityScenario);
 
       expect(result.status).toBe("passed");
-      
+
       // Verify the final valid message was processed successfully
       const finalStep = result.steps[result.steps.length - 1];
       expect(finalStep.status).toBe("completed");
@@ -256,7 +254,7 @@ describe("End-to-End Scenario Tests", () => {
   describe("Performance Validation", () => {
     test("should meet performance requirements under load", async () => {
       const scenario = testScenarios.performanceStressTesting;
-      
+
       const result = await scenarioExecutor.executeScenario(scenario);
 
       expect(result.status).toBe("passed");
@@ -268,7 +266,7 @@ describe("End-to-End Scenario Tests", () => {
       expect(performanceStep.status).toBe("completed");
 
       // Check response times are within limits
-      for (const [target, metrics] of Object.entries(performanceStep.metrics)) {
+      for (const [_target, metrics] of Object.entries(performanceStep.metrics)) {
         expect(metrics.responseTime).toBeLessThan(metrics.threshold);
         expect(metrics.passed).toBe(true);
       }
@@ -293,28 +291,28 @@ describe("End-to-End Scenario Tests", () => {
               from: "coordinator-process",
               to: "pokemon-species-data",
               action: "QuerySpecies",
-              data: { speciesId: i + 1 }
-            }))
+              data: { speciesId: i + 1 },
+            })),
           },
           {
             type: "custom_validation",
             name: "Check memory usage",
-            validator: async (context) => {
+            validator: async context => {
               const stats = await context.aoliteFramework.getStatistics();
               return {
                 valid: stats.processCount <= 10, // Reasonable process count
                 error: stats.processCount > 10 ? "Too many processes running" : null,
-                details: { processCount: stats.processCount }
+                details: { processCount: stats.processCount },
               };
-            }
-          }
-        ]
+            },
+          },
+        ],
       };
 
       const result = await scenarioExecutor.executeScenario(memoryScenario);
 
       expect(result.status).toBe("passed");
-      
+
       const memoryStep = result.steps.find(step => step.stepName === "Check memory usage");
       expect(memoryStep.status).toBe("completed");
     }, 35000);
@@ -323,7 +321,7 @@ describe("End-to-End Scenario Tests", () => {
   describe("Data Synchronization", () => {
     test("should maintain data synchronization across processes", async () => {
       const scenario = testScenarios.dataSynchronizationTest;
-      
+
       const result = await scenarioExecutor.executeScenario(scenario);
 
       expect(result.status).toBe("passed");
@@ -337,7 +335,7 @@ describe("End-to-End Scenario Tests", () => {
       // Verify data consistency checks passed
       const consistencySteps = result.steps.filter(step => step.stepType === "data_consistency_check");
       expect(consistencySteps.length).toBe(2);
-      
+
       for (const step of consistencySteps) {
         expect(step.status).toBe("completed");
         expect(step.consistentChecks).toBe(step.totalChecks);
@@ -351,7 +349,7 @@ describe("End-to-End Scenario Tests", () => {
       const results = [];
 
       for (const scenarioId of quickConfig.scenarios) {
-        const scenario = testScenarios[scenarioId.replace(/-/g, '')];
+        const scenario = testScenarios[scenarioId.replace(/-/g, "")];
         if (scenario) {
           const result = await scenarioExecutor.executeScenario(scenario);
           results.push(result);
@@ -370,7 +368,7 @@ describe("End-to-End Scenario Tests", () => {
       const results = [];
 
       for (const scenarioId of performanceConfig.scenarios) {
-        const scenarioKey = scenarioId.replace(/-/g, '');
+        const scenarioKey = scenarioId.replace(/-/g, "");
         const scenario = testScenarios[scenarioKey];
         if (scenario) {
           const result = await scenarioExecutor.executeScenario(scenario);
@@ -389,10 +387,7 @@ describe("End-to-End Scenario Tests", () => {
   describe("Scenario Execution Summary", () => {
     test("should provide comprehensive execution summary", async () => {
       // Execute a few scenarios to generate summary data
-      const scenarios = [
-        testScenarios.basicProcessCommunication,
-        testScenarios.errorHandlingValidation
-      ];
+      const scenarios = [testScenarios.basicProcessCommunication, testScenarios.errorHandlingValidation];
 
       for (const scenario of scenarios) {
         await scenarioExecutor.executeScenario(scenario);
@@ -413,7 +408,7 @@ describe("End-to-End Scenario Tests", () => {
 /**
  * Create test process files for scenario testing
  */
-async function createTestProcessFiles(tempDir) {
+async function createTestProcessFiles(_tempDir) {
   const processesDir = path.join(process.cwd(), "processes");
   await fs.mkdir(processesDir, { recursive: true });
 
@@ -564,7 +559,7 @@ async function createTestProcessFiles(tempDir) {
           }
         })
       end)
-    `
+    `,
   };
 
   for (const [filename, content] of Object.entries(testProcesses)) {

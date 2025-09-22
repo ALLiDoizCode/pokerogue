@@ -9,7 +9,7 @@ import path from "path";
 import { promisify } from "util";
 import chalk from "chalk";
 
-const execAsync = promisify(exec);
+const _execAsync = promisify(exec);
 
 export class PerformanceBenchmarkFramework {
   constructor(options = {}) {

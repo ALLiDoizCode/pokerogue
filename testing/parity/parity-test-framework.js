@@ -274,7 +274,7 @@ export class ParityTestFramework {
   /**
    * Perform statistical analysis for RNG-dependent scenarios
    */
-  async performStatisticalAnalysis(testResult, scenario) {
+  async performStatisticalAnalysis(_testResult, _scenario) {
     // Placeholder for statistical analysis
     return {
       analysisType: "variance_comparison",

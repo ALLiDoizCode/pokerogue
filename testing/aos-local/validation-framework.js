@@ -23,7 +23,7 @@ export class ValidationFramework {
       size: {
         maxSize: 500000, // 500KB
         warningThreshold: 450000, // 450KB (90% of max)
-        critical: true
+        critical: true,
       },
       aoCompatibility: {
         forbiddenPatterns: [
@@ -33,38 +33,33 @@ export class ValidationFramework {
           { pattern: /debug\./g, error: "debug library not available in AO", critical: true },
           { pattern: /package\./g, error: "package operations not allowed", critical: true },
           { pattern: /loadfile\s*\(/g, error: "loadfile() not allowed in AO", critical: true },
-          { pattern: /dofile\s*\(/g, error: "dofile() not allowed in AO", critical: true }
+          { pattern: /dofile\s*\(/g, error: "dofile() not allowed in AO", critical: true },
         ],
         requiredPatterns: [
           { pattern: /Handlers\.add\s*\(/g, error: "Process must use Handlers.add() pattern", critical: true },
-          { pattern: /ao\.send\s*\(/g, error: "Process must use ao.send for responses", critical: true }
-        ]
+          { pattern: /ao\.send\s*\(/g, error: "Process must use ao.send for responses", critical: true },
+        ],
       },
       handlerPatterns: {
         requiredHandlers: ["Info"], // ADP v1.0 requirement
         handlerNamingPattern: /^[A-Z][a-zA-Z0-9]*$/,
-        errorHandlingRequired: true
+        errorHandlingRequired: true,
       },
       adpCompliance: {
         version: "1.0",
-        requiredStructures: [
-          "adpVersion",
-          "capabilities", 
-          "messageSchemas",
-          "handlers"
-        ],
-        selfDocumenting: true
+        requiredStructures: ["adpVersion", "capabilities", "messageSchemas", "handlers"],
+        selfDocumenting: true,
       },
       securityValidation: {
         noHardcodedSecrets: true,
         noEvalStatements: true,
-        noUnsafeOperations: true
+        noUnsafeOperations: true,
       },
       codeQuality: {
         maxComplexity: 100, // Rough cyclomatic complexity limit
         maxFunctionLength: 1000, // Max lines per function
-        requireErrorHandling: true
-      }
+        requireErrorHandling: true,
+      },
     };
   }
 
@@ -79,14 +74,14 @@ export class ValidationFramework {
       validationResults: {},
       errors: [],
       warnings: [],
-      metrics: {}
+      metrics: {},
     };
 
     try {
       // Read process content
       const processContent = await fs.readFile(processPath, "utf8");
       validation.metrics.contentLength = processContent.length;
-      validation.metrics.linesOfCode = processContent.split('\n').length;
+      validation.metrics.linesOfCode = processContent.split("\n").length;
 
       // Run all validation checks
       const validationChecks = [
@@ -97,24 +92,24 @@ export class ValidationFramework {
         { name: "securityValidation", fn: () => this.validateSecurity(processContent) },
         { name: "codeQuality", fn: () => this.validateCodeQuality(processContent) },
         { name: "processStructure", fn: () => this.validateProcessStructure(processContent) },
-        { name: "performanceOptimization", fn: () => this.validatePerformanceOptimization(processContent) }
+        { name: "performanceOptimization", fn: () => this.validatePerformanceOptimization(processContent) },
       ];
 
       for (const check of validationChecks) {
         try {
           const result = await check.fn();
           validation.validationResults[check.name] = result;
-          
+
           if (!result.valid) {
             validation.overallValid = false;
             validation.errors.push(...(result.errors || []));
           }
-          
+
           validation.warnings.push(...(result.warnings || []));
         } catch (error) {
           validation.validationResults[check.name] = {
             valid: false,
-            error: error.message
+            error: error.message,
           };
           validation.overallValid = false;
           validation.errors.push(`${check.name} validation failed: ${error.message}`);
@@ -123,14 +118,15 @@ export class ValidationFramework {
 
       // Calculate validation score
       validation.metrics.validationScore = this.calculateValidationScore(validation.validationResults);
-      
-      console.log(chalk[validation.overallValid ? "green" : "red"](
-        `  ${validation.overallValid ? "✅" : "❌"} Bundle validation: ${path.basename(processPath)} - ${validation.overallValid ? "VALID" : "INVALID"} (${validation.metrics.validationScore}%)`
-      ));
+
+      console.log(
+        chalk[validation.overallValid ? "green" : "red"](
+          `  ${validation.overallValid ? "✅" : "❌"} Bundle validation: ${path.basename(processPath)} - ${validation.overallValid ? "VALID" : "INVALID"} (${validation.metrics.validationScore}%)`,
+        ),
+      );
 
       this.validationResults.push(validation);
       return validation;
-
     } catch (error) {
       validation.overallValid = false;
       validation.errors.push(`Validation failed: ${error.message}`);
@@ -142,16 +138,16 @@ export class ValidationFramework {
   /**
    * Validate process size
    */
-  validateSize(processContent, processPath) {
+  validateSize(processContent, _processPath) {
     const size = Buffer.byteLength(processContent, "utf8");
     const rules = this.validationRules.size;
-    
+
     const result = {
       valid: size <= rules.maxSize,
       size,
       maxSize: rules.maxSize,
       warnings: [],
-      errors: []
+      errors: [],
     };
 
     if (size > rules.maxSize) {
@@ -164,7 +160,7 @@ export class ValidationFramework {
     result.metrics = {
       sizeKB: (size / 1024).toFixed(2),
       percentOfLimit: ((size / rules.maxSize) * 100).toFixed(1),
-      compressionPotential: this.estimateCompressionPotential(processContent)
+      compressionPotential: this.estimateCompressionPotential(processContent),
     };
 
     return result;
@@ -180,7 +176,7 @@ export class ValidationFramework {
       errors: [],
       warnings: [],
       forbiddenPatternMatches: [],
-      missingRequiredPatterns: []
+      missingRequiredPatterns: [],
     };
 
     // Check forbidden patterns
@@ -188,7 +184,7 @@ export class ValidationFramework {
       const matches = [...processContent.matchAll(pattern)];
       if (matches.length > 0) {
         result.forbiddenPatternMatches.push({ pattern: pattern.source, matches: matches.length, error });
-        
+
         if (critical) {
           result.valid = false;
           result.errors.push(`${error} (${matches.length} occurrences)`);
@@ -203,7 +199,7 @@ export class ValidationFramework {
       const matches = [...processContent.matchAll(pattern)];
       if (matches.length === 0) {
         result.missingRequiredPatterns.push({ pattern: pattern.source, error });
-        
+
         if (critical) {
           result.valid = false;
           result.errors.push(error);
@@ -226,7 +222,7 @@ export class ValidationFramework {
       errors: [],
       warnings: [],
       foundHandlers: [],
-      missingHandlers: []
+      missingHandlers: [],
     };
 
     // Extract handler registrations
@@ -235,10 +231,7 @@ export class ValidationFramework {
     result.foundHandlers = handlerMatches.map(match => match[1]);
 
     // Check required handlers
-    const requiredHandlers = [
-      ...rules.requiredHandlers,
-      ...(config.requiredHandlers || [])
-    ];
+    const requiredHandlers = [...rules.requiredHandlers, ...(config.requiredHandlers || [])];
 
     for (const handler of requiredHandlers) {
       if (!result.foundHandlers.includes(handler)) {
@@ -259,7 +252,7 @@ export class ValidationFramework {
     if (rules.errorHandlingRequired) {
       const pcallPattern = /pcall\s*\(/g;
       const pcallMatches = [...processContent.matchAll(pcallPattern)];
-      
+
       if (pcallMatches.length === 0) {
         result.warnings.push("No error handling (pcall) detected in process");
       }
@@ -279,7 +272,7 @@ export class ValidationFramework {
       errors: [],
       warnings: [],
       foundStructures: [],
-      missingStructures: []
+      missingStructures: [],
     };
 
     // Check for ADP version declaration
@@ -323,7 +316,7 @@ export class ValidationFramework {
       valid: true,
       errors: [],
       warnings: [],
-      securityIssues: []
+      securityIssues: [],
     };
 
     // Check for hardcoded secrets/keys
@@ -332,7 +325,7 @@ export class ValidationFramework {
         /["'][a-zA-Z0-9]{32,}["']/g, // Potential API keys
         /password\s*=\s*["'][^"']+["']/gi,
         /secret\s*=\s*["'][^"']+["']/gi,
-        /key\s*=\s*["'][^"']+["']/gi
+        /key\s*=\s*["'][^"']+["']/gi,
       ];
 
       for (const pattern of secretPatterns) {
@@ -341,7 +334,7 @@ export class ValidationFramework {
           result.securityIssues.push({
             type: "potential_hardcoded_secret",
             matches: matches.length,
-            pattern: pattern.source
+            pattern: pattern.source,
           });
           result.warnings.push(`Potential hardcoded secret detected (${matches.length} matches)`);
         }
@@ -357,7 +350,7 @@ export class ValidationFramework {
         result.errors.push(`eval() statements detected (${evalMatches.length} occurrences) - security risk`);
         result.securityIssues.push({
           type: "eval_statement",
-          matches: evalMatches.length
+          matches: evalMatches.length,
         });
       }
     }
@@ -367,7 +360,7 @@ export class ValidationFramework {
       const unsafePatterns = [
         { pattern: /loadstring\s*\(/g, error: "loadstring() is unsafe" },
         { pattern: /setfenv\s*\(/g, error: "setfenv() can be unsafe" },
-        { pattern: /rawget\s*\(/g, error: "rawget() bypasses metamethods - potential security risk" }
+        { pattern: /rawget\s*\(/g, error: "rawget() bypasses metamethods - potential security risk" },
       ];
 
       for (const { pattern, error } of unsafePatterns) {
@@ -377,13 +370,14 @@ export class ValidationFramework {
           result.securityIssues.push({
             type: "unsafe_operation",
             operation: pattern.source,
-            matches: matches.length
+            matches: matches.length,
           });
         }
       }
     }
 
-    result.securityScore = result.securityIssues.length === 0 ? 100 : Math.max(0, 100 - (result.securityIssues.length * 10));
+    result.securityScore =
+      result.securityIssues.length === 0 ? 100 : Math.max(0, 100 - result.securityIssues.length * 10);
     return result;
   }
 
@@ -396,18 +390,11 @@ export class ValidationFramework {
       valid: true,
       errors: [],
       warnings: [],
-      metrics: {}
+      metrics: {},
     };
 
     // Estimate cyclomatic complexity (rough approximation)
-    const complexityIndicators = [
-      /\bif\b/g,
-      /\bwhile\b/g,
-      /\bfor\b/g,
-      /\band\b/g,
-      /\bor\b/g,
-      /\belseif\b/g
-    ];
+    const complexityIndicators = [/\bif\b/g, /\bwhile\b/g, /\bfor\b/g, /\band\b/g, /\bor\b/g, /\belseif\b/g];
 
     let totalComplexity = 1; // Base complexity
     for (const pattern of complexityIndicators) {
@@ -422,21 +409,22 @@ export class ValidationFramework {
     }
 
     // Check function lengths (rough approximation)
-    const functionPattern = /function\s+\w+\s*\([^)]*\)(.*?)(?=function|\z)/gs;
+    const functionPattern = /function\s+\w+\s*\([^)]*\)(.*?)(?=function|z)/gs;
     const functions = [...processContent.matchAll(functionPattern)];
     let longFunctions = 0;
 
     for (const func of functions) {
-      const lineCount = func[1].split('\n').length;
+      const lineCount = func[1].split("\n").length;
       if (lineCount > rules.maxFunctionLength) {
         longFunctions++;
       }
     }
 
     result.metrics.functionCount = functions.length;
-    result.metrics.averageFunctionLength = functions.length > 0 
-      ? functions.reduce((sum, func) => sum + func[1].split('\n').length, 0) / functions.length 
-      : 0;
+    result.metrics.averageFunctionLength =
+      functions.length > 0
+        ? functions.reduce((sum, func) => sum + func[1].split("\n").length, 0) / functions.length
+        : 0;
 
     if (longFunctions > 0) {
       result.warnings.push(`${longFunctions} functions exceed length threshold of ${rules.maxFunctionLength} lines`);
@@ -444,11 +432,7 @@ export class ValidationFramework {
 
     // Check for error handling
     if (rules.requireErrorHandling) {
-      const errorHandlingPatterns = [
-        /pcall\s*\(/g,
-        /xpcall\s*\(/g,
-        /\berror\s*\(/g
-      ];
+      const errorHandlingPatterns = [/pcall\s*\(/g, /xpcall\s*\(/g, /\berror\s*\(/g];
 
       let errorHandlingFound = false;
       for (const pattern of errorHandlingPatterns) {
@@ -475,7 +459,7 @@ export class ValidationFramework {
       valid: true,
       errors: [],
       warnings: [],
-      structure: {}
+      structure: {},
     };
 
     // Check for proper module structure
@@ -489,7 +473,7 @@ export class ValidationFramework {
       hasHandlers,
       hasUtilityFunctions,
       hasConstants,
-      estimatedSections: this.countCodeSections(processContent)
+      estimatedSections: this.countCodeSections(processContent),
     };
 
     // Validate structure requirements
@@ -513,7 +497,7 @@ export class ValidationFramework {
       valid: true,
       errors: [],
       warnings: [],
-      optimizations: {}
+      optimizations: {},
     };
 
     // Check for potential performance issues
@@ -522,26 +506,26 @@ export class ValidationFramework {
         name: "string_concatenation",
         pattern: /\.\./g,
         threshold: 10,
-        warning: "Excessive string concatenation detected - consider using table.concat"
+        warning: "Excessive string concatenation detected - consider using table.concat",
       },
       {
         name: "global_variables",
         pattern: /\b[a-z]\w*\s*=/g,
         threshold: 20,
-        warning: "Many global variables detected - prefer local variables"
+        warning: "Many global variables detected - prefer local variables",
       },
       {
         name: "nested_loops",
         pattern: /for.*for/gs,
         threshold: 5,
-        warning: "Nested loops detected - potential performance concern"
-      }
+        warning: "Nested loops detected - potential performance concern",
+      },
     ];
 
     for (const check of performanceChecks) {
       const matches = [...processContent.matchAll(check.pattern)];
       result.optimizations[check.name] = matches.length;
-      
+
       if (matches.length > check.threshold) {
         result.warnings.push(`${check.warning} (${matches.length} occurrences)`);
       }
@@ -550,7 +534,7 @@ export class ValidationFramework {
     // Check for optimization indicators
     const hasLocalCaching = /local\s+\w+\s*=\s*\w+\.\w+/.test(processContent);
     const hasTableReuse = /table\.insert|table\.remove/.test(processContent);
-    
+
     result.optimizations.hasLocalCaching = hasLocalCaching;
     result.optimizations.hasTableReuse = hasTableReuse;
 
@@ -571,7 +555,7 @@ export class ValidationFramework {
       handlerPatterns: 20,
       adpCompliance: 15,
       securityValidation: 10,
-      codeQuality: 10
+      codeQuality: 10,
     };
 
     let totalScore = 0;
@@ -593,20 +577,20 @@ export class ValidationFramework {
    */
   calculateQualityScore(metrics, longFunctions) {
     let score = 100;
-    
+
     // Penalize high complexity
     if (metrics.estimatedComplexity > 50) {
       score -= Math.min(30, (metrics.estimatedComplexity - 50) * 0.5);
     }
-    
+
     // Penalize long functions
     score -= longFunctions * 5;
-    
+
     // Bonus for reasonable function count
     if (metrics.functionCount > 0 && metrics.functionCount < 20) {
       score += 5;
     }
-    
+
     return Math.max(0, Math.round(score));
   }
 
@@ -615,10 +599,10 @@ export class ValidationFramework {
    */
   estimateCompressionPotential(content) {
     // Simple heuristic based on repetitive patterns
-    const lines = content.split('\n');
+    const lines = content.split("\n");
     const uniqueLines = new Set(lines);
-    const repetitionRatio = 1 - (uniqueLines.size / lines.length);
-    
+    const repetitionRatio = 1 - uniqueLines.size / lines.length;
+
     return Math.round(repetitionRatio * 100);
   }
 
@@ -633,7 +617,7 @@ export class ValidationFramework {
       /-- Handlers/gi,
       /-- Initialize/gi,
       /-- Utils/gi,
-      /-- Helper/gi
+      /-- Helper/gi,
     ];
 
     let sections = 0;
@@ -653,10 +637,9 @@ export class ValidationFramework {
     const total = this.validationResults.length;
     const valid = this.validationResults.filter(r => r.overallValid).length;
     const invalid = total - valid;
-    
-    const averageScore = total > 0 
-      ? this.validationResults.reduce((sum, r) => sum + (r.metrics?.validationScore || 0), 0) / total 
-      : 0;
+
+    const averageScore =
+      total > 0 ? this.validationResults.reduce((sum, r) => sum + (r.metrics?.validationScore || 0), 0) / total : 0;
 
     return {
       total,
@@ -664,7 +647,7 @@ export class ValidationFramework {
       invalid,
       successRate: total > 0 ? (valid / total) * 100 : 0,
       averageScore,
-      validationResults: this.validationResults
+      validationResults: this.validationResults,
     };
   }
 

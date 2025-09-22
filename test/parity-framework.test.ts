@@ -8,7 +8,7 @@ import path from "path";
 import { beforeAll, describe, expect, it } from "vitest";
 
 // Mock the ParityTestFramework since it's a JS module
-const mockParityResults = {
+const _mockParityResults = {
   total: 5,
   passed: 4,
   failed: 1,

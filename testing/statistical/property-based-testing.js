@@ -374,7 +374,7 @@ export class PropertyBasedTestingFramework {
    * Perform comprehensive statistical analysis
    */
   async performStatisticalAnalysis(expected, actual, scenario) {
-    const analysis = {
+    let analysis = {
       testType: "chi_square",
       confidenceLevel: this.confidenceLevel,
       tolerance: this.tolerances[scenario.category] || 0.05,
@@ -400,7 +400,7 @@ export class PropertyBasedTestingFramework {
   /**
    * Analyze probability-based distributions
    */
-  analyzeProbabilityDistribution(expected, actual, scenario) {
+  analyzeProbabilityDistribution(expected, actual, _scenario) {
     const expectedRate = expected.rate || expected.probability;
     const actualRate = actual.criticalRate || actual.captureRate || actual.applicationRate || actual.hitRate;
 
@@ -429,7 +429,7 @@ export class PropertyBasedTestingFramework {
   /**
    * Analyze continuous distributions (like damage variance)
    */
-  analyzeContinuousDistribution(expected, actual, scenario) {
+  analyzeContinuousDistribution(expected, actual, _scenario) {
     const expectedMean = expected.mean;
     const actualMean = actual.mean;
 
@@ -451,7 +451,7 @@ export class PropertyBasedTestingFramework {
   /**
    * Determine test status based on statistical analysis
    */
-  determineTestStatus(analysis, scenario) {
+  determineTestStatus(analysis, _scenario) {
     if (analysis.withinTolerance) {
       return "passed";
     }

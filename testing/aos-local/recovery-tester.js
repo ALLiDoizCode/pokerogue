@@ -21,7 +21,7 @@ export class RecoveryTester {
       totalFailures: 0,
       successfulRecoveries: 0,
       averageRecoveryTime: 0,
-      failureTypes: new Map()
+      failureTypes: new Map(),
     };
   }
 
@@ -30,13 +30,13 @@ export class RecoveryTester {
    */
   async initialize() {
     console.log(chalk.blue("🔄 Initializing recovery tester..."));
-    
+
     await this.aoliteFramework.initialize();
     await this.processDeployer.initialize();
-    
+
     // Ensure reports directory exists
     await fs.mkdir(this.reportsDir, { recursive: true });
-    
+
     console.log(chalk.green("✅ Recovery tester ready"));
   }
 
@@ -45,7 +45,7 @@ export class RecoveryTester {
    */
   async testProcessRestart(processes) {
     console.log(chalk.blue("🔄 Testing process restart and recovery..."));
-    
+
     const restartTest = {
       type: "process_restart",
       timestamp: new Date().toISOString(),
@@ -56,8 +56,8 @@ export class RecoveryTester {
         successfulRestarts: 0,
         failedRestarts: 0,
         averageRestartTime: 0,
-        averageRecoveryTime: 0
-      }
+        averageRecoveryTime: 0,
+      },
     };
 
     const restartTimes = [];
@@ -65,10 +65,10 @@ export class RecoveryTester {
 
     for (const [processName, processInfo] of processes) {
       console.log(chalk.yellow(`  🔄 Testing restart for ${processName}...`));
-      
+
       const restartResult = await this.testSingleProcessRestart(processName, processInfo);
       restartTest.processes.push(restartResult);
-      
+
       if (restartResult.success) {
         restartTest.metrics.successfulRestarts++;
         restartTimes.push(restartResult.restartTime);
@@ -81,21 +81,22 @@ export class RecoveryTester {
 
     // Calculate averages
     if (restartTimes.length > 0) {
-      restartTest.metrics.averageRestartTime = 
-        restartTimes.reduce((sum, time) => sum + time, 0) / restartTimes.length;
+      restartTest.metrics.averageRestartTime = restartTimes.reduce((sum, time) => sum + time, 0) / restartTimes.length;
     }
-    
+
     if (recoveryTimes.length > 0) {
-      restartTest.metrics.averageRecoveryTime = 
+      restartTest.metrics.averageRecoveryTime =
         recoveryTimes.reduce((sum, time) => sum + time, 0) / recoveryTimes.length;
     }
 
     this.recoveryResults.push(restartTest);
-    
-    console.log(chalk.green(
-      `✅ Process restart test completed: ${restartTest.metrics.successfulRestarts}/${restartTest.metrics.totalProcesses} successful`
-    ));
-    
+
+    console.log(
+      chalk.green(
+        `✅ Process restart test completed: ${restartTest.metrics.successfulRestarts}/${restartTest.metrics.totalProcesses} successful`,
+      ),
+    );
+
     return restartTest;
   }
 
@@ -104,12 +105,12 @@ export class RecoveryTester {
    */
   async testSingleProcessRestart(processName, processInfo) {
     const restartStart = Date.now();
-    
+
     try {
       // Step 1: Establish baseline state
       const baselineResponse = await this.aoliteFramework.sendMessage(processInfo.processId, {
         Action: "HealthCheck",
-        Data: { restartTest: true }
+        Data: { restartTest: true },
       });
 
       if (!baselineResponse?.success) {
@@ -119,16 +120,16 @@ export class RecoveryTester {
       // Step 2: Store some state data
       await this.aoliteFramework.sendMessage(processInfo.processId, {
         Action: "StoreTestState",
-        Data: { 
+        Data: {
           testData: "restart_test_data",
           timestamp: Date.now(),
-          processName: processName
-        }
+          processName: processName,
+        },
       });
 
       // Step 3: Simulate process restart
       const restartTime = await this.simulateProcessRestart(processInfo);
-      
+
       // Step 4: Wait for process to become responsive again
       const recoveryStart = Date.now();
       const recoveryResult = await this.waitForProcessRecovery(processInfo, 10000); // 10 second timeout
@@ -152,10 +153,9 @@ export class RecoveryTester {
           baselineHealthy: true,
           restartSuccessful: true,
           recoverySuccessful: recoveryResult.success,
-          statePersisted: stateVerification.persisted
-        }
+          statePersisted: stateVerification.persisted,
+        },
       };
-
     } catch (error) {
       return {
         processName,
@@ -163,8 +163,8 @@ export class RecoveryTester {
         error: error.message,
         totalTime: Date.now() - restartStart,
         details: {
-          failurePoint: this.identifyFailurePoint(error.message)
-        }
+          failurePoint: this.identifyFailurePoint(error.message),
+        },
       };
     }
   }
@@ -174,25 +174,23 @@ export class RecoveryTester {
    */
   async simulateProcessRestart(processInfo) {
     const restartStart = Date.now();
-    
+
     try {
       // Step 1: Stop the process
       await this.processDeployer.stopProcess(processInfo.processId);
-      
+
       // Step 2: Wait a moment to simulate restart delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       // Step 3: Restart the process
       const restartResult = await this.processDeployer.restartProcess(processInfo.processId);
-      
+
       if (restartResult.success) {
         // Update process info with new process ID
         processInfo.processId = restartResult.processId;
         return Date.now() - restartStart;
-      } else {
-        throw new Error(`Restart failed: ${restartResult.error}`);
       }
-
+      throw new Error(`Restart failed: ${restartResult.error}`);
     } catch (error) {
       throw new Error(`Process restart simulation failed: ${error.message}`);
     }
@@ -204,23 +202,22 @@ export class RecoveryTester {
   async waitForProcessRecovery(processInfo, timeout = 10000) {
     const recoveryStart = Date.now();
     const endTime = recoveryStart + timeout;
-    
+
     while (Date.now() < endTime) {
       try {
         const healthResponse = await this.aoliteFramework.sendMessage(processInfo.processId, {
           Action: "HealthCheck",
-          Data: { recoveryTest: true }
+          Data: { recoveryTest: true },
         });
 
         if (healthResponse?.success) {
           return {
             success: true,
             recoveryTime: Date.now() - recoveryStart,
-            healthResponse
+            healthResponse,
           };
         }
-
-      } catch (error) {
+      } catch (_error) {
         // Continue trying until timeout
       }
 
@@ -231,7 +228,7 @@ export class RecoveryTester {
     return {
       success: false,
       error: "Recovery timeout",
-      attemptedTime: Date.now() - recoveryStart
+      attemptedTime: Date.now() - recoveryStart,
     };
   }
 
@@ -240,7 +237,7 @@ export class RecoveryTester {
    */
   async testFailureInjection(processes, failureScenarios) {
     console.log(chalk.blue("💥 Testing failure injection and recovery..."));
-    
+
     const injectionTest = {
       type: "failure_injection",
       timestamp: new Date().toISOString(),
@@ -251,16 +248,16 @@ export class RecoveryTester {
         successfulRecoveries: 0,
         failedRecoveries: 0,
         averageDetectionTime: 0,
-        averageRecoveryTime: 0
-      }
+        averageRecoveryTime: 0,
+      },
     };
 
     for (const scenario of failureScenarios) {
       console.log(chalk.yellow(`  💥 Testing ${scenario.type} failure...`));
-      
+
       const scenarioResult = await this.executeFailureScenario(scenario, processes);
       injectionTest.scenarios.push(scenarioResult);
-      
+
       if (scenarioResult.success) {
         injectionTest.metrics.successfulRecoveries++;
       } else {
@@ -270,30 +267,28 @@ export class RecoveryTester {
     }
 
     // Calculate metrics
-    const detectionTimes = injectionTest.scenarios
-      .filter(s => s.detectionTime > 0)
-      .map(s => s.detectionTime);
-    
-    const recoveryTimes = injectionTest.scenarios
-      .filter(s => s.recoveryTime > 0)
-      .map(s => s.recoveryTime);
+    const detectionTimes = injectionTest.scenarios.filter(s => s.detectionTime > 0).map(s => s.detectionTime);
+
+    const recoveryTimes = injectionTest.scenarios.filter(s => s.recoveryTime > 0).map(s => s.recoveryTime);
 
     if (detectionTimes.length > 0) {
-      injectionTest.metrics.averageDetectionTime = 
+      injectionTest.metrics.averageDetectionTime =
         detectionTimes.reduce((sum, time) => sum + time, 0) / detectionTimes.length;
     }
 
     if (recoveryTimes.length > 0) {
-      injectionTest.metrics.averageRecoveryTime = 
+      injectionTest.metrics.averageRecoveryTime =
         recoveryTimes.reduce((sum, time) => sum + time, 0) / recoveryTimes.length;
     }
 
     this.recoveryResults.push(injectionTest);
-    
-    console.log(chalk.green(
-      `✅ Failure injection test completed: ${injectionTest.metrics.successfulRecoveries}/${injectionTest.metrics.totalScenarios} scenarios recovered`
-    ));
-    
+
+    console.log(
+      chalk.green(
+        `✅ Failure injection test completed: ${injectionTest.metrics.successfulRecoveries}/${injectionTest.metrics.totalScenarios} scenarios recovered`,
+      ),
+    );
+
     return injectionTest;
   }
 
@@ -302,7 +297,7 @@ export class RecoveryTester {
    */
   async executeFailureScenario(scenario, processes) {
     const scenarioStart = Date.now();
-    
+
     try {
       const targetProcess = this.selectTargetProcess(scenario.targetSelection, processes);
       if (!targetProcess) {
@@ -311,15 +306,15 @@ export class RecoveryTester {
 
       // Step 1: Establish baseline
       const baseline = await this.establishBaseline(targetProcess);
-      
+
       // Step 2: Inject failure
       const injectionResult = await this.injectFailure(scenario, targetProcess);
-      
+
       // Step 3: Detect failure
       const detectionStart = Date.now();
       const detectionResult = await this.detectFailure(targetProcess, scenario.detectionTimeout || 5000);
       const detectionTime = detectionResult.detected ? Date.now() - detectionStart : -1;
-      
+
       // Step 4: Attempt recovery
       const recoveryStart = Date.now();
       const recoveryResult = await this.attemptRecovery(scenario, targetProcess);
@@ -340,16 +335,15 @@ export class RecoveryTester {
           injection: injectionResult,
           detection: detectionResult,
           recovery: recoveryResult,
-          verification: verificationResult
-        }
+          verification: verificationResult,
+        },
       };
-
     } catch (error) {
       return {
         scenarioType: scenario.type,
         success: false,
         error: error.message,
-        totalTime: Date.now() - scenarioStart
+        totalTime: Date.now() - scenarioStart,
       };
     }
   }
@@ -359,7 +353,7 @@ export class RecoveryTester {
    */
   async testNetworkPartition(processes) {
     console.log(chalk.blue("🌐 Testing network partition scenarios..."));
-    
+
     const partitionTest = {
       type: "network_partition",
       timestamp: new Date().toISOString(),
@@ -369,8 +363,8 @@ export class RecoveryTester {
         totalPartitions: 0,
         successfulRecoveries: 0,
         averagePartitionDuration: 0,
-        averageRecoveryTime: 0
-      }
+        averageRecoveryTime: 0,
+      },
     };
 
     // Test different partition scenarios
@@ -379,29 +373,29 @@ export class RecoveryTester {
         type: "coordinator_isolation",
         description: "Isolate coordinator from other processes",
         affectedProcesses: ["coordinator-process"],
-        duration: 5000 // 5 seconds
+        duration: 5000, // 5 seconds
       },
       {
         type: "data_process_isolation",
         description: "Isolate data processes",
         affectedProcesses: ["pokemon-species-data", "move-data"],
-        duration: 3000 // 3 seconds
+        duration: 3000, // 3 seconds
       },
       {
         type: "split_brain",
         description: "Split processes into two groups",
         affectedProcesses: Array.from(processes.keys()).slice(0, Math.floor(processes.size / 2)),
-        duration: 4000 // 4 seconds
-      }
+        duration: 4000, // 4 seconds
+      },
     ];
 
     for (const scenario of partitionScenarios) {
       console.log(chalk.yellow(`  🌐 Testing ${scenario.type}...`));
-      
+
       const partitionResult = await this.executeNetworkPartition(scenario, processes);
       partitionTest.partitions.push(partitionResult);
       partitionTest.metrics.totalPartitions++;
-      
+
       if (partitionResult.success) {
         partitionTest.metrics.successfulRecoveries++;
       } else {
@@ -410,11 +404,13 @@ export class RecoveryTester {
     }
 
     this.recoveryResults.push(partitionTest);
-    
-    console.log(chalk.green(
-      `✅ Network partition test completed: ${partitionTest.metrics.successfulRecoveries}/${partitionTest.metrics.totalPartitions} scenarios recovered`
-    ));
-    
+
+    console.log(
+      chalk.green(
+        `✅ Network partition test completed: ${partitionTest.metrics.successfulRecoveries}/${partitionTest.metrics.totalPartitions} scenarios recovered`,
+      ),
+    );
+
     return partitionTest;
   }
 
@@ -423,23 +419,23 @@ export class RecoveryTester {
    */
   async executeNetworkPartition(scenario, processes) {
     const partitionStart = Date.now();
-    
+
     try {
       // Step 1: Establish baseline communication
       const baseline = await this.testInterProcessCommunication(processes);
-      
+
       // Step 2: Simulate network partition
       const partitionResult = await this.simulateNetworkPartition(scenario, processes);
-      
+
       // Step 3: Verify partition effect
       const partitionVerification = await this.verifyPartitionEffect(scenario, processes);
-      
+
       // Step 4: Wait for partition duration
       await new Promise(resolve => setTimeout(resolve, scenario.duration));
-      
+
       // Step 5: Restore network connectivity
       const restorationResult = await this.restoreNetworkConnectivity(scenario, processes);
-      
+
       // Step 6: Verify recovery
       const recoveryStart = Date.now();
       const recoveryVerification = await this.verifyNetworkRecovery(processes, baseline);
@@ -456,16 +452,15 @@ export class RecoveryTester {
           partition: partitionResult,
           verification: partitionVerification,
           restoration: restorationResult,
-          recovery: recoveryVerification
-        }
+          recovery: recoveryVerification,
+        },
       };
-
     } catch (error) {
       return {
         scenarioType: scenario.type,
         success: false,
         error: error.message,
-        totalTime: Date.now() - partitionStart
+        totalTime: Date.now() - partitionStart,
       };
     }
   }
@@ -475,7 +470,7 @@ export class RecoveryTester {
    */
   async testStatePersistence(processes) {
     console.log(chalk.blue("💾 Testing state persistence across failures..."));
-    
+
     const persistenceTest = {
       type: "state_persistence",
       timestamp: new Date().toISOString(),
@@ -484,8 +479,8 @@ export class RecoveryTester {
       metrics: {
         totalTests: 0,
         successfulPersistence: 0,
-        dataIntegrityIssues: 0
-      }
+        dataIntegrityIssues: 0,
+      },
     };
 
     const persistenceScenarios = [
@@ -496,8 +491,8 @@ export class RecoveryTester {
         stateData: {
           gameSession: "test_session_123",
           playerLevel: 50,
-          activePokemon: "Charizard"
-        }
+          activePokemon: "Charizard",
+        },
       },
       {
         type: "battle_state_persistence",
@@ -506,8 +501,8 @@ export class RecoveryTester {
         stateData: {
           battleId: "battle_456",
           turn: 3,
-          playerAction: "attack"
-        }
+          playerAction: "attack",
+        },
       },
       {
         type: "cache_persistence",
@@ -515,18 +510,18 @@ export class RecoveryTester {
         processType: "data",
         stateData: {
           cachedSpecies: ["Bulbasaur", "Charmander", "Squirtle"],
-          lastUpdate: Date.now()
-        }
-      }
+          lastUpdate: Date.now(),
+        },
+      },
     ];
 
     for (const scenario of persistenceScenarios) {
       console.log(chalk.yellow(`  💾 Testing ${scenario.type}...`));
-      
+
       const persistenceResult = await this.executeStatePersistenceTest(scenario, processes);
       persistenceTest.tests.push(persistenceResult);
       persistenceTest.metrics.totalTests++;
-      
+
       if (persistenceResult.success) {
         persistenceTest.metrics.successfulPersistence++;
       } else {
@@ -538,11 +533,13 @@ export class RecoveryTester {
     }
 
     this.recoveryResults.push(persistenceTest);
-    
-    console.log(chalk.green(
-      `✅ State persistence test completed: ${persistenceTest.metrics.successfulPersistence}/${persistenceTest.metrics.totalTests} tests passed`
-    ));
-    
+
+    console.log(
+      chalk.green(
+        `✅ State persistence test completed: ${persistenceTest.metrics.successfulPersistence}/${persistenceTest.metrics.totalTests} tests passed`,
+      ),
+    );
+
     return persistenceTest;
   }
 
@@ -559,7 +556,7 @@ export class RecoveryTester {
       summary: this.generateRecoverySummary(),
       testResults: this.recoveryResults,
       metrics: this.recoveryMetrics,
-      recommendations: this.generateRecoveryRecommendations()
+      recommendations: this.generateRecoveryRecommendations(),
     };
 
     // Write JSON report
@@ -587,9 +584,10 @@ export class RecoveryTester {
         return Array.from(processes.values()).find(p => p.processType === "data");
       case "logic":
         return Array.from(processes.values()).find(p => p.processType === "logic");
-      case "random":
+      case "random": {
         const processArray = Array.from(processes.values());
         return processArray[Math.floor(Math.random() * processArray.length)];
+      }
       default:
         return Array.from(processes.values())[0];
     }
@@ -599,18 +597,18 @@ export class RecoveryTester {
     try {
       const response = await this.aoliteFramework.sendMessage(targetProcess.processId, {
         Action: "HealthCheck",
-        Data: { baseline: true }
+        Data: { baseline: true },
       });
 
       return {
         healthy: response?.success || false,
         responseTime: Date.now(),
-        processId: targetProcess.processId
+        processId: targetProcess.processId,
       };
     } catch (error) {
       return {
         healthy: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -646,7 +644,7 @@ export class RecoveryTester {
       // Send a message that would simulate memory pressure
       await this.aoliteFramework.sendMessage(targetProcess.processId, {
         Action: "SimulateMemoryPressure",
-        Data: { allocateMemory: true, size: "large" }
+        Data: { allocateMemory: true, size: "large" },
       });
       return { injected: true, type: "memory_exhaustion" };
     } catch (error) {
@@ -657,18 +655,16 @@ export class RecoveryTester {
   async simulateTimeout(targetProcess) {
     try {
       // Send a message with very short timeout
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Simulated timeout")), 100)
-      );
-      
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Simulated timeout")), 100));
+
       await Promise.race([
         this.aoliteFramework.sendMessage(targetProcess.processId, {
           Action: "HealthCheck",
-          Data: {}
+          Data: {},
         }),
-        timeoutPromise
+        timeoutPromise,
       ]);
-      
+
       return { injected: true, type: "timeout" };
     } catch (error) {
       return { injected: true, type: "timeout", simulatedError: error.message };
@@ -680,7 +676,7 @@ export class RecoveryTester {
       // Send malformed message
       await this.aoliteFramework.sendMessage(targetProcess.processId, {
         Action: "InvalidAction",
-        Data: { corruption: true, invalidData: "CORRUPT" }
+        Data: { corruption: true, invalidData: "CORRUPT" },
       });
       return { injected: true, type: "corrupted_message" };
     } catch (error) {
@@ -690,19 +686,19 @@ export class RecoveryTester {
 
   async detectFailure(targetProcess, timeout) {
     const detectionStart = Date.now();
-    
+
     while (Date.now() - detectionStart < timeout) {
       try {
         const response = await this.aoliteFramework.sendMessage(targetProcess.processId, {
           Action: "HealthCheck",
-          Data: {}
+          Data: {},
         });
 
         if (!response?.success) {
           return {
             detected: true,
             detectionTime: Date.now() - detectionStart,
-            method: "health_check_failure"
+            method: "health_check_failure",
           };
         }
       } catch (error) {
@@ -710,7 +706,7 @@ export class RecoveryTester {
           detected: true,
           detectionTime: Date.now() - detectionStart,
           method: "exception",
-          error: error.message
+          error: error.message,
         };
       }
 
@@ -725,13 +721,14 @@ export class RecoveryTester {
       switch (scenario.recoveryStrategy || "restart") {
         case "restart":
           return await this.processDeployer.restartProcess(targetProcess.processId);
-        case "reset":
+        case "reset": {
           // Send reset message
           const response = await this.aoliteFramework.sendMessage(targetProcess.processId, {
             Action: "Reset",
-            Data: {}
+            Data: {},
           });
           return { success: response?.success || false };
+        }
         default:
           return { success: false, error: "Unknown recovery strategy" };
       }
@@ -740,22 +737,22 @@ export class RecoveryTester {
     }
   }
 
-  async verifyRecovery(targetProcess, baseline) {
+  async verifyRecovery(targetProcess, _baseline) {
     try {
       const response = await this.aoliteFramework.sendMessage(targetProcess.processId, {
         Action: "HealthCheck",
-        Data: { recovery: true }
+        Data: { recovery: true },
       });
 
       return {
         success: response?.success || false,
         responsive: response?.success || false,
-        baselineRestored: true // Simplified verification
+        baselineRestored: true, // Simplified verification
       };
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -764,54 +761,60 @@ export class RecoveryTester {
     try {
       const response = await this.aoliteFramework.sendMessage(processInfo.processId, {
         Action: "GetTestState",
-        Data: {}
+        Data: {},
       });
 
       // Check if previously stored state is still available
       return {
         persisted: response?.data?.testData === "restart_test_data",
-        stateData: response?.data
+        stateData: response?.data,
       };
     } catch (error) {
       return {
         persisted: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
 
   identifyFailurePoint(errorMessage) {
-    if (errorMessage.includes("restart")) return "restart";
-    if (errorMessage.includes("recovery")) return "recovery";
-    if (errorMessage.includes("responsive")) return "baseline";
+    if (errorMessage.includes("restart")) {
+      return "restart";
+    }
+    if (errorMessage.includes("recovery")) {
+      return "recovery";
+    }
+    if (errorMessage.includes("responsive")) {
+      return "baseline";
+    }
     return "unknown";
   }
 
   generateRecoverySummary() {
     const totalTests = this.recoveryResults.length;
     const successfulTests = this.recoveryResults.filter(r => r.overallSuccess).length;
-    
+
     return {
       totalTests,
       successfulTests,
       failedTests: totalTests - successfulTests,
       successRate: totalTests > 0 ? (successfulTests / totalTests) * 100 : 0,
       totalRecoveries: this.recoveryMetrics.successfulRecoveries,
-      averageRecoveryTime: this.recoveryMetrics.averageRecoveryTime
+      averageRecoveryTime: this.recoveryMetrics.averageRecoveryTime,
     };
   }
 
   generateRecoveryRecommendations() {
     const recommendations = [];
-    
+
     if (this.recoveryMetrics.successfulRecoveries / this.recoveryMetrics.totalFailures < 0.9) {
       recommendations.push("Recovery success rate below 90% - improve recovery mechanisms");
     }
-    
+
     if (this.recoveryMetrics.averageRecoveryTime > 5000) {
       recommendations.push("Average recovery time exceeds 5 seconds - optimize recovery procedures");
     }
-    
+
     return recommendations;
   }
 
@@ -842,25 +845,39 @@ export class RecoveryTester {
     </div>
     
     <h2>Test Results</h2>
-    ${report.testResults.map(result => `
+    ${report.testResults
+      .map(
+        result => `
         <div class="test-result">
-            <h3>${result.type} <span class="${result.overallSuccess ? 'success' : 'failed'}">${result.overallSuccess ? 'PASSED' : 'FAILED'}</span></h3>
+            <h3>${result.type} <span class="${result.overallSuccess ? "success" : "failed"}">${result.overallSuccess ? "PASSED" : "FAILED"}</span></h3>
             <p><strong>Timestamp:</strong> ${result.timestamp}</p>
-            ${result.metrics ? `
+            ${
+              result.metrics
+                ? `
                 <p><strong>Metrics:</strong></p>
                 <ul>
-                    ${Object.entries(result.metrics).map(([key, value]) => `<li>${key}: ${value}</li>`).join('')}
+                    ${Object.entries(result.metrics)
+                      .map(([key, value]) => `<li>${key}: ${value}</li>`)
+                      .join("")}
                 </ul>
-            ` : ''}
+            `
+                : ""
+            }
         </div>
-    `).join('')}
+    `,
+      )
+      .join("")}
     
-    ${report.recommendations.length > 0 ? `
+    ${
+      report.recommendations.length > 0
+        ? `
     <h2>Recommendations</h2>
     <ul>
-        ${report.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+        ${report.recommendations.map(rec => `<li>${rec}</li>`).join("")}
     </ul>
-    ` : ''}
+    `
+        : ""
+    }
 </body>
 </html>`;
   }

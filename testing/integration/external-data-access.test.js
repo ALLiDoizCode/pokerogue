@@ -3,19 +3,19 @@
  * Testing external data fetching patterns and caching behavior
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "@jest/globals";
-import path from "path";
 import fs from "fs/promises";
+import path from "path";
+import { afterAll, beforeAll, describe, expect, test } from "@jest/globals";
+import { IntegrationEnvironmentConfig } from "../../development-tools/integration-testing/environment-config.js";
 import { AoliteFramework } from "../aolite/aolite-framework.js";
 import { ProcessDeployer } from "../aos-local/process-deployer.js";
-import { IntegrationEnvironmentConfig } from "../../development-tools/integration-testing/environment-config.js";
 
 describe("External Data Access Tests", () => {
   let aoliteFramework;
   let processDeployer;
   let environmentConfig;
   let tempDir;
-  let mockDataSources;
+  let _mockDataSources;
   let dataProcesses;
 
   beforeAll(async () => {
@@ -25,13 +25,13 @@ describe("External Data Access Tests", () => {
 
     // Initialize components
     environmentConfig = new IntegrationEnvironmentConfig({
-      workspaceDir: tempDir
+      workspaceDir: tempDir,
     });
 
     aoliteFramework = new AoliteFramework();
     processDeployer = new ProcessDeployer({
       tempDir,
-      processesDir: path.join(process.cwd(), "processes")
+      processesDir: path.join(process.cwd(), "processes"),
     });
 
     // Initialize environment
@@ -40,7 +40,7 @@ describe("External Data Access Tests", () => {
     await processDeployer.initialize();
 
     // Create mock data sources and processes
-    mockDataSources = await createMockDataSources();
+    _mockDataSources = await createMockDataSources();
     dataProcesses = await deployDataAccessProcesses();
   });
 
@@ -69,8 +69,8 @@ describe("External Data Access Tests", () => {
         Data: {
           transactionId: "mock_species_transaction_123",
           dataType: "pokemon_species",
-          speciesId: 1
-        }
+          speciesId: 1,
+        },
       });
 
       expect(response.success).toBe(true);
@@ -90,8 +90,8 @@ describe("External Data Access Tests", () => {
         Data: {
           transactionId: "invalid_transaction_id",
           dataType: "pokemon_species",
-          speciesId: 999
-        }
+          speciesId: 999,
+        },
       });
 
       expect(response.success).toBe(true); // Process should handle errors gracefully
@@ -109,8 +109,8 @@ describe("External Data Access Tests", () => {
         Data: {
           transactionId: "mock_moves_transaction_456",
           dataType: "move_data",
-          moveId: 1
-        }
+          moveId: 1,
+        },
       });
 
       expect(response.success).toBe(true);
@@ -131,9 +131,9 @@ describe("External Data Access Tests", () => {
           Data: {
             transactionId: `mock_transaction_${i + 1}`,
             dataType: "pokemon_species",
-            speciesId: i + 1
-          }
-        })
+            speciesId: i + 1,
+          },
+        }),
       );
 
       const responses = await Promise.all(fetchPromises);
@@ -161,8 +161,8 @@ describe("External Data Access Tests", () => {
         Data: {
           key: "species_1",
           dataType: "pokemon_species",
-          speciesId: 1
-        }
+          speciesId: 1,
+        },
       });
 
       expect(firstResponse.success).toBe(true);
@@ -175,8 +175,8 @@ describe("External Data Access Tests", () => {
         Data: {
           key: "species_1",
           dataType: "pokemon_species",
-          speciesId: 1
-        }
+          speciesId: 1,
+        },
       });
 
       expect(secondResponse.success).toBe(true);
@@ -194,16 +194,16 @@ describe("External Data Access Tests", () => {
         Data: {
           key: "temp_data",
           value: { test: "data" },
-          ttlSeconds: 2 // 2 second TTL
-        }
+          ttlSeconds: 2, // 2 second TTL
+        },
       });
 
       // Immediate fetch should hit cache
       const immediateResponse = await aoliteFramework.sendMessage(cacheProcessor.processId, {
         Action: "GetCachedData",
         Data: {
-          key: "temp_data"
-        }
+          key: "temp_data",
+        },
       });
 
       expect(immediateResponse.data.cacheHit).toBe(true);
@@ -215,8 +215,8 @@ describe("External Data Access Tests", () => {
       const expiredResponse = await aoliteFramework.sendMessage(cacheProcessor.processId, {
         Action: "GetCachedData",
         Data: {
-          key: "temp_data"
-        }
+          key: "temp_data",
+        },
       });
 
       expect(expiredResponse.data.cacheHit).toBe(false);
@@ -233,9 +233,9 @@ describe("External Data Access Tests", () => {
           Data: {
             key: `bulk_data_${i}`,
             value: { index: i, data: "bulk_test_data" },
-            ttlSeconds: 3600 // 1 hour TTL
-          }
-        })
+            ttlSeconds: 3600, // 1 hour TTL
+          },
+        }),
       );
 
       await Promise.all(fillPromises);
@@ -243,7 +243,7 @@ describe("External Data Access Tests", () => {
       // Check cache status
       const statusResponse = await aoliteFramework.sendMessage(cacheProcessor.processId, {
         Action: "GetCacheStatus",
-        Data: {}
+        Data: {},
       });
 
       expect(statusResponse.success).toBe(true);
@@ -262,9 +262,9 @@ describe("External Data Access Tests", () => {
           Data: {
             key: "concurrent_test",
             dataType: "pokemon_species",
-            speciesId: 25 // Pikachu
-          }
-        })
+            speciesId: 25, // Pikachu
+          },
+        }),
       );
 
       const responses = await Promise.all(concurrentPromises);
@@ -292,8 +292,8 @@ describe("External Data Access Tests", () => {
         Data: {
           dataType: "pokemon_species",
           speciesId: 6, // Charizard
-          checkSources: ["external", "cache", "embedded"]
-        }
+          checkSources: ["external", "cache", "embedded"],
+        },
       });
 
       expect(response.success).toBe(true);
@@ -312,8 +312,8 @@ describe("External Data Access Tests", () => {
         Data: {
           dataType: "move_data",
           moveId: 1,
-          corruptionType: "checksum_mismatch"
-        }
+          corruptionType: "checksum_mismatch",
+        },
       });
 
       expect(response.success).toBe(true);
@@ -340,11 +340,11 @@ describe("External Data Access Tests", () => {
               defense: 49,
               specialAttack: 65,
               specialDefense: 65,
-              speed: 45
-            }
+              speed: 45,
+            },
           },
-          schemaVersion: "v1.0"
-        }
+          schemaVersion: "v1.0",
+        },
       });
 
       expect(response.success).toBe(true);
@@ -365,8 +365,8 @@ describe("External Data Access Tests", () => {
         Data: {
           dataType: "pokemon_species",
           speciesId: 150, // Mewtwo
-          simulateFailure: true
-        }
+          simulateFailure: true,
+        },
       });
 
       expect(response.success).toBe(true);
@@ -387,9 +387,9 @@ describe("External Data Access Tests", () => {
           Data: {
             dataType: "move_data",
             moveId: 1,
-            simulateFailure: true
-          }
-        })
+            simulateFailure: true,
+          },
+        }),
       );
 
       await Promise.all(failurePromises);
@@ -397,7 +397,7 @@ describe("External Data Access Tests", () => {
       // Check circuit breaker status
       const statusResponse = await aoliteFramework.sendMessage(resilientProcessor.processId, {
         Action: "GetCircuitBreakerStatus",
-        Data: { source: "external_api" }
+        Data: { source: "external_api" },
       });
 
       expect(statusResponse.success).toBe(true);
@@ -410,8 +410,8 @@ describe("External Data Access Tests", () => {
         Action: "GetDataWithCircuitBreaker",
         Data: {
           dataType: "move_data",
-          moveId: 1
-        }
+          moveId: 1,
+        },
       });
 
       expect(fallbackResponse.data.circuitBreakerTripped).toBe(true);
@@ -429,8 +429,8 @@ describe("External Data Access Tests", () => {
           speciesId: 1,
           maxRetries: 3,
           baseDelay: 100,
-          simulateTransientFailure: true
-        }
+          simulateTransientFailure: true,
+        },
       });
 
       expect(response.success).toBe(true);
@@ -454,9 +454,9 @@ describe("External Data Access Tests", () => {
             { type: "fetch", dataType: "pokemon_species", id: 1 },
             { type: "fetch", dataType: "move_data", id: 1 },
             { type: "cache_lookup", key: "species_1" },
-            { type: "validation", dataType: "pokemon_species", id: 1 }
-          ]
-        }
+            { type: "validation", dataType: "pokemon_species", id: 1 },
+          ],
+        },
       });
 
       expect(response.success).toBe(true);
@@ -475,8 +475,8 @@ describe("External Data Access Tests", () => {
         Action: "GenerateDataAccessReport",
         Data: {
           timeRange: "last_hour",
-          includeMetrics: true
-        }
+          includeMetrics: true,
+        },
       });
 
       expect(response.success).toBe(true);
@@ -495,24 +495,24 @@ async function createMockDataSources() {
   return {
     arweave: {
       transactions: {
-        "mock_species_transaction_123": {
+        mock_species_transaction_123: {
           data: {
             id: 1,
             name: "Bulbasaur",
             types: ["Grass", "Poison"],
-            baseStats: { hp: 45, attack: 49, defense: 49, specialAttack: 65, specialDefense: 65, speed: 45 }
-          }
+            baseStats: { hp: 45, attack: 49, defense: 49, specialAttack: 65, specialDefense: 65, speed: 45 },
+          },
         },
-        "mock_moves_transaction_456": {
+        mock_moves_transaction_456: {
           data: {
             id: 1,
             name: "Pound",
             type: "Normal",
             power: 40,
-            accuracy: 100
-          }
-        }
-      }
+            accuracy: 100,
+          },
+        },
+      },
     },
     cache: new Map(),
     embedded: {
@@ -520,12 +520,12 @@ async function createMockDataSources() {
         1: { name: "Bulbasaur", types: ["Grass", "Poison"] },
         25: { name: "Pikachu", types: ["Electric"] },
         6: { name: "Charizard", types: ["Fire", "Flying"] },
-        150: { name: "Mewtwo", types: ["Psychic"] }
+        150: { name: "Mewtwo", types: ["Psychic"] },
       },
       moves: {
-        1: { name: "Pound", type: "Normal", power: 40 }
-      }
-    }
+        1: { name: "Pound", type: "Normal", power: 40 },
+      },
+    },
   };
 }
 
@@ -539,7 +539,7 @@ async function deployDataAccessProcesses() {
     "cache-manager.lua": createCacheManager(),
     "consistency-validator.lua": createConsistencyValidator(),
     "resilient-data-processor.lua": createResilientDataProcessor(),
-    "monitoring-processor.lua": createMonitoringProcessor()
+    "monitoring-processor.lua": createMonitoringProcessor(),
   };
 
   for (const [filename, content] of Object.entries(testProcesses)) {
@@ -552,14 +552,14 @@ async function deployDataAccessProcesses() {
     processType: "data",
     processPath: path.join(processesDir, filename),
     maxSize: 500000,
-    requiredHandlers: ["Info", "HealthCheck"]
+    requiredHandlers: ["Info", "HealthCheck"],
   }));
 
   const processDeployer = new ProcessDeployer();
   await processDeployer.initialize();
 
   const deploymentResults = await processDeployer.deployMultipleProcesses(processConfigs);
-  
+
   const deployedProcesses = new Map();
   for (const result of deploymentResults) {
     if (result.status === "deployed") {
@@ -567,7 +567,7 @@ async function deployDataAccessProcesses() {
       deployedProcesses.set(processName, {
         processId: result.processId,
         processName: result.processName,
-        processType: result.processType
+        processType: result.processType,
       });
     }
   }

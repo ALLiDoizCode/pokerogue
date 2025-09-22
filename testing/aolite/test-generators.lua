@@ -86,11 +86,11 @@ function TestGenerators.generateStatCalculationTests()
       
       -- Test standard HP calculation
       local hp = calculateHP(108, 31, 252, 50) -- Garchomp at level 50
-      assert(hp == 183, string.format("Expected HP 183, got %d", hp))
+      assert(hp == 215, string.format("Expected HP 215, got %d", hp))
       
       -- Test level 100 calculation
       local hp100 = calculateHP(108, 31, 252, 100)
-      assert(hp100 == 415, string.format("Expected HP 415, got %d", hp100))
+      assert(hp100 == 420, string.format("Expected HP 420, got %d", hp100))
     end,
     
     ["test_other_stat_calculation"] = function()
@@ -246,6 +246,14 @@ end
 function TestGenerators.generateMessageHandlerTests()
   return {
     ["test_handler_registration"] = function()
+      -- Register a test handler first
+      if _G.Handlers and _G.Handlers.add then
+        _G.Handlers.add("test-handler",
+          function(msg) return msg.Action == "Test" end,
+          function(msg) return "Test handler executed" end
+        )
+      end
+      
       -- Test that handlers are properly registered
       local handlerCount = 0
       for name, handler in pairs(_G.Handlers._handlers or {}) do

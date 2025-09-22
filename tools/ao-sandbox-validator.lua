@@ -33,7 +33,9 @@ for _, processFile in ipairs(processes) do
     
     -- Test 1: No require() statements (monolithic requirement)
     totalTests = totalTests + 1
-    if not content:match("require%s*%(") then
+    -- Remove comments before checking for require
+    local contentNoComments = content:gsub("%-%-[^\n]*", "")
+    if not contentNoComments:match("require%s*%(") then
         print("✅ No external dependencies (monolithic)")
         passedTests = passedTests + 1
     else

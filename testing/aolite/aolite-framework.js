@@ -38,17 +38,17 @@ export class AoliteFramework {
     // Verify aolite framework files exist
     const requiredFiles = [
       "process-emulator.lua",
-      "enhanced-test-framework.lua", 
+      "enhanced-test-framework.lua",
       "assertion-library.lua",
       "mock-system.lua",
-      "state-inspector.lua"
+      "state-inspector.lua",
     ];
 
     for (const file of requiredFiles) {
       const filePath = path.join(this.aoliteDir, file);
       try {
         await fs.access(filePath);
-      } catch (error) {
+      } catch (_error) {
         throw new Error(`Required aolite file not found: ${file}`);
       }
     }
@@ -139,13 +139,13 @@ export class AoliteFramework {
     `;
 
     try {
-      const result = await this.execLua(spawnScript);
+      const _result = await this.execLua(spawnScript);
       this.processes.set(processId, {
         id: processId,
         name: processName,
         path: processPath,
         spawnedAt: Date.now(),
-        status: "running"
+        status: "running",
       });
 
       console.log(chalk.green(`✅ Process spawned: ${processName} -> ${processId}`));
@@ -179,7 +179,7 @@ export class AoliteFramework {
       }
       
       -- Add GameState if provided
-      ${message.GameState ? `message.GameState = ${this.luaStringify(message.GameState)}` : ''}
+      ${message.GameState ? `message.GameState = ${this.luaStringify(message.GameState)}` : ""}
       
       -- Send message through aolite
       local success, response = pcall(function()
@@ -214,17 +214,17 @@ export class AoliteFramework {
 
     try {
       const result = await this.execLua(messageScript);
-      
+
       // Parse the result if it's a JSON string
       let parsedResult;
       try {
         parsedResult = JSON.parse(result);
-      } catch (e) {
+      } catch (_e) {
         parsedResult = { success: true, data: result };
       }
 
       console.log(chalk.green(`✅ Message sent to ${processId}: ${message.Action}`));
-      
+
       return parsedResult;
     } catch (error) {
       console.log(chalk.red(`❌ Message failed for ${processId}: ${error.message}`));
@@ -305,11 +305,11 @@ export class AoliteFramework {
 
     try {
       await this.execLua(removeScript);
-      
+
       const process = this.processes.get(processId);
       process.status = "stopped";
       process.stoppedAt = Date.now();
-      
+
       console.log(chalk.yellow(`🛑 Process removed: ${processId}`));
       return true;
     } catch (error) {
@@ -386,7 +386,7 @@ export class AoliteFramework {
         processCount: this.processes.size,
         messageCount: 0,
         activeProcesses: Array.from(this.processes.values()),
-        recentMessages: []
+        recentMessages: [],
       };
     }
   }
@@ -397,19 +397,19 @@ export class AoliteFramework {
   async execLua(luaCode) {
     return new Promise((resolve, reject) => {
       const lua = spawn(this.luaExecutable, ["-e", luaCode]);
-      
+
       let stdout = "";
       let stderr = "";
 
-      lua.stdout.on("data", (data) => {
+      lua.stdout.on("data", data => {
         stdout += data.toString();
       });
 
-      lua.stderr.on("data", (data) => {
+      lua.stderr.on("data", data => {
         stderr += data.toString();
       });
 
-      lua.on("close", (code) => {
+      lua.on("close", code => {
         if (code === 0) {
           resolve(stdout.trim());
         } else {
@@ -417,7 +417,7 @@ export class AoliteFramework {
         }
       });
 
-      lua.on("error", (error) => {
+      lua.on("error", error => {
         reject(new Error(`Failed to execute Lua: ${error.message}`));
       });
     });
@@ -430,20 +430,20 @@ export class AoliteFramework {
     if (obj === null || obj === undefined) {
       return "nil";
     }
-    
+
     if (typeof obj === "string") {
       return `"${obj.replace(/"/g, '\\"')}"`;
     }
-    
+
     if (typeof obj === "number" || typeof obj === "boolean") {
       return obj.toString();
     }
-    
+
     if (Array.isArray(obj)) {
       const items = obj.map(item => this.luaStringify(item));
       return `{${items.join(", ")}}`;
     }
-    
+
     if (typeof obj === "object") {
       const pairs = Object.entries(obj).map(([key, value]) => {
         const luaKey = /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key) ? key : `["${key}"]`;
@@ -451,7 +451,7 @@ export class AoliteFramework {
       });
       return `{${pairs.join(", ")}}`;
     }
-    
+
     return "nil";
   }
 

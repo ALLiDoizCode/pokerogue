@@ -3,14 +3,13 @@
  * Comprehensive testing for process deployment validation
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "@jest/globals";
-import path from "path";
 import fs from "fs/promises";
+import path from "path";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "@jest/globals";
+import { IntegrationEnvironmentConfig } from "../../development-tools/integration-testing/environment-config.js";
 import { DeploymentTestRunner } from "../aos-local/deployment-test-runner.js";
 import { ProcessDeployer } from "../aos-local/process-deployer.js";
 import { ValidationFramework } from "../aos-local/validation-framework.js";
-import { IntegrationEnvironmentConfig } from "../../development-tools/integration-testing/environment-config.js";
-import { deploymentConfigs, testScenarios } from "../fixtures/deployment-configs.js";
 
 describe("Deployment Validation Tests", () => {
   let deploymentRunner;
@@ -26,22 +25,22 @@ describe("Deployment Validation Tests", () => {
 
     // Initialize components
     environmentConfig = new IntegrationEnvironmentConfig({
-      workspaceDir: tempDir
+      workspaceDir: tempDir,
     });
 
     deploymentRunner = new DeploymentTestRunner({
       tempDir,
-      processesDir: path.join(process.cwd(), "processes")
+      processesDir: path.join(process.cwd(), "processes"),
     });
 
     processDeployer = new ProcessDeployer({
       tempDir,
-      processesDir: path.join(process.cwd(), "processes")
+      processesDir: path.join(process.cwd(), "processes"),
     });
 
     validationFramework = new ValidationFramework({
       strictMode: false,
-      adpVersion: "1.0"
+      adpVersion: "1.0",
     });
 
     // Initialize environment
@@ -103,7 +102,7 @@ describe("Deployment Validation Tests", () => {
       // Create test process file exceeding size limit
       const testProcessPath = path.join(tempDir, "test-process-large.lua");
       const largeContent = "-- Large process content\n".repeat(50000); // ~1MB
-      
+
       await fs.writeFile(testProcessPath, largeContent);
 
       const validation = await validationFramework.validateProcessBundle(testProcessPath);
@@ -117,7 +116,7 @@ describe("Deployment Validation Tests", () => {
       // Create test process file approaching size limit (90% of 500KB = 450KB)
       const testProcessPath = path.join(tempDir, "test-process-warning.lua");
       const warningContent = "-- Warning size content\n".repeat(22500); // ~450KB
-      
+
       await fs.writeFile(testProcessPath, warningContent);
 
       const validation = await validationFramework.validateProcessBundle(testProcessPath);
@@ -252,7 +251,7 @@ describe("Deployment Validation Tests", () => {
       expect(validation.overallValid).toBe(true);
       expect(validation.validationResults.handlerPatterns.valid).toBe(true);
       expect(validation.validationResults.handlerPatterns.foundHandlers).toEqual(
-        expect.arrayContaining(["ProcessLogic", "HealthCheck", "Info"])
+        expect.arrayContaining(["ProcessLogic", "HealthCheck", "Info"]),
       );
       expect(validation.validationResults.handlerPatterns.missingHandlers).toHaveLength(0);
     }, 10000);
@@ -274,7 +273,7 @@ describe("Deployment Validation Tests", () => {
       expect(validation.overallValid).toBe(false);
       expect(validation.validationResults.handlerPatterns.valid).toBe(false);
       expect(validation.validationResults.handlerPatterns.missingHandlers).toEqual(
-        expect.arrayContaining(["HealthCheck", "Info"])
+        expect.arrayContaining(["HealthCheck", "Info"]),
       );
     }, 10000);
   });
@@ -320,7 +319,7 @@ describe("Deployment Validation Tests", () => {
       expect(validation.overallValid).toBe(true);
       expect(validation.validationResults.adpCompliance.valid).toBe(true);
       expect(validation.validationResults.adpCompliance.foundStructures).toEqual(
-        expect.arrayContaining(["adpVersion", "capabilities", "messageSchemas", "handlers"])
+        expect.arrayContaining(["adpVersion", "capabilities", "messageSchemas", "handlers"]),
       );
     }, 10000);
 
@@ -375,7 +374,7 @@ describe("Deployment Validation Tests", () => {
         processType: "test",
         processPath: testProcessPath,
         maxSize: 500000,
-        requiredHandlers: ["Info", "HealthCheck"]
+        requiredHandlers: ["Info", "HealthCheck"],
       };
 
       const deploymentResult = await processDeployer.deploySingleProcess(config);
@@ -401,7 +400,7 @@ describe("Deployment Validation Tests", () => {
         processType: "test",
         processPath: testProcessPath,
         maxSize: 500000,
-        requiredHandlers: ["Info"]
+        requiredHandlers: ["Info"],
       };
 
       const deploymentResult = await processDeployer.deploySingleProcess(config);
@@ -429,7 +428,7 @@ describe("Deployment Validation Tests", () => {
         processType: "test",
         processPath: testProcessPath,
         maxSize: 500000,
-        requiredHandlers: ["Info"]
+        requiredHandlers: ["Info"],
       };
 
       const deploymentResult = await processDeployer.deploySingleProcess(config);
@@ -461,8 +460,8 @@ describe("Deployment Validation Tests", () => {
         maxSize: 500000,
         requiredHandlers: ["Info"],
         performance: {
-          maxDeploymentTime: 5000 // 5 seconds
-        }
+          maxDeploymentTime: 5000, // 5 seconds
+        },
       };
 
       const startTime = Date.now();
@@ -483,14 +482,14 @@ describe("Deployment Validation Tests", () => {
           processType: "test1",
           processPath: path.join(tempDir, "report-test-1.lua"),
           maxSize: 500000,
-          requiredHandlers: ["Info"]
+          requiredHandlers: ["Info"],
         },
         {
-          processType: "test2", 
+          processType: "test2",
           processPath: path.join(tempDir, "report-test-2.lua"),
           maxSize: 500000,
-          requiredHandlers: ["Info"]
-        }
+          requiredHandlers: ["Info"],
+        },
       ];
 
       // Create test processes
@@ -521,16 +520,11 @@ describe("Deployment Validation Tests", () => {
       const reportsDir = path.join(process.cwd(), "testing/reports");
       const reportFiles = await fs.readdir(reportsDir);
       const deploymentReports = reportFiles.filter(f => f.includes("deployment-validation"));
-      
+
       expect(deploymentReports.length).toBeGreaterThan(0);
     }, 20000);
   });
 });
 
 // Export for use in other test files
-export {
-  DeploymentTestRunner,
-  ProcessDeployer,
-  ValidationFramework,
-  IntegrationEnvironmentConfig
-};
+export { DeploymentTestRunner, ProcessDeployer, ValidationFramework, IntegrationEnvironmentConfig };

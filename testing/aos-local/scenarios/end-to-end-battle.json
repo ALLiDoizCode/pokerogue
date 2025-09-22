@@ -2,10 +2,7 @@
   "id": "end-to-end-battle",
   "name": "End-to-End Battle Workflow",
   "description": "Complete battle from initialization to result",
-  "requiredProcesses": [
-    "coordinator-process.lua",
-    "battle-engine.lua"
-  ],
+  "requiredProcesses": ["coordinator-process.lua", "battle-engine.lua"],
   "steps": [
     {
       "name": "Initialize battle",

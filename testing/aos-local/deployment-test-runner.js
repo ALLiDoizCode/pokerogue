@@ -4,7 +4,6 @@
  * Validates process deployment, bundling, and AO environment compatibility
  */
 
-import { spawn } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import chalk from "chalk";
@@ -67,7 +66,7 @@ export class DeploymentTestRunner {
    */
   async loadDeploymentTemplates() {
     const templatesPath = path.join(this.tempDir, "deployment-configs.json");
-    
+
     const defaultTemplates = {
       coordinatorProcess: {
         processType: "coordinator",
@@ -78,8 +77,8 @@ export class DeploymentTestRunner {
         performance: {
           maxInitTime: 2000, // 2s
           maxResponseTime: 1000, // 1s
-          minMemoryEfficiency: 0.8
-        }
+          minMemoryEfficiency: 0.8,
+        },
       },
       dataProcess: {
         processType: "data",
@@ -90,8 +89,8 @@ export class DeploymentTestRunner {
         performance: {
           maxInitTime: 1500, // 1.5s
           maxResponseTime: 500, // 0.5s
-          minMemoryEfficiency: 0.9
-        }
+          minMemoryEfficiency: 0.9,
+        },
       },
       logicProcess: {
         processType: "logic",
@@ -102,14 +101,14 @@ export class DeploymentTestRunner {
         performance: {
           maxInitTime: 3000, // 3s
           maxResponseTime: 2000, // 2s
-          minMemoryEfficiency: 0.7
-        }
-      }
+          minMemoryEfficiency: 0.7,
+        },
+      },
     };
 
     await fs.writeFile(templatesPath, JSON.stringify(defaultTemplates, null, 2));
     console.log(chalk.green(`📋 Deployment templates created: ${templatesPath}`));
-    
+
     return defaultTemplates;
   }
 
@@ -118,17 +117,17 @@ export class DeploymentTestRunner {
    */
   async validateBundle(processPath) {
     const validationStart = Date.now();
-    
+
     try {
       const processContent = await fs.readFile(processPath, "utf8");
       const processSize = Buffer.byteLength(processContent, "utf8");
-      
+
       const validation = {
         processPath,
         size: processSize,
         valid: true,
         errors: [],
-        warnings: []
+        warnings: [],
       };
 
       // Size validation
@@ -154,10 +153,12 @@ export class DeploymentTestRunner {
       }
 
       validation.validationTime = Date.now() - validationStart;
-      
-      console.log(chalk[validation.valid ? "green" : "red"](
-        `  ${validation.valid ? "✅" : "❌"} Bundle validation: ${path.basename(processPath)} - ${validation.valid ? "VALID" : "INVALID"}`
-      ));
+
+      console.log(
+        chalk[validation.valid ? "green" : "red"](
+          `  ${validation.valid ? "✅" : "❌"} Bundle validation: ${path.basename(processPath)} - ${validation.valid ? "VALID" : "INVALID"}`,
+        ),
+      );
 
       return validation;
     } catch (error) {
@@ -167,7 +168,7 @@ export class DeploymentTestRunner {
         valid: false,
         errors: [`Bundle validation failed: ${error.message}`],
         warnings: [],
-        validationTime: Date.now() - validationStart
+        validationTime: Date.now() - validationStart,
       };
     }
   }
@@ -177,7 +178,7 @@ export class DeploymentTestRunner {
    */
   async validateAOCompatibility(processContent) {
     const errors = [];
-    
+
     // Check for forbidden require() statements
     if (processContent.includes("require(")) {
       errors.push("Process contains require() statements - must use monolithic design");
@@ -192,7 +193,7 @@ export class DeploymentTestRunner {
     const forbiddenPatterns = [
       { pattern: /io\./g, error: "io operations not allowed in AO processes" },
       { pattern: /os\.time\(\)/g, error: "Use msg.Timestamp instead of os.time()" },
-      { pattern: /debug\./g, error: "debug library not available in AO" }
+      { pattern: /debug\./g, error: "debug library not available in AO" },
     ];
 
     for (const { pattern, error } of forbiddenPatterns) {
@@ -203,7 +204,7 @@ export class DeploymentTestRunner {
 
     return {
       valid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -212,7 +213,7 @@ export class DeploymentTestRunner {
    */
   validateHandlerPatterns(processContent) {
     const errors = [];
-    
+
     // Check for required ADP v1.0 Info handler
     if (!processContent.includes('"Info"') && !processContent.includes("'Info'")) {
       errors.push("Process missing required Info handler for ADP v1.0 compliance");
@@ -230,7 +231,7 @@ export class DeploymentTestRunner {
 
     return {
       valid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -250,10 +251,10 @@ export class DeploymentTestRunner {
 
       // Use aolite to spawn process
       const processId = await this.aoliteFramework.spawnProcess(config.processPath);
-      
+
       // Verify initialization
       const initResult = await this.verifyProcessInitialization(processId, config);
-      
+
       const deploymentResult = {
         processId,
         processPath: config.processPath,
@@ -262,14 +263,16 @@ export class DeploymentTestRunner {
         deploymentTime: Date.now() - deployStart,
         bundleValidation,
         initialization: initResult,
-        error: initResult.success ? null : initResult.error
+        error: initResult.success ? null : initResult.error,
       };
 
       this.deploymentResults.push(deploymentResult);
-      
-      console.log(chalk[deploymentResult.status === "deployed" ? "green" : "red"](
-        `  ${deploymentResult.status === "deployed" ? "✅" : "❌"} ${path.basename(config.processPath)} -> ${processId} (${deploymentResult.deploymentTime}ms)`
-      ));
+
+      console.log(
+        chalk[deploymentResult.status === "deployed" ? "green" : "red"](
+          `  ${deploymentResult.status === "deployed" ? "✅" : "❌"} ${path.basename(config.processPath)} -> ${processId} (${deploymentResult.deploymentTime}ms)`,
+        ),
+      );
 
       return deploymentResult;
     } catch (error) {
@@ -279,12 +282,12 @@ export class DeploymentTestRunner {
         processType: config.processType,
         status: "failed",
         deploymentTime: Date.now() - deployStart,
-        error: error.message
+        error: error.message,
       };
 
       this.deploymentResults.push(deploymentResult);
       console.log(chalk.red(`  ❌ Deployment failed: ${error.message}`));
-      
+
       return deploymentResult;
     }
   }
@@ -297,13 +300,13 @@ export class DeploymentTestRunner {
       // Send Info message to verify ADP compliance
       const infoResponse = await this.aoliteFramework.sendMessage(processId, {
         Action: "Info",
-        Data: {}
+        Data: {},
       });
 
       if (!infoResponse || !infoResponse.success) {
         return {
           success: false,
-          error: "Process did not respond to Info message (ADP compliance check failed)"
+          error: "Process did not respond to Info message (ADP compliance check failed)",
         };
       }
 
@@ -316,19 +319,19 @@ export class DeploymentTestRunner {
       // Test basic responsiveness
       const healthResponse = await this.aoliteFramework.sendMessage(processId, {
         Action: "HealthCheck",
-        Data: {}
+        Data: {},
       });
 
       return {
         success: true,
         infoResponse: infoResponse.data,
         handlerCount: config.requiredHandlers.length,
-        healthCheck: healthResponse?.success || false
+        healthCheck: healthResponse?.success || false,
       };
     } catch (error) {
       return {
         success: false,
-        error: `Initialization verification failed: ${error.message}`
+        error: `Initialization verification failed: ${error.message}`,
       };
     }
   }
@@ -341,17 +344,17 @@ export class DeploymentTestRunner {
       for (const handler of requiredHandlers) {
         const testMessage = {
           Action: handler,
-          Data: { test: true }
+          Data: { test: true },
         };
 
         // Send test message to verify handler exists
         const response = await this.aoliteFramework.sendMessage(processId, testMessage);
-        
+
         // We expect either success or a structured error response
         if (!response) {
           return {
             success: false,
-            error: `Handler ${handler} not responding`
+            error: `Handler ${handler} not responding`,
           };
         }
       }
@@ -360,7 +363,7 @@ export class DeploymentTestRunner {
     } catch (error) {
       return {
         success: false,
-        error: `Handler verification failed: ${error.message}`
+        error: `Handler verification failed: ${error.message}`,
       };
     }
   }
@@ -381,7 +384,7 @@ export class DeploymentTestRunner {
 
       // Find all process files
       const processFiles = await this.discoverProcesses();
-      
+
       console.log(chalk.yellow(`📁 Found ${processFiles.length} processes to validate`));
 
       // Test each process
@@ -421,15 +424,20 @@ export class DeploymentTestRunner {
    */
   getProcessConfig(processFile, templates) {
     const processPath = path.join(this.processesDir, processFile);
-    
+
     // Determine process type based on filename
     if (processFile.includes("coordinator")) {
       return { ...templates.coordinatorProcess, processPath };
-    } else if (processFile.includes("data") || processFile.includes("species") || processFile.includes("move") || processFile.includes("item")) {
-      return { ...templates.dataProcess, processPath };
-    } else {
-      return { ...templates.logicProcess, processPath };
     }
+    if (
+      processFile.includes("data") ||
+      processFile.includes("species") ||
+      processFile.includes("move") ||
+      processFile.includes("item")
+    ) {
+      return { ...templates.dataProcess, processPath };
+    }
+    return { ...templates.logicProcess, processPath };
   }
 
   /**
@@ -440,7 +448,7 @@ export class DeploymentTestRunner {
     const htmlReportPath = path.join(this.reportsDir, `deployment-validation-${Date.now()}.html`);
 
     const summary = this.getDeploymentSummary();
-    
+
     const report = {
       timestamp: new Date().toISOString(),
       framework: "Deployment Validation Framework",
@@ -449,8 +457,8 @@ export class DeploymentTestRunner {
       environment: {
         aoliteVersion: "latest",
         nodeVersion: process.version,
-        processesDir: this.processesDir
-      }
+        processesDir: this.processesDir,
+      },
     };
 
     // Write JSON report
@@ -470,7 +478,7 @@ export class DeploymentTestRunner {
    */
   generateHtmlReport(report) {
     const { summary } = report;
-    
+
     return `
 <!DOCTYPE html>
 <html>
@@ -500,34 +508,50 @@ export class DeploymentTestRunner {
     </div>
     
     <h2>Deployment Results</h2>
-    ${report.deploymentResults.map(result => `
+    ${report.deploymentResults
+      .map(
+        result => `
         <div class="deployment-result">
             <h3>${path.basename(result.processPath)} <span class="${result.status}">${result.status.toUpperCase()}</span></h3>
             <p><strong>Process ID:</strong> ${result.processId || "N/A"}</p>
             <p><strong>Type:</strong> ${result.processType}</p>
             <p><strong>Deployment Time:</strong> ${result.deploymentTime}ms</p>
-            ${result.bundleValidation ? `
+            ${
+              result.bundleValidation
+                ? `
                 <div class="metrics">
                     <h4>Bundle Validation</h4>
                     <p><strong>Size:</strong> ${result.bundleValidation.size} bytes</p>
                     <p><strong>Valid:</strong> ${result.bundleValidation.valid ? "Yes" : "No"}</p>
-                    ${result.bundleValidation.errors.length > 0 ? `
+                    ${
+                      result.bundleValidation.errors.length > 0
+                        ? `
                         <div class="validation-details">
                             <strong>Errors:</strong>
                             <ul>${result.bundleValidation.errors.map(error => `<li>${error}</li>`).join("")}</ul>
                         </div>
-                    ` : ""}
-                    ${result.bundleValidation.warnings.length > 0 ? `
+                    `
+                        : ""
+                    }
+                    ${
+                      result.bundleValidation.warnings.length > 0
+                        ? `
                         <div class="validation-details">
                             <strong>Warnings:</strong>
                             <ul>${result.bundleValidation.warnings.map(warning => `<li>${warning}</li>`).join("")}</ul>
                         </div>
-                    ` : ""}
+                    `
+                        : ""
+                    }
                 </div>
-            ` : ""}
+            `
+                : ""
+            }
             ${result.error ? `<p><strong>Error:</strong> <span class="failed">${result.error}</span></p>` : ""}
         </div>
-    `).join("")}
+    `,
+      )
+      .join("")}
 </body>
 </html>`;
   }
@@ -539,7 +563,7 @@ export class DeploymentTestRunner {
     const total = this.deploymentResults.length;
     const deployed = this.deploymentResults.filter(r => r.status === "deployed").length;
     const failed = this.deploymentResults.filter(r => r.status === "failed").length;
-    
+
     const totalDeploymentTime = this.deploymentResults.reduce((sum, r) => sum + r.deploymentTime, 0);
     const averageDeploymentTime = total > 0 ? totalDeploymentTime / total : 0;
 
@@ -549,7 +573,7 @@ export class DeploymentTestRunner {
       failed,
       successRate: total > 0 ? (deployed / total) * 100 : 0,
       averageDeploymentTime,
-      totalDeploymentTime
+      totalDeploymentTime,
     };
   }
 
@@ -562,11 +586,10 @@ export class DeploymentTestRunner {
     try {
       // Terminate any running aolite processes
       await this.aoliteFramework.cleanup();
-      
+
       // Clear deployment results
       this.deploymentResults = [];
       this.performanceMetrics.clear();
-
     } catch (error) {
       console.warn(chalk.yellow(`Warning: Cleanup encountered issues: ${error.message}`));
     }

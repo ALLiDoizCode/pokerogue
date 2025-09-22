@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-09-22T15:40:42.480Z",
+  "timestamp": "2025-09-22T18:11:10.500Z",
   "framework": "aos-local Integration Testing",
   "summary": {
     "total": 2,
@@ -13,17 +13,19 @@
     {
       "scenarioId": "coordinator-data-flow",
       "scenarioName": "Coordinator to Data Process Flow",
-      "timestamp": "2025-09-22T15:40:41.869Z",
+      "timestamp": "2025-09-22T18:11:09.889Z",
       "status": "error",
       "messages": [],
       "processInteractions": [],
-      "duration": 3,
-      "errors": ["ENOENT: no such file or directory, open 'processes/pokemon-species-data.lua'"]
+      "duration": 2,
+      "errors": [
+        "ENOENT: no such file or directory, open 'processes/pokemon-species-data.lua'"
+      ]
     },
     {
       "scenarioId": "end-to-end-battle",
       "scenarioName": "End-to-End Battle Workflow",
-      "timestamp": "2025-09-22T15:40:41.873Z",
+      "timestamp": "2025-09-22T18:11:09.892Z",
       "status": "passed",
       "messages": [],
       "processInteractions": [
@@ -55,8 +57,8 @@
             "Tags": {},
             "From": "test-harness"
           },
-          "messageId": "msg-1758555641875",
-          "duration": 12.760781021894921
+          "messageId": "msg-1758564669893",
+          "duration": 41.28285790142349
         },
         {
           "step": "Simulate battle turns",
@@ -66,32 +68,32 @@
             {
               "step": "Initialize battle state",
               "status": "success",
-              "timestamp": 1758555641976
+              "timestamp": 1758564669993
             },
             {
               "step": "Process turn 1",
               "status": "success",
-              "timestamp": 1758555642077
+              "timestamp": 1758564670094
             },
             {
               "step": "Calculate damage",
               "status": "success",
-              "timestamp": 1758555642178
+              "timestamp": 1758564670195
             },
             {
               "step": "Update Pokemon state",
               "status": "success",
-              "timestamp": 1758555642279
+              "timestamp": 1758564670297
             },
             {
               "step": "Check battle end conditions",
               "status": "success",
-              "timestamp": 1758555642380
+              "timestamp": 1758564670398
             },
             {
               "step": "Finalize battle result",
               "status": "success",
-              "timestamp": 1758555642480
+              "timestamp": 1758564670499
             }
           ],
           "finalResult": {
@@ -116,10 +118,10 @@
             },
             "isValid": true
           },
-          "duration": 80.85262864986709
+          "duration": 64.14997177924748
         }
       ],
-      "duration": 607,
+      "duration": 608,
       "errors": [],
       "validationResult": {
         "allPassed": true,
@@ -127,12 +129,12 @@
           {
             "check": "Process coordinator-process.lua responsive",
             "status": "pass",
-            "details": "Process process-1758555641874-m5rt0s5ve healthy"
+            "details": "Process process-1758564669892-c4miudym9 healthy"
           },
           {
             "check": "Process battle-engine.lua responsive",
             "status": "pass",
-            "details": "Process process-1758555641874-mqntwbrra healthy"
+            "details": "Process process-1758564669893-bjc9bk192 healthy"
           }
         ],
         "summary": "2/2 validations passed"
@@ -141,16 +143,16 @@
   ],
   "processDeployments": [
     {
-      "id": "process-1758555641874-m5rt0s5ve",
+      "id": "process-1758564669892-c4miudym9",
       "file": "coordinator-process.lua",
       "status": "deployed",
-      "deployTime": 1758555641874
+      "deployTime": 1758564669892
     },
     {
-      "id": "process-1758555641874-mqntwbrra",
+      "id": "process-1758564669893-bjc9bk192",
       "file": "battle-engine.lua",
       "status": "deployed",
-      "deployTime": 1758555641875
+      "deployTime": 1758564669893
     }
   ],
   "environment": {
