@@ -1,0 +1,147 @@
+name: Parity Validation CI
+
+on:
+  push:
+    branches: [ main, beta, ECS ]
+  pull_request:
+    branches: [ main, beta ]
+
+jobs:
+  parity-validation:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: "5.3"
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Validate TypeScript Reference Integrity
+      run: |
+        cd typescript-reference
+        ./scripts/validate-integrity.sh --validate
+    
+    - name: Run Enhanced aolite Unit Tests
+      run: npm run test:aolite
+    
+    - name: Run aos-local Integration Tests
+      run: npm run test:aos-local
+    
+    - name: Run Statistical Validation
+      run: npm run test:statistical
+    
+    - name: Run Parity Testing
+      run: npm run test:parity
+    
+    - name: Run TypeScript Reference Tests
+      run: npm run test
+    
+    - name: Validate AO Sandbox Compliance
+      run: npm run lint:ao-sandbox
+    
+    - name: Validate Process Size Constraints
+      run: npm run validate:size
+    
+    - name: Upload Test Reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-reports-${{ matrix.node-version }}
+        path: testing/reports/
+    
+    - name: Comment PR Results
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Read latest parity report
+          const reportsDir = './testing/reports';
+          const files = fs.readdirSync(reportsDir).filter(f => f.includes('parity-report'));
+          
+          if (files.length > 0) {
+            const latestReport = files.sort().pop();
+            const reportPath = path.join(reportsDir, latestReport);
+            const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+            
+            const comment = `## 🧪 Parity Validation Results
+            
+**Overall Status:** ${report.summary.failed === 0 ? '✅ PASSED' : '❌ FAILED'}
+
+- **Total Tests:** ${report.summary.total}
+- **Passed:** ${report.summary.passed}
+- **Failed:** ${report.summary.failed}
+- **Success Rate:** ${report.summary.successRate.toFixed(1)}%
+
+${report.summary.failed > 0 ? '**⚠️ Some parity tests failed. Please review the detailed report.**' : '**🎉 All parity tests passed! TypeScript ↔ AO equivalence maintained.**'}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          }
+
+  performance-benchmarking:
+    runs-on: ubuntu-latest
+    needs: parity-validation
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: "5.3"
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run Performance Benchmarks
+      run: npm run test:performance
+    
+    - name: Upload Performance Reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-reports
+        path: testing/reports/performance-*
+
+  deployment-gate:
+    runs-on: ubuntu-latest
+    needs: [parity-validation, performance-benchmarking]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta'
+    
+    steps:
+    - name: Deployment Gate Check
+      run: |
+        echo "🚀 All validation checks passed!"
+        echo "✅ Parity validation: Complete"
+        echo "✅ Performance benchmarks: Complete" 
+        echo "✅ Ready for deployment"
