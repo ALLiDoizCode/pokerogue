@@ -1,0 +1,76 @@
+{
+  "name": "integration",
+  "description": "Multi-process integration testing with complete workflow validation",
+  "commands": ["npm run test:all"],
+  "timeout": 600000,
+  "required": true,
+  "parallel": false,
+  "artifacts": [
+    "testing/reports/integration-*.json",
+    "testing/integration/integration-results.json",
+    "testing/integration/workflow-*.log"
+  ],
+  "qualityGates": [
+    {
+      "name": "workflow-completion",
+      "requirement": "All multi-process workflows complete successfully",
+      "critical": true
+    },
+    {
+      "name": "state-consistency",
+      "requirement": "GameState consistency across all processes",
+      "critical": true
+    },
+    {
+      "name": "async-coordination",
+      "requirement": "Async coordination patterns work correctly",
+      "critical": true
+    },
+    {
+      "name": "error-recovery",
+      "requirement": "Error recovery mechanisms function properly",
+      "critical": false
+    }
+  ],
+  "environment": {
+    "NODE_ENV": "test",
+    "INTEGRATION_MODE": "full",
+    "COORDINATOR_TIMEOUT": "30000",
+    "PROCESS_TOPOLOGY": "26-process"
+  },
+  "testScenarios": [
+    {
+      "name": "complete-battle-workflow",
+      "description": "End-to-end battle from start to finish",
+      "processes": ["coordinator", "battle-engine", "pokemon-species-db", "moves-database"],
+      "timeout": 180000,
+      "critical": true
+    },
+    {
+      "name": "evolution-workflow",
+      "description": "Pokemon evolution with state updates",
+      "processes": ["coordinator", "evolution-engine", "pokemon-species-db"],
+      "timeout": 120000,
+      "critical": true
+    },
+    {
+      "name": "capture-workflow",
+      "description": "Pokemon capture mechanics",
+      "processes": ["coordinator", "capture-engine", "items-database"],
+      "timeout": 120000,
+      "critical": true
+    },
+    {
+      "name": "status-effects-workflow",
+      "description": "Status effect application and processing",
+      "processes": ["coordinator", "status-effects-engine", "battle-engine"],
+      "timeout": 120000,
+      "critical": false
+    }
+  ],
+  "performanceRequirements": {
+    "maxExecutionTime": 600000,
+    "memoryUsage": "moderate",
+    "processLatency": 5000
+  }
+}

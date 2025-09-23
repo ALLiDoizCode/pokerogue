@@ -4,9 +4,9 @@
  * Ensures deterministic behavior for battle replay capability
  */
 
-import chalk from "chalk";
 import fs from "fs/promises";
 import path from "path";
+import chalk from "chalk";
 
 export class RNGConsistencyTester {
   constructor(options = {}) {
@@ -15,7 +15,7 @@ export class RNGConsistencyTester {
     this.statisticalConfidence = options.statisticalConfidence || 0.95;
     this.minIterations = options.minIterations || 100;
     this.maxIterations = options.maxIterations || 1000;
-    
+
     // RNG test tracking
     this.rngTestResults = [];
     this.seedPatterns = new Map();
@@ -27,7 +27,7 @@ export class RNGConsistencyTester {
    */
   async validateRNGDeterminism(scenario, testRunner) {
     console.log(chalk.blue(`🎲 Validating RNG determinism: ${scenario.name}`));
-    
+
     const validation = {
       scenarioId: scenario.id,
       scenarioName: scenario.name,
@@ -37,7 +37,7 @@ export class RNGConsistencyTester {
       iterations: 0,
       seedTests: [],
       statisticalAnalysis: null,
-      issues: []
+      issues: [],
     };
 
     try {
@@ -50,7 +50,7 @@ export class RNGConsistencyTester {
       // Determine number of iterations
       const iterations = Math.min(
         Math.max(scenario.testIterations || this.minIterations, this.minIterations),
-        this.maxIterations
+        this.maxIterations,
       );
       validation.iterations = iterations;
 
@@ -77,7 +77,6 @@ export class RNGConsistencyTester {
       validation.issues = this.detectRNGIssues(seedTestResults, validation);
 
       console.log(this.getRNGStatusMessage(validation));
-
     } catch (error) {
       validation.isDeterministic = false;
       validation.error = error.message;
@@ -97,24 +96,24 @@ export class RNGConsistencyTester {
 
     for (let i = 0; i < iterations; i++) {
       const currentSeed = baseSeed + i;
-      
+
       try {
         // Create test scenario with specific seed
         const seedScenario = {
           ...scenario,
           rngSeed: currentSeed,
-          id: `${scenario.id}_seed_${currentSeed}`
+          id: `${scenario.id}_seed_${currentSeed}`,
         };
 
         // Execute on both implementations
         const [tsResult, aoResult] = await Promise.all([
           testRunner.executeOnTypeScript(seedScenario),
-          testRunner.executeOnAO(seedScenario)
+          testRunner.executeOnAO(seedScenario),
         ]);
 
         // Compare results
         const comparison = this.compareRNGResults(tsResult, aoResult, seedScenario);
-        
+
         seedTests.push({
           seed: currentSeed,
           iteration: i + 1,
@@ -125,15 +124,14 @@ export class RNGConsistencyTester {
           differences: comparison.differences,
           rngValues: {
             typescript: this.extractRNGValues(tsResult),
-            aoLua: this.extractRNGValues(aoResult)
-          }
+            aoLua: this.extractRNGValues(aoResult),
+          },
         });
 
         // Progress indicator
         if ((i + 1) % 50 === 0) {
           console.log(chalk.blue(`    ⏳ Progress: ${i + 1}/${iterations} iterations`));
         }
-
       } catch (error) {
         console.error(chalk.red(`    ❌ Seed test failed for seed ${currentSeed}: ${error.message}`));
         seedTests.push({
@@ -141,7 +139,7 @@ export class RNGConsistencyTester {
           iteration: i + 1,
           error: error.message,
           matches: false,
-          exactMatch: false
+          exactMatch: false,
         });
       }
     }
@@ -157,7 +155,7 @@ export class RNGConsistencyTester {
       matches: false,
       exactMatch: false,
       differences: [],
-      rngConsistency: 0.0
+      rngConsistency: 0.0,
     };
 
     try {
@@ -175,20 +173,20 @@ export class RNGConsistencyTester {
 
         if (tsValue === undefined || aoValue === undefined) {
           comparison.differences.push({
-            type: 'missing_rng_value',
+            type: "missing_rng_value",
             key: key,
             tsValue: tsValue,
-            aoValue: aoValue
+            aoValue: aoValue,
           });
           rngComparisons.push(false);
         } else if (this.compareRNGValue(tsValue, aoValue, key, scenario)) {
           rngComparisons.push(true);
         } else {
           comparison.differences.push({
-            type: 'rng_value_mismatch',
+            type: "rng_value_mismatch",
             key: key,
             tsValue: tsValue,
-            aoValue: aoValue
+            aoValue: aoValue,
           });
           rngComparisons.push(false);
         }
@@ -197,10 +195,9 @@ export class RNGConsistencyTester {
       // Calculate consistency
       const matchingValues = rngComparisons.filter(Boolean).length;
       comparison.rngConsistency = rngComparisons.length > 0 ? matchingValues / rngComparisons.length : 0;
-      
+
       comparison.matches = comparison.rngConsistency >= 0.95; // 95% threshold
       comparison.exactMatch = comparison.rngConsistency === 1.0;
-
     } catch (error) {
       console.error(chalk.red(`Error comparing RNG results: ${error.message}`));
       comparison.error = error.message;
@@ -215,24 +212,26 @@ export class RNGConsistencyTester {
   extractRNGValues(result) {
     const rngValues = {};
 
-    if (!result || !result.result) return rngValues;
+    if (!result || !result.result) {
+      return rngValues;
+    }
 
     // Common RNG-dependent values in Pokemon games
     const rngKeys = [
-      'damage',           // Damage roll
-      'critical',         // Critical hit
-      'accuracy',         // Accuracy check
-      'secondaryEffect',  // Move secondary effects
-      'flinch',          // Flinch chance
-      'confusion',       // Confusion damage
-      'statusDuration',  // Status effect duration
-      'abilityActivation', // Ability activation chance
-      'itemActivation',  // Item activation chance
-      'captureSuccess',  // Capture success
-      'encounterRate',   // Wild encounter rate
-      'shinyCheck',      // Shiny Pokemon check
-      'genderDetermination', // Gender determination
-      'personalityValue' // Personality value (affects nature, ability, etc.)
+      "damage", // Damage roll
+      "critical", // Critical hit
+      "accuracy", // Accuracy check
+      "secondaryEffect", // Move secondary effects
+      "flinch", // Flinch chance
+      "confusion", // Confusion damage
+      "statusDuration", // Status effect duration
+      "abilityActivation", // Ability activation chance
+      "itemActivation", // Item activation chance
+      "captureSuccess", // Capture success
+      "encounterRate", // Wild encounter rate
+      "shinyCheck", // Shiny Pokemon check
+      "genderDetermination", // Gender determination
+      "personalityValue", // Personality value (affects nature, ability, etc.)
     ];
 
     // Extract values that exist in the result
@@ -260,7 +259,7 @@ export class RNGConsistencyTester {
     }
 
     // Extract any numeric arrays that might contain RNG sequences
-    this.extractRNGSequences(result.result, rngValues, '');
+    this.extractRNGSequences(result.result, rngValues, "");
 
     return rngValues;
   }
@@ -269,17 +268,20 @@ export class RNGConsistencyTester {
    * Extract RNG sequences from nested objects
    */
   extractRNGSequences(obj, rngValues, prefix) {
-    if (typeof obj !== 'object' || obj === null) return;
+    if (typeof obj !== "object" || obj === null) {
+      return;
+    }
 
     for (const [key, value] of Object.entries(obj)) {
       const fullKey = prefix ? `${prefix}.${key}` : key;
 
-      if (Array.isArray(value) && value.every(v => typeof v === 'number')) {
+      if (Array.isArray(value) && value.every(v => typeof v === "number")) {
         // Numeric array might be RNG sequence
-        if (value.length > 1 && value.length < 100) { // Reasonable sequence length
+        if (value.length > 1 && value.length < 100) {
+          // Reasonable sequence length
           rngValues[`${fullKey}_sequence`] = value;
         }
-      } else if (typeof value === 'object') {
+      } else if (typeof value === "object") {
         this.extractRNGSequences(value, rngValues, fullKey);
       }
     }
@@ -290,10 +292,12 @@ export class RNGConsistencyTester {
    */
   compareRNGValue(tsValue, aoValue, key, scenario) {
     // For exact determinism, values must match exactly
-    if (tsValue === aoValue) return true;
+    if (tsValue === aoValue) {
+      return true;
+    }
 
     // Handle special cases for floating-point RNG values
-    if (typeof tsValue === 'number' && typeof aoValue === 'number') {
+    if (typeof tsValue === "number" && typeof aoValue === "number") {
       // Allow very small floating-point differences for calculated values
       const tolerance = this.getRNGTolerance(key, scenario);
       return Math.abs(tsValue - aoValue) <= tolerance;
@@ -301,7 +305,9 @@ export class RNGConsistencyTester {
 
     // Arrays must match exactly in length and values
     if (Array.isArray(tsValue) && Array.isArray(aoValue)) {
-      if (tsValue.length !== aoValue.length) return false;
+      if (tsValue.length !== aoValue.length) {
+        return false;
+      }
       return tsValue.every((val, index) => this.compareRNGValue(val, aoValue[index], `${key}[${index}]`, scenario));
     }
 
@@ -313,7 +319,7 @@ export class RNGConsistencyTester {
    */
   getRNGTolerance(key, scenario) {
     // Most RNG values should be exact
-    const exactKeys = ['damage', 'critical', 'accuracy', 'captureSuccess'];
+    const exactKeys = ["damage", "critical", "accuracy", "captureSuccess"];
     if (exactKeys.some(exactKey => key.includes(exactKey))) {
       return 0; // Exact match required
     }
@@ -326,10 +332,14 @@ export class RNGConsistencyTester {
    * Calculate overall consistency across all seed tests
    */
   calculateOverallConsistency(seedTests) {
-    if (seedTests.length === 0) return 0;
+    if (seedTests.length === 0) {
+      return 0;
+    }
 
     const successfulTests = seedTests.filter(test => !test.error);
-    if (successfulTests.length === 0) return 0;
+    if (successfulTests.length === 0) {
+      return 0;
+    }
 
     const matchingTests = successfulTests.filter(test => test.matches);
     return matchingTests.length / successfulTests.length;
@@ -344,10 +354,10 @@ export class RNGConsistencyTester {
       distributions: {},
       consistency: {
         typescript: {},
-        aoLua: {}
+        aoLua: {},
       },
       correlationAnalysis: {},
-      randomnessTests: {}
+      randomnessTests: {},
     };
 
     try {
@@ -356,10 +366,12 @@ export class RNGConsistencyTester {
 
       // Consistency analysis within each implementation
       analysis.consistency.typescript = this.analyzeImplementationConsistency(
-        seedTests.map(test => test.typescriptResult), 'typescript'
+        seedTests.map(test => test.typescriptResult),
+        "typescript",
       );
       analysis.consistency.aoLua = this.analyzeImplementationConsistency(
-        seedTests.map(test => test.aoLuaResult), 'aoLua'
+        seedTests.map(test => test.aoLuaResult),
+        "aoLua",
       );
 
       // Cross-implementation correlation
@@ -367,7 +379,6 @@ export class RNGConsistencyTester {
 
       // Randomness quality tests
       analysis.randomnessTests = await this.performRandomnessTests(seedTests);
-
     } catch (error) {
       analysis.error = error.message;
       console.error(chalk.red(`Statistical analysis error: ${error.message}`));
@@ -383,7 +394,9 @@ export class RNGConsistencyTester {
     const distributions = {};
     const successfulTests = seedTests.filter(test => !test.error && test.rngValues);
 
-    if (successfulTests.length === 0) return distributions;
+    if (successfulTests.length === 0) {
+      return distributions;
+    }
 
     // Get all RNG value keys
     const allKeys = new Set();
@@ -396,17 +409,17 @@ export class RNGConsistencyTester {
     for (const key of allKeys) {
       const tsValues = successfulTests
         .map(test => test.rngValues.typescript?.[key])
-        .filter(val => val !== undefined && typeof val === 'number');
-      
+        .filter(val => val !== undefined && typeof val === "number");
+
       const aoValues = successfulTests
         .map(test => test.rngValues.aoLua?.[key])
-        .filter(val => val !== undefined && typeof val === 'number');
+        .filter(val => val !== undefined && typeof val === "number");
 
       if (tsValues.length > 0 && aoValues.length > 0) {
         distributions[key] = {
           typescript: this.calculateDistributionStats(tsValues),
           aoLua: this.calculateDistributionStats(aoValues),
-          distributionMatch: this.compareDistributions(tsValues, aoValues)
+          distributionMatch: this.compareDistributions(tsValues, aoValues),
         };
       }
     }
@@ -418,7 +431,9 @@ export class RNGConsistencyTester {
    * Calculate distribution statistics
    */
   calculateDistributionStats(values) {
-    if (values.length === 0) return null;
+    if (values.length === 0) {
+      return null;
+    }
 
     const sorted = [...values].sort((a, b) => a - b);
     const sum = values.reduce((acc, val) => acc + val, 0);
@@ -433,7 +448,7 @@ export class RNGConsistencyTester {
       median: sorted[Math.floor(sorted.length / 2)],
       variance: variance,
       standardDeviation: Math.sqrt(variance),
-      range: sorted[sorted.length - 1] - sorted[0]
+      range: sorted[sorted.length - 1] - sorted[0],
     };
   }
 
@@ -442,7 +457,7 @@ export class RNGConsistencyTester {
    */
   compareDistributions(values1, values2) {
     if (values1.length === 0 || values2.length === 0) {
-      return { similar: false, reason: 'insufficient_data' };
+      return { similar: false, reason: "insufficient_data" };
     }
 
     const stats1 = this.calculateDistributionStats(values1);
@@ -458,16 +473,14 @@ export class RNGConsistencyTester {
     const varianceThreshold = Math.max(stats1.variance, stats2.variance) * 0.1; // 10% of variance
     const rangeThreshold = Math.max(stats1.range, stats2.range) * 0.1; // 10% of range
 
-    const similar = meanDiff <= meanThreshold && 
-                   varianceDiff <= varianceThreshold && 
-                   rangeDiff <= rangeThreshold;
+    const similar = meanDiff <= meanThreshold && varianceDiff <= varianceThreshold && rangeDiff <= rangeThreshold;
 
     return {
       similar: similar,
       meanDifference: meanDiff,
       varianceDifference: varianceDiff,
       rangeDifference: rangeDiff,
-      thresholds: { meanThreshold, varianceThreshold, rangeThreshold }
+      thresholds: { meanThreshold, varianceThreshold, rangeThreshold },
     };
   }
 
@@ -479,19 +492,19 @@ export class RNGConsistencyTester {
       patternDetected: false,
       patterns: [],
       predictabilityScore: 0.0,
-      entropy: 0.0
+      entropy: 0.0,
     };
 
     try {
       const successfulTests = seedTests.filter(test => !test.error);
       if (successfulTests.length < 10) {
-        analysis.reason = 'insufficient_data';
+        analysis.reason = "insufficient_data";
         return analysis;
       }
 
       // Extract sequences for pattern analysis
       const sequences = this.extractRNGSequences(successfulTests);
-      
+
       // Detect repeating patterns
       analysis.patterns = this.detectRepeatingPatterns(sequences);
       analysis.patternDetected = analysis.patterns.length > 0;
@@ -501,7 +514,6 @@ export class RNGConsistencyTester {
 
       // Calculate entropy
       analysis.entropy = this.calculateSequenceEntropy(sequences);
-
     } catch (error) {
       analysis.error = error.message;
     }
@@ -515,7 +527,7 @@ export class RNGConsistencyTester {
   extractRNGSequences(seedTests) {
     const sequences = {
       typescript: [],
-      aoLua: []
+      aoLua: [],
     };
 
     seedTests.forEach(test => {
@@ -539,21 +551,23 @@ export class RNGConsistencyTester {
   detectRepeatingPatterns(sequences) {
     const patterns = [];
 
-    ['typescript', 'aoLua'].forEach(impl => {
+    ["typescript", "aoLua"].forEach(impl => {
       const sequence = sequences[impl];
-      if (sequence.length < 10) return;
+      if (sequence.length < 10) {
+        return;
+      }
 
       // Look for repeating subsequences
       for (let patternLength = 2; patternLength <= Math.min(10, Math.floor(sequence.length / 3)); patternLength++) {
         const detectedPatterns = this.findRepeatingSubsequences(sequence, patternLength);
-        
+
         detectedPatterns.forEach(pattern => {
           patterns.push({
             implementation: impl,
             pattern: pattern.subsequence,
             occurrences: pattern.count,
             positions: pattern.positions,
-            length: patternLength
+            length: patternLength,
           });
         });
       }
@@ -571,11 +585,11 @@ export class RNGConsistencyTester {
     for (let i = 0; i <= sequence.length - length; i++) {
       const subseq = sequence.slice(i, i + length);
       const key = JSON.stringify(subseq);
-      
+
       if (!subsequences.has(key)) {
         subsequences.set(key, { subsequence: subseq, count: 0, positions: [] });
       }
-      
+
       const entry = subsequences.get(key);
       entry.count++;
       entry.positions.push(i);
@@ -592,9 +606,11 @@ export class RNGConsistencyTester {
     let totalPredictability = 0;
     let implementations = 0;
 
-    ['typescript', 'aoLua'].forEach(impl => {
+    ["typescript", "aoLua"].forEach(impl => {
       const sequence = sequences[impl];
-      if (sequence.length < 5) return;
+      if (sequence.length < 5) {
+        return;
+      }
 
       implementations++;
 
@@ -604,12 +620,12 @@ export class RNGConsistencyTester {
 
       for (let i = 2; i < sequence.length; i++) {
         // Try to predict current value based on previous two values
-        const pattern = `${sequence[i-2]},${sequence[i-1]}`;
+        const pattern = `${sequence[i - 2]},${sequence[i - 1]}`;
         const currentValue = sequence[i];
-        
+
         // Look for this pattern earlier in the sequence
         for (let j = 1; j < i - 1; j++) {
-          if (sequence[j-1] === sequence[i-2] && sequence[j] === sequence[i-1]) {
+          if (sequence[j - 1] === sequence[i - 2] && sequence[j] === sequence[i - 1]) {
             if (j + 1 < sequence.length && sequence[j + 1] === currentValue) {
               correctPredictions++;
             }
@@ -634,9 +650,11 @@ export class RNGConsistencyTester {
     let totalEntropy = 0;
     let implementations = 0;
 
-    ['typescript', 'aoLua'].forEach(impl => {
+    ["typescript", "aoLua"].forEach(impl => {
       const sequence = sequences[impl];
-      if (sequence.length === 0) return;
+      if (sequence.length === 0) {
+        return;
+      }
 
       implementations++;
 
@@ -649,7 +667,7 @@ export class RNGConsistencyTester {
       // Calculate Shannon entropy
       let entropy = 0;
       const totalValues = sequence.length;
-      
+
       for (const count of frequencies.values()) {
         const probability = count / totalValues;
         entropy -= probability * Math.log2(probability);
@@ -670,41 +688,41 @@ export class RNGConsistencyTester {
     // Low consistency issue
     if (validation.consistency < this.consistencyThreshold) {
       issues.push({
-        type: 'low_consistency',
-        severity: 'high',
-        description: `RNG consistency ${(validation.consistency * 100).toFixed(1)}% below threshold ${(this.consistencyThreshold * 100)}%`,
+        type: "low_consistency",
+        severity: "high",
+        description: `RNG consistency ${(validation.consistency * 100).toFixed(1)}% below threshold ${this.consistencyThreshold * 100}%`,
         value: validation.consistency,
-        threshold: this.consistencyThreshold
+        threshold: this.consistencyThreshold,
       });
     }
 
     // Pattern detection issues
     if (validation.patternAnalysis?.patternDetected) {
       issues.push({
-        type: 'pattern_detected',
-        severity: 'medium',
-        description: `Repeating patterns detected in RNG sequences`,
-        patterns: validation.patternAnalysis.patterns.length
+        type: "pattern_detected",
+        severity: "medium",
+        description: "Repeating patterns detected in RNG sequences",
+        patterns: validation.patternAnalysis.patterns.length,
       });
     }
 
     // High predictability
     if (validation.patternAnalysis?.predictabilityScore > 0.1) {
       issues.push({
-        type: 'high_predictability',
-        severity: 'medium',
+        type: "high_predictability",
+        severity: "medium",
         description: `RNG sequence shows high predictability (${(validation.patternAnalysis.predictabilityScore * 100).toFixed(1)}%)`,
-        score: validation.patternAnalysis.predictabilityScore
+        score: validation.patternAnalysis.predictabilityScore,
       });
     }
 
     // Low entropy
     if (validation.patternAnalysis?.entropy < 2.0) {
       issues.push({
-        type: 'low_entropy',
-        severity: 'low',
+        type: "low_entropy",
+        severity: "low",
         description: `RNG sequence shows low entropy (${validation.patternAnalysis.entropy.toFixed(2)})`,
-        entropy: validation.patternAnalysis.entropy
+        entropy: validation.patternAnalysis.entropy,
       });
     }
 
@@ -712,11 +730,11 @@ export class RNGConsistencyTester {
     const errorCount = seedTests.filter(test => test.error).length;
     if (errorCount > 0) {
       issues.push({
-        type: 'failed_iterations',
-        severity: 'medium',
+        type: "failed_iterations",
+        severity: "medium",
         description: `${errorCount}/${seedTests.length} iterations failed`,
         failedCount: errorCount,
-        totalCount: seedTests.length
+        totalCount: seedTests.length,
       });
     }
 
@@ -728,13 +746,13 @@ export class RNGConsistencyTester {
    */
   async generateRNGReport() {
     console.log(chalk.blue("🎲 Generating RNG consistency report..."));
-    
+
     const report = {
       timestamp: new Date().toISOString(),
       summary: this.getRNGSummary(),
       testResults: this.rngTestResults,
       overallAnalysis: this.getOverallRNGAnalysis(),
-      recommendations: this.generateRNGRecommendations()
+      recommendations: this.generateRNGRecommendations(),
     };
 
     const reportPath = path.join(this.reportsDir, `rng-consistency-report-${Date.now()}.json`);
@@ -751,16 +769,14 @@ export class RNGConsistencyTester {
   getRNGStatusMessage(validation) {
     if (validation.isDeterministic) {
       return chalk.green(`✅ RNG determinism validated (consistency: ${(validation.consistency * 100).toFixed(1)}%)`);
-    } else {
-      return chalk.red(`❌ RNG determinism failed (consistency: ${(validation.consistency * 100).toFixed(1)}%)`);
     }
+    return chalk.red(`❌ RNG determinism failed (consistency: ${(validation.consistency * 100).toFixed(1)}%)`);
   }
 
   getRNGSummary() {
     const total = this.rngTestResults.length;
     const deterministic = this.rngTestResults.filter(r => r.isDeterministic).length;
-    const avgConsistency = total > 0 ? 
-      this.rngTestResults.reduce((sum, r) => sum + r.consistency, 0) / total : 0;
+    const avgConsistency = total > 0 ? this.rngTestResults.reduce((sum, r) => sum + r.consistency, 0) / total : 0;
 
     return {
       totalTests: total,
@@ -768,7 +784,7 @@ export class RNGConsistencyTester {
       deterministicRate: total > 0 ? (deterministic / total) * 100 : 0,
       averageConsistency: avgConsistency,
       totalIterations: this.rngTestResults.reduce((sum, r) => sum + r.iterations, 0),
-      totalIssues: this.rngTestResults.reduce((sum, r) => sum + (r.issues?.length || 0), 0)
+      totalIssues: this.rngTestResults.reduce((sum, r) => sum + (r.issues?.length || 0), 0),
     };
   }
 
@@ -777,7 +793,7 @@ export class RNGConsistencyTester {
     return {
       consistencyDistribution: this.analyzeConsistencyDistribution(),
       commonIssues: this.getCommonRNGIssues(),
-      implementationComparison: this.compareImplementationRNG()
+      implementationComparison: this.compareImplementationRNG(),
     };
   }
 
@@ -789,13 +805,13 @@ export class RNGConsistencyTester {
   getCommonRNGIssues() {
     const allIssues = this.rngTestResults.flatMap(r => r.issues || []);
     const issueTypes = {};
-    
+
     allIssues.forEach(issue => {
       issueTypes[issue.type] = (issueTypes[issue.type] || 0) + 1;
     });
 
     return Object.entries(issueTypes)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([type, count]) => ({ type, count }));
   }
@@ -803,8 +819,8 @@ export class RNGConsistencyTester {
   compareImplementationRNG() {
     // Placeholder for implementation-specific RNG analysis
     return {
-      typescript: { quality: 'good', issues: [] },
-      aoLua: { quality: 'good', issues: [] }
+      typescript: { quality: "good", issues: [] },
+      aoLua: { quality: "good", issues: [] },
     };
   }
 
@@ -814,19 +830,19 @@ export class RNGConsistencyTester {
 
     if (summary.deterministicRate < 90) {
       recommendations.push({
-        priority: 'critical',
-        category: 'determinism',
+        priority: "critical",
+        category: "determinism",
         description: `Low RNG determinism rate (${summary.deterministicRate.toFixed(1)}%). Review RNG implementation for consistency.`,
-        action: 'fix_rng_determinism'
+        action: "fix_rng_determinism",
       });
     }
 
     if (summary.averageConsistency < 0.9) {
       recommendations.push({
-        priority: 'high',
-        category: 'consistency',
+        priority: "high",
+        category: "consistency",
         description: `Low average RNG consistency (${(summary.averageConsistency * 100).toFixed(1)}%). Ensure identical seeding.`,
-        action: 'improve_rng_consistency'
+        action: "improve_rng_consistency",
       });
     }
 
@@ -840,7 +856,7 @@ export class RNGConsistencyTester {
       implementation: implementation,
       selfConsistent: true,
       variance: 0.0,
-      stability: 1.0
+      stability: 1.0,
     };
   }
 
@@ -849,7 +865,7 @@ export class RNGConsistencyTester {
     return {
       correlation: 1.0,
       significance: 0.99,
-      consistent: true
+      consistent: true,
     };
   }
 
@@ -858,7 +874,7 @@ export class RNGConsistencyTester {
     return {
       chiSquareTest: { passed: true, pValue: 0.5 },
       runsTest: { passed: true, pValue: 0.6 },
-      serialTest: { passed: true, pValue: 0.4 }
+      serialTest: { passed: true, pValue: 0.4 },
     };
   }
 }

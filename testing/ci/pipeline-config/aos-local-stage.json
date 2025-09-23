@@ -1,0 +1,59 @@
+{
+  "name": "aos-local",
+  "description": "Integration testing with aos-local for real AO environment simulation",
+  "commands": ["npm run test:aos-local"],
+  "timeout": 300000,
+  "required": true,
+  "parallel": true,
+  "processTypes": ["logic", "coordinator"],
+  "artifacts": [
+    "testing/reports/aos-local-*.json",
+    "testing/aos-local/deployment-results.json",
+    "testing/aos-local/temp/**/*.log"
+  ],
+  "qualityGates": [
+    {
+      "name": "deployment-success",
+      "requirement": "100% process deployment success rate",
+      "critical": true
+    },
+    {
+      "name": "message-flow-validation",
+      "requirement": "All message flows complete successfully",
+      "critical": true
+    },
+    {
+      "name": "process-communication",
+      "requirement": "Inter-process communication works correctly",
+      "critical": true
+    }
+  ],
+  "environment": {
+    "NODE_ENV": "test",
+    "AOS_LOCAL_MODE": "test",
+    "LUA_VERSION": "5.3",
+    "AO_PROCESS_TIMEOUT": "5000"
+  },
+  "processMatrix": [
+    {
+      "type": "logic",
+      "processes": ["battle-engine", "evolution-engine", "capture-engine", "status-effects-engine"],
+      "testPattern": "**/integration/*-engine.test.js",
+      "timeout": 300000,
+      "requirements": ["message-passing", "state-management"]
+    },
+    {
+      "type": "coordinator",
+      "processes": ["coordinator-process"],
+      "testPattern": "**/integration/coordinator.test.js",
+      "timeout": 300000,
+      "requirements": ["async-coordination", "workflow-orchestration"]
+    }
+  ],
+  "deploymentValidation": {
+    "processCount": 26,
+    "healthChecks": true,
+    "messageLatency": 1000,
+    "memoryConstraints": true
+  }
+}

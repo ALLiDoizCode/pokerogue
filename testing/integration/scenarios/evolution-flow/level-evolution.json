@@ -1,0 +1,455 @@
+{
+  "testScenario": {
+    "id": "level-evolution-001",
+    "name": "Level-Based Evolution Complete Workflow",
+    "type": "end-to-end",
+    "description": "Tests complete evolution workflow from level-up trigger through stat recalculation",
+    "processes": [
+      "coordinator-process",
+      "evolution-engine",
+      "pokemon-species-db",
+      "experience-calculator",
+      "battle-engine",
+      "state-validator"
+    ]
+  },
+  "initialGameState": {
+    "version": "1.0.0",
+    "playerId": "test-player-evolution-001",
+    "battleId": null,
+    "party": [
+      {
+        "id": "pokemon-001",
+        "speciesId": 4,
+        "name": "Charmander",
+        "level": 15,
+        "experience": 3375,
+        "stats": {
+          "hp": 44,
+          "attack": 34,
+          "defense": 28,
+          "specialAttack": 35,
+          "specialDefense": 31,
+          "speed": 40
+        },
+        "currentHp": 44,
+        "nature": "Adamant",
+        "ivs": {
+          "hp": 15,
+          "attack": 20,
+          "defense": 10,
+          "specialAttack": 5,
+          "specialDefense": 12,
+          "speed": 18
+        },
+        "moves": [52, 10, 43, 39],
+        "canEvolve": false
+      }
+    ],
+    "progression": {
+      "level": 20,
+      "experience": 45000,
+      "badges": 2
+    }
+  },
+  "messageFlow": [
+    {
+      "step": 1,
+      "source": "test-client",
+      "target": "coordinator-process",
+      "action": "CoordinateWorkflow",
+      "data": {
+        "workflowType": "experience_gain",
+        "pokemonId": "pokemon-001",
+        "experienceGained": 250,
+        "context": "battle_victory"
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true
+      },
+      "timeout": 8000,
+      "description": "Initiate experience gain workflow that triggers evolution"
+    },
+    {
+      "step": 2,
+      "source": "coordinator-process",
+      "target": "experience-calculator",
+      "action": "CalculateExperience",
+      "data": {
+        "pokemon": {
+          "id": "pokemon-001",
+          "speciesId": 4,
+          "level": 15,
+          "currentExperience": 3375
+        },
+        "experienceGained": 250,
+        "experienceType": "medium_slow"
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "newExperience": 3625,
+          "newLevel": 16,
+          "leveledUp": true,
+          "experienceToNext": 751
+        }
+      },
+      "timeout": 2000,
+      "description": "Calculate new experience and level"
+    },
+    {
+      "step": 3,
+      "source": "coordinator-process",
+      "target": "pokemon-species-db",
+      "action": "QueryEvolutionChain",
+      "data": {
+        "speciesId": 4
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "evolutionChain": [
+            {
+              "from": 4,
+              "to": 5,
+              "method": "level",
+              "parameter": 16,
+              "conditions": []
+            },
+            {
+              "from": 5,
+              "to": 6,
+              "method": "level",
+              "parameter": 36,
+              "conditions": []
+            }
+          ],
+          "canEvolve": true,
+          "nextEvolution": {
+            "speciesId": 5,
+            "method": "level",
+            "requirement": 16
+          }
+        }
+      },
+      "timeout": 2000,
+      "description": "Check evolution requirements for Charmander"
+    },
+    {
+      "step": 4,
+      "source": "coordinator-process",
+      "target": "evolution-engine",
+      "action": "ProcessEvolution",
+      "data": {
+        "pokemon": {
+          "id": "pokemon-001",
+          "speciesId": 4,
+          "level": 16,
+          "nature": "Adamant",
+          "ivs": {
+            "hp": 15,
+            "attack": 20,
+            "defense": 10,
+            "specialAttack": 5,
+            "specialDefense": 12,
+            "speed": 18
+          },
+          "moves": [52, 10, 43, 39]
+        },
+        "evolutionTarget": 5,
+        "evolutionMethod": "level"
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "evolutionSuccessful": true,
+          "newSpeciesId": 5,
+          "newName": "Charmeleon",
+          "statsChanged": true,
+          "newMoves": [],
+          "forgottenMoves": []
+        }
+      },
+      "timeout": 3000,
+      "description": "Process evolution from Charmander to Charmeleon"
+    },
+    {
+      "step": 5,
+      "source": "coordinator-process",
+      "target": "pokemon-species-db",
+      "action": "QuerySpecies",
+      "data": {
+        "speciesId": 5
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "speciesId": 5,
+          "name": "Charmeleon",
+          "type1": "Fire",
+          "type2": null,
+          "baseStats": {
+            "hp": 58,
+            "attack": 64,
+            "defense": 58,
+            "specialAttack": 80,
+            "specialDefense": 65,
+            "speed": 80
+          },
+          "evolutionLevel": 16,
+          "preEvolution": 4
+        }
+      },
+      "timeout": 2000,
+      "description": "Get new species data for stat recalculation"
+    },
+    {
+      "step": 6,
+      "source": "coordinator-process",
+      "target": "battle-engine",
+      "action": "CalculateStats",
+      "data": {
+        "pokemon": {
+          "speciesId": 5,
+          "level": 16,
+          "nature": "Adamant",
+          "ivs": {
+            "hp": 15,
+            "attack": 20,
+            "defense": 10,
+            "specialAttack": 5,
+            "specialDefense": 12,
+            "speed": 18
+          }
+        },
+        "context": "evolution_recalculation"
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "calculatedStats": {
+            "hp": 57,
+            "attack": 49,
+            "defense": 38,
+            "specialAttack": 42,
+            "specialDefense": 41,
+            "speed": 49
+          },
+          "statChanges": {
+            "hp": 13,
+            "attack": 15,
+            "defense": 10,
+            "specialAttack": 7,
+            "specialDefense": 10,
+            "speed": 9
+          }
+        }
+      },
+      "timeout": 2000,
+      "description": "Recalculate stats with new base stats"
+    },
+    {
+      "step": 7,
+      "source": "coordinator-process",
+      "target": "state-validator",
+      "action": "ValidateParty",
+      "data": {
+        "party": [
+          {
+            "id": "pokemon-001",
+            "speciesId": 5,
+            "name": "Charmeleon",
+            "level": 16,
+            "experience": 3625,
+            "stats": {
+              "hp": 57,
+              "attack": 49,
+              "defense": 38,
+              "specialAttack": 42,
+              "specialDefense": 41,
+              "speed": 49
+            },
+            "currentHp": 57,
+            "nature": "Adamant",
+            "ivs": {
+              "hp": 15,
+              "attack": 20,
+              "defense": 10,
+              "specialAttack": 5,
+              "specialDefense": 12,
+              "speed": 18
+            },
+            "moves": [52, 10, 43, 39]
+          }
+        ]
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "valid": true,
+          "validationErrors": [],
+          "warnings": []
+        }
+      },
+      "timeout": 2000,
+      "description": "Validate final party state after evolution"
+    }
+  ],
+  "finalGameState": {
+    "version": "1.0.0",
+    "playerId": "test-player-evolution-001",
+    "battleId": null,
+    "party": [
+      {
+        "id": "pokemon-001",
+        "speciesId": 5,
+        "name": "Charmeleon",
+        "level": 16,
+        "experience": 3625,
+        "stats": {
+          "hp": 57,
+          "attack": 49,
+          "defense": 38,
+          "specialAttack": 42,
+          "specialDefense": 41,
+          "speed": 49
+        },
+        "currentHp": 57,
+        "nature": "Adamant",
+        "ivs": {
+          "hp": 15,
+          "attack": 20,
+          "defense": 10,
+          "specialAttack": 5,
+          "specialDefense": 12,
+          "speed": 18
+        },
+        "moves": [52, 10, 43, 39],
+        "canEvolve": false
+      }
+    ],
+    "progression": {
+      "level": 20,
+      "experience": 45000,
+      "badges": 2
+    }
+  },
+  "assertions": [
+    {
+      "type": "state_consistency",
+      "condition": "pokemon_evolved_correctly",
+      "expected": true,
+      "description": "Pokemon should evolve from Charmander (4) to Charmeleon (5)"
+    },
+    {
+      "type": "data_integrity",
+      "condition": "stats_recalculated_correctly",
+      "expected": true,
+      "description": "Stats should be recalculated with new base stats"
+    },
+    {
+      "type": "coordination",
+      "condition": "workflow_completed_successfully",
+      "expected": true,
+      "description": "Complete evolution workflow should succeed"
+    },
+    {
+      "type": "performance",
+      "condition": "total_execution_time",
+      "expected": "<8000ms",
+      "tolerance": "10%",
+      "description": "Evolution workflow should complete within 8 seconds"
+    },
+    {
+      "type": "state_consistency",
+      "condition": "hp_healed_on_evolution",
+      "expected": true,
+      "description": "Pokemon HP should be fully healed after evolution"
+    },
+    {
+      "type": "data_integrity",
+      "condition": "experience_preserved",
+      "expected": true,
+      "description": "Experience points should be preserved through evolution"
+    },
+    {
+      "type": "data_integrity",
+      "condition": "ivs_preserved",
+      "expected": true,
+      "description": "Individual Values should be preserved through evolution"
+    },
+    {
+      "type": "data_integrity",
+      "condition": "nature_preserved",
+      "expected": true,
+      "description": "Nature should be preserved through evolution"
+    }
+  ],
+  "stateTransitions": [
+    {
+      "step": "initial",
+      "description": "Level 15 Charmander with 3375 experience",
+      "key_values": {
+        "speciesId": 4,
+        "level": 15,
+        "experience": 3375,
+        "hp": 44
+      }
+    },
+    {
+      "step": "experience_gain",
+      "description": "Experience increased, level up triggered",
+      "key_values": {
+        "experience": 3625,
+        "level": 16,
+        "leveledUp": true
+      }
+    },
+    {
+      "step": "evolution_check",
+      "description": "Evolution requirements met, evolution possible",
+      "key_values": {
+        "canEvolve": true,
+        "evolutionTarget": 5,
+        "evolutionMethod": "level"
+      }
+    },
+    {
+      "step": "evolution_complete",
+      "description": "Pokemon evolved, stats recalculated",
+      "key_values": {
+        "speciesId": 5,
+        "name": "Charmeleon",
+        "statsRecalculated": true,
+        "hpHealed": true
+      }
+    },
+    {
+      "step": "validation_complete",
+      "description": "Final state validated successfully",
+      "key_values": {
+        "valid": true,
+        "errors": 0,
+        "currentHp": 57
+      }
+    }
+  ],
+  "metadata": {
+    "author": "Integration Test Framework",
+    "created": "2025-09-22",
+    "tags": ["evolution", "level-up", "end-to-end", "workflow"],
+    "priority": "high",
+    "complexity": "advanced",
+    "expectedDuration": 8000,
+    "retryCount": 2,
+    "gameFeature": "pokemon_evolution",
+    "testCategory": "core_gameplay"
+  }
+}

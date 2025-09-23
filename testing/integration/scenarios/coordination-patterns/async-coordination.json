@@ -1,0 +1,293 @@
+{
+  "testScenario": {
+    "id": "async-coordination-001",
+    "name": "Async Multi-Process Coordination Pattern",
+    "type": "orchestration",
+    "description": "Tests coordinator-process async workflow with parallel data collection from multiple processes",
+    "processes": [
+      "coordinator-process",
+      "pokemon-species-db",
+      "moves-database",
+      "items-database",
+      "abilities-database",
+      "battle-engine"
+    ]
+  },
+  "gameState": {
+    "version": "1.0.0",
+    "playerId": "test-player-async-001",
+    "party": [
+      {
+        "id": "pokemon-001",
+        "speciesId": 144,
+        "level": 70,
+        "abilityId": 46,
+        "heldItem": 201,
+        "moves": [59, 115, 14, 58]
+      }
+    ],
+    "progression": {
+      "level": 25,
+      "experience": 125000
+    }
+  },
+  "messageFlow": [
+    {
+      "step": 1,
+      "source": "test-client",
+      "target": "coordinator-process",
+      "action": "CoordinateWorkflow",
+      "data": {
+        "workflowType": "pokemon_analysis",
+        "pokemonId": "pokemon-001",
+        "analysisLevel": "comprehensive"
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true
+      },
+      "timeout": 8000,
+      "description": "Initiate comprehensive Pokemon analysis workflow"
+    },
+    {
+      "step": 2,
+      "source": "coordinator-process",
+      "target": "pokemon-species-db",
+      "action": "QuerySpecies",
+      "data": {
+        "speciesId": 144
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "speciesId": 144,
+          "name": "Articuno",
+          "type1": "Ice",
+          "type2": "Flying",
+          "baseStats": {
+            "hp": 90,
+            "attack": 85,
+            "defense": 100,
+            "specialAttack": 95,
+            "specialDefense": 125,
+            "speed": 85
+          },
+          "evolutionChain": null
+        }
+      },
+      "timeout": 2000,
+      "parallel": true,
+      "description": "Query species data in parallel"
+    },
+    {
+      "step": 3,
+      "source": "coordinator-process",
+      "target": "abilities-database",
+      "action": "QueryAbility",
+      "data": {
+        "abilityId": 46
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "abilityId": 46,
+          "name": "Pressure",
+          "description": "Puts other Pokemon under pressure, causing them to expend more PP to use their moves.",
+          "effects": ["pp_pressure"]
+        }
+      },
+      "timeout": 2000,
+      "parallel": true,
+      "description": "Query ability data in parallel"
+    },
+    {
+      "step": 4,
+      "source": "coordinator-process",
+      "target": "items-database",
+      "action": "QueryItem",
+      "data": {
+        "itemId": 201
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "itemId": 201,
+          "name": "Leftovers",
+          "category": "held_item",
+          "effects": ["heal_per_turn"],
+          "healAmount": 0.0625
+        }
+      },
+      "timeout": 2000,
+      "parallel": true,
+      "description": "Query held item data in parallel"
+    },
+    {
+      "step": 5,
+      "source": "coordinator-process",
+      "target": "moves-database",
+      "action": "QueryMoves",
+      "data": {
+        "moveIds": [59, 115, 14, 58]
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "moves": [
+            {
+              "moveId": 59,
+              "name": "Blizzard",
+              "type": "Ice",
+              "category": "Special",
+              "power": 110,
+              "accuracy": 70
+            },
+            {
+              "moveId": 115,
+              "name": "Reflect",
+              "type": "Psychic",
+              "category": "Status",
+              "power": null,
+              "accuracy": null
+            },
+            {
+              "moveId": 14,
+              "name": "Double Kick",
+              "type": "Fighting",
+              "category": "Physical",
+              "power": 30,
+              "accuracy": 100
+            },
+            {
+              "moveId": 58,
+              "name": "Ice Beam",
+              "type": "Ice",
+              "category": "Special",
+              "power": 90,
+              "accuracy": 100
+            }
+          ]
+        }
+      },
+      "timeout": 3000,
+      "parallel": true,
+      "description": "Query multiple moves data in parallel"
+    },
+    {
+      "step": 6,
+      "source": "coordinator-process",
+      "target": "battle-engine",
+      "action": "CalculateStats",
+      "data": {
+        "pokemon": {
+          "speciesId": 144,
+          "level": 70,
+          "abilityId": 46,
+          "heldItem": 201,
+          "nature": "Modest",
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defense": 31,
+            "specialAttack": 31,
+            "specialDefense": 31,
+            "speed": 31
+          }
+        },
+        "context": "comprehensive_analysis"
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "calculatedStats": {
+            "hp": 311,
+            "attack": 166,
+            "defense": 236,
+            "specialAttack": 317,
+            "specialDefense": 256,
+            "speed": 206
+          },
+          "effectiveStats": {
+            "hp": 311,
+            "attack": 149,
+            "defense": 236,
+            "specialAttack": 348,
+            "specialDefense": 256,
+            "speed": 206
+          },
+          "modifiers": {
+            "nature": "Modest",
+            "ability": "Pressure",
+            "heldItem": "Leftovers"
+          }
+        }
+      },
+      "timeout": 3000,
+      "description": "Calculate comprehensive stats after data collection"
+    }
+  ],
+  "parallelExecution": {
+    "enabled": true,
+    "parallelSteps": [2, 3, 4, 5],
+    "coordinationDelay": 100,
+    "maxConcurrency": 4
+  },
+  "assertions": [
+    {
+      "type": "coordination",
+      "condition": "parallel_execution_successful",
+      "expected": true,
+      "description": "All parallel queries should complete successfully"
+    },
+    {
+      "type": "performance",
+      "condition": "parallel_faster_than_sequential",
+      "expected": true,
+      "tolerance": "50%",
+      "description": "Parallel execution should be faster than sequential"
+    },
+    {
+      "type": "state_consistency",
+      "condition": "gamestate_unchanged_during_queries",
+      "expected": true,
+      "description": "GameState should remain consistent during data collection"
+    },
+    {
+      "type": "message_integrity",
+      "condition": "no_message_corruption_parallel",
+      "expected": true,
+      "description": "Parallel messages should not corrupt each other"
+    },
+    {
+      "type": "coordination",
+      "condition": "coordinator_waits_for_all_responses",
+      "expected": true,
+      "description": "Coordinator should wait for all parallel responses before proceeding"
+    },
+    {
+      "type": "data_integrity",
+      "condition": "aggregated_data_complete",
+      "expected": true,
+      "description": "Final calculation should use data from all parallel queries"
+    }
+  ],
+  "timing": {
+    "maxExecutionTime": 8000,
+    "parallelTimeout": 4000,
+    "coordinationTimeout": 1000,
+    "retryDelay": 500
+  },
+  "metadata": {
+    "author": "Integration Test Framework",
+    "created": "2025-09-22",
+    "tags": ["coordination", "async", "parallel", "orchestration"],
+    "priority": "high",
+    "complexity": "advanced",
+    "retryCount": 2
+  }
+}

@@ -6,10 +6,10 @@
  * Addresses QA finding SECURITY-001: Client-side bypass protection
  */
 
-import fs from 'fs';
-import path from 'path';
-import crypto from 'crypto';
-import os from 'os';
+import crypto from "crypto";
+import fs from "fs";
+import os from "os";
+import path from "path";
 
 class ServerSideBypassValidator {
   constructor() {
@@ -23,15 +23,15 @@ class ServerSideBypassValidator {
       // Minimum justification length
       minJustificationLength: 50,
       // Server-side bypass log location
-      serverLogPath: process.env.TDD_BYPASS_SERVER_LOG || '/var/log/tdd-bypasses.log',
+      serverLogPath: process.env.TDD_BYPASS_SERVER_LOG || "/var/log/tdd-bypasses.log",
       // Local cache for user bypass counts
-      localCachePath: '.git/bypass-cache.json',
+      localCachePath: ".git/bypass-cache.json",
       // Emergency override secret (should be set via environment)
       emergencySecret: process.env.TDD_EMERGENCY_SECRET,
       // Approved bypass administrators
-      approvedAdmins: process.env.TDD_BYPASS_ADMINS ? 
-        process.env.TDD_BYPASS_ADMINS.split(',') : 
-        ['security-team', 'tech-lead', 'release-manager']
+      approvedAdmins: process.env.TDD_BYPASS_ADMINS
+        ? process.env.TDD_BYPASS_ADMINS.split(",")
+        : ["security-team", "tech-lead", "release-manager"],
     };
   }
 
@@ -53,10 +53,10 @@ class ServerSideBypassValidator {
       if (!quotaCheck.allowed) {
         return {
           valid: false,
-          reason: 'QUOTA_EXCEEDED',
+          reason: "QUOTA_EXCEEDED",
           message: `User has exceeded daily bypass limit (${this.config.maxBypassesPerDay})`,
           remainingBypasses: 0,
-          nextResetTime: quotaCheck.nextReset
+          nextResetTime: quotaCheck.nextReset,
         };
       }
 
@@ -65,10 +65,10 @@ class ServerSideBypassValidator {
       if (!repoQuotaCheck.allowed) {
         return {
           valid: false,
-          reason: 'REPO_QUOTA_EXCEEDED',
+          reason: "REPO_QUOTA_EXCEEDED",
           message: `Repository has exceeded daily bypass limit (${this.config.maxRepoBypassesPerDay})`,
           repoBypassesUsed: repoQuotaCheck.used,
-          nextResetTime: repoQuotaCheck.nextReset
+          nextResetTime: repoQuotaCheck.nextReset,
         };
       }
 
@@ -89,10 +89,10 @@ class ServerSideBypassValidator {
       if (!adminCheck.approved && !emergencyCheck.isEmergency) {
         return {
           valid: false,
-          reason: 'ADMIN_APPROVAL_REQUIRED',
-          message: 'TDD bypass requires admin approval for non-emergency situations',
+          reason: "ADMIN_APPROVAL_REQUIRED",
+          message: "TDD bypass requires admin approval for non-emergency situations",
           requiredApprovers: this.config.approvedAdmins,
-          approvalInstructions: 'Contact an approved admin for bypass authorization'
+          approvalInstructions: "Contact an approved admin for bypass authorization",
         };
       }
 
@@ -107,24 +107,23 @@ class ServerSideBypassValidator {
 
       return {
         valid: true,
-        reason: 'APPROVED',
-        message: 'TDD bypass approved with server-side validation',
+        reason: "APPROVED",
+        message: "TDD bypass approved with server-side validation",
         bypassToken: bypassToken,
-        expirationTime: Date.now() + (30 * 60 * 1000), // 30 minutes
+        expirationTime: Date.now() + 30 * 60 * 1000, // 30 minutes
         conditions: {
           limitedTime: true,
           requiresDocumentation: true,
-          auditTrail: true
+          auditTrail: true,
         },
-        remainingBypasses: quotaCheck.remaining - 1
+        remainingBypasses: quotaCheck.remaining - 1,
       };
-
     } catch (error) {
       return {
         valid: false,
-        reason: 'SERVER_ERROR',
+        reason: "SERVER_ERROR",
         message: `Server-side validation failed: ${error.message}`,
-        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        error: process.env.NODE_ENV === "development" ? error.stack : undefined,
       };
     }
   }
@@ -136,15 +135,15 @@ class ServerSideBypassValidator {
    */
   verifyBypassToken(token) {
     try {
-      const [payload, signature] = token.split('.');
-      const decodedPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
-      
+      const [payload, signature] = token.split(".");
+      const decodedPayload = JSON.parse(Buffer.from(payload, "base64").toString());
+
       // Check expiration
       if (Date.now() > decodedPayload.exp) {
         return {
           valid: false,
-          reason: 'TOKEN_EXPIRED',
-          message: 'Bypass token has expired'
+          reason: "TOKEN_EXPIRED",
+          message: "Bypass token has expired",
         };
       }
 
@@ -153,22 +152,21 @@ class ServerSideBypassValidator {
       if (signature !== expectedSignature) {
         return {
           valid: false,
-          reason: 'INVALID_SIGNATURE',
-          message: 'Bypass token signature is invalid'
+          reason: "INVALID_SIGNATURE",
+          message: "Bypass token signature is invalid",
         };
       }
 
       return {
         valid: true,
         payload: decodedPayload,
-        message: 'Bypass token is valid'
+        message: "Bypass token is valid",
       };
-
     } catch (error) {
       return {
         valid: false,
-        reason: 'MALFORMED_TOKEN',
-        message: 'Bypass token is malformed or corrupt'
+        reason: "MALFORMED_TOKEN",
+        message: "Bypass token is malformed or corrupt",
       };
     }
   }
@@ -180,10 +178,10 @@ class ServerSideBypassValidator {
   async getBypassStatistics() {
     try {
       const cache = await this._loadBypassCache();
-      const today = new Date().toISOString().split('T')[0];
-      
+      const today = new Date().toISOString().split("T")[0];
+
       const todayData = cache[today] || { users: {}, repositories: {}, total: 0 };
-      
+
       return {
         date: today,
         totalBypasses: todayData.total || 0,
@@ -193,13 +191,13 @@ class ServerSideBypassValidator {
           dailyLimit: this.config.maxBypassesPerDay,
           repoLimit: this.config.maxRepoBypassesPerDay,
           usersNearLimit: this._getUsersNearLimit(todayData.users || {}),
-          reposNearLimit: this._getReposNearLimit(todayData.repositories || {})
+          reposNearLimit: this._getReposNearLimit(todayData.repositories || {}),
         },
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       };
     } catch (error) {
       return {
-        error: `Failed to retrieve statistics: ${error.message}`
+        error: `Failed to retrieve statistics: ${error.message}`,
       };
     }
   }
@@ -207,15 +205,15 @@ class ServerSideBypassValidator {
   // Private helper methods
 
   _validateRequestFields(request) {
-    const required = ['user', 'repository', 'justification', 'timestamp'];
+    const required = ["user", "repository", "justification", "timestamp"];
     const missing = required.filter(field => !request[field]);
-    
+
     if (missing.length > 0) {
       return {
         valid: false,
-        reason: 'MISSING_FIELDS',
-        message: `Missing required fields: ${missing.join(', ')}`,
-        requiredFields: required
+        reason: "MISSING_FIELDS",
+        message: `Missing required fields: ${missing.join(", ")}`,
+        requiredFields: required,
       };
     }
 
@@ -225,8 +223,8 @@ class ServerSideBypassValidator {
     if (Math.abs(now - requestTime) > 5 * 60 * 1000) {
       return {
         valid: false,
-        reason: 'STALE_REQUEST',
-        message: 'Bypass request timestamp is too old or in the future'
+        reason: "STALE_REQUEST",
+        message: "Bypass request timestamp is too old or in the future",
       };
     }
 
@@ -236,21 +234,21 @@ class ServerSideBypassValidator {
   async _checkUserQuota(user) {
     try {
       const cache = await this._loadBypassCache();
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split("T")[0];
       const userBypasses = cache[today]?.users?.[user]?.count || 0;
 
       return {
         allowed: userBypasses < this.config.maxBypassesPerDay,
         used: userBypasses,
         remaining: this.config.maxBypassesPerDay - userBypasses,
-        nextReset: this._getNextMidnight()
+        nextReset: this._getNextMidnight(),
       };
     } catch (error) {
       // Fail secure - deny if we can't check quota
       return {
         allowed: false,
         error: error.message,
-        nextReset: this._getNextMidnight()
+        nextReset: this._getNextMidnight(),
       };
     }
   }
@@ -258,20 +256,20 @@ class ServerSideBypassValidator {
   async _checkRepositoryQuota(repository) {
     try {
       const cache = await this._loadBypassCache();
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split("T")[0];
       const repoBypasses = cache[today]?.repositories?.[repository]?.count || 0;
 
       return {
         allowed: repoBypasses < this.config.maxRepoBypassesPerDay,
         used: repoBypasses,
         remaining: this.config.maxRepoBypassesPerDay - repoBypasses,
-        nextReset: this._getNextMidnight()
+        nextReset: this._getNextMidnight(),
       };
     } catch (error) {
       return {
         allowed: false,
         error: error.message,
-        nextReset: this._getNextMidnight()
+        nextReset: this._getNextMidnight(),
       };
     }
   }
@@ -281,21 +279,21 @@ class ServerSideBypassValidator {
       return { valid: true };
     }
 
-    if (!justification || typeof justification !== 'string') {
+    if (!justification || typeof justification !== "string") {
       return {
         valid: false,
-        reason: 'MISSING_JUSTIFICATION',
-        message: 'Bypass justification is required'
+        reason: "MISSING_JUSTIFICATION",
+        message: "Bypass justification is required",
       };
     }
 
     if (justification.length < this.config.minJustificationLength) {
       return {
         valid: false,
-        reason: 'INSUFFICIENT_JUSTIFICATION',
+        reason: "INSUFFICIENT_JUSTIFICATION",
         message: `Justification must be at least ${this.config.minJustificationLength} characters`,
         currentLength: justification.length,
-        minimumLength: this.config.minJustificationLength
+        minimumLength: this.config.minJustificationLength,
       };
     }
 
@@ -303,15 +301,15 @@ class ServerSideBypassValidator {
     const insufficientPatterns = [
       /^(urgent|emergency|hotfix|quick|temp)$/i,
       /^(need to deploy|production issue)$/i,
-      /^(no time|deadline)$/i
+      /^(no time|deadline)$/i,
     ];
 
     for (const pattern of insufficientPatterns) {
       if (pattern.test(justification.trim())) {
         return {
           valid: false,
-          reason: 'GENERIC_JUSTIFICATION',
-          message: 'Please provide a detailed explanation of why TDD bypass is necessary'
+          reason: "GENERIC_JUSTIFICATION",
+          message: "Please provide a detailed explanation of why TDD bypass is necessary",
         };
       }
     }
@@ -326,7 +324,7 @@ class ServerSideBypassValidator {
 
     const isValid = crypto.timingSafeEqual(
       Buffer.from(request.emergencySecret),
-      Buffer.from(this.config.emergencySecret)
+      Buffer.from(this.config.emergencySecret),
     );
 
     return { isEmergency: isValid };
@@ -335,32 +333,32 @@ class ServerSideBypassValidator {
   async _checkAdminApproval(request) {
     // In a real implementation, this would check against a service or database
     // For now, we'll check for admin approval in the request
-    const hasAdminApproval = request.adminApproval && 
-                            this.config.approvedAdmins.includes(request.adminApproval.approver);
+    const hasAdminApproval =
+      request.adminApproval && this.config.approvedAdmins.includes(request.adminApproval.approver);
 
     return {
       approved: hasAdminApproval,
       approver: request.adminApproval?.approver,
-      timestamp: request.adminApproval?.timestamp
+      timestamp: request.adminApproval?.timestamp,
     };
   }
 
   async _approveEmergencyBypass(request) {
     const bypassToken = this._generateBypassToken(request, true);
-    
-    await this._logServerSideBypass(request, bypassToken, 'EMERGENCY');
-    
+
+    await this._logServerSideBypass(request, bypassToken, "EMERGENCY");
+
     return {
       valid: true,
-      reason: 'EMERGENCY_OVERRIDE',
-      message: 'Emergency TDD bypass approved',
+      reason: "EMERGENCY_OVERRIDE",
+      message: "Emergency TDD bypass approved",
       bypassToken: bypassToken,
-      expirationTime: Date.now() + (60 * 60 * 1000), // 1 hour for emergencies
+      expirationTime: Date.now() + 60 * 60 * 1000, // 1 hour for emergencies
       conditions: {
         emergency: true,
         requiresPostMortem: true,
-        auditTrail: true
-      }
+        auditTrail: true,
+      },
     };
   }
 
@@ -371,49 +369,48 @@ class ServerSideBypassValidator {
       timestamp: Date.now(),
       exp: Date.now() + (isEmergency ? 60 * 60 * 1000 : 30 * 60 * 1000),
       emergency: isEmergency,
-      jti: crypto.randomUUID() // JWT ID for tracking
+      jti: crypto.randomUUID(), // JWT ID for tracking
     };
 
-    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64');
+    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64");
     const signature = this._signPayload(encodedPayload);
-    
+
     return `${encodedPayload}.${signature}`;
   }
 
   _signPayload(payload) {
     // Use a combination of environment factors as signing key
-    const signingKey = crypto.createHash('sha256')
-      .update(process.env.TDD_SIGNING_SECRET || 'default-secret')
+    const signingKey = crypto
+      .createHash("sha256")
+      .update(process.env.TDD_SIGNING_SECRET || "default-secret")
       .update(os.hostname())
       .update(process.cwd())
       .digest();
 
-    return crypto.createHmac('sha256', signingKey)
-      .update(payload)
-      .digest('hex');
+    return crypto.createHmac("sha256", signingKey).update(payload).digest("hex");
   }
 
-  async _logServerSideBypass(request, token, type = 'STANDARD') {
+  async _logServerSideBypass(request, token, type = "STANDARD") {
     const logEntry = {
       timestamp: new Date().toISOString(),
       type: type,
       user: request.user,
       repository: request.repository,
       justification: request.justification,
-      token: token.split('.')[0], // Log payload but not signature
+      token: token.split(".")[0], // Log payload but not signature
       hostname: os.hostname(),
       pid: process.pid,
-      adminApproval: request.adminApproval
+      adminApproval: request.adminApproval,
     };
 
     // Log to local file
-    const localLogPath = '.git/server-bypass.log';
-    const logLine = JSON.stringify(logEntry) + '\n';
-    
+    const localLogPath = ".git/server-bypass.log";
+    const logLine = JSON.stringify(logEntry) + "\n";
+
     try {
       await fs.promises.appendFile(localLogPath, logLine);
     } catch (error) {
-      console.error('Failed to write local bypass log:', error.message);
+      console.error("Failed to write local bypass log:", error.message);
     }
 
     // Attempt to log to server (if available)
@@ -422,7 +419,7 @@ class ServerSideBypassValidator {
         await fs.promises.appendFile(this.config.serverLogPath, logLine);
       } catch (error) {
         // Server logging is optional - don't fail the bypass for this
-        console.warn('Failed to write server bypass log:', error.message);
+        console.warn("Failed to write server bypass log:", error.message);
       }
     }
   }
@@ -430,8 +427,8 @@ class ServerSideBypassValidator {
   async _updateBypassCounters(request) {
     try {
       const cache = await this._loadBypassCache();
-      const today = new Date().toISOString().split('T')[0];
-      
+      const today = new Date().toISOString().split("T")[0];
+
       if (!cache[today]) {
         cache[today] = { users: {}, repositories: {}, total: 0 };
       }
@@ -458,7 +455,7 @@ class ServerSideBypassValidator {
 
       await this._saveBypassCache(cache);
     } catch (error) {
-      console.error('Failed to update bypass counters:', error.message);
+      console.error("Failed to update bypass counters:", error.message);
     }
   }
 
@@ -467,7 +464,7 @@ class ServerSideBypassValidator {
       if (!fs.existsSync(this.config.localCachePath)) {
         return {};
       }
-      const data = await fs.promises.readFile(this.config.localCachePath, 'utf8');
+      const data = await fs.promises.readFile(this.config.localCachePath, "utf8");
       return JSON.parse(data);
     } catch (error) {
       return {};
@@ -476,19 +473,16 @@ class ServerSideBypassValidator {
 
   async _saveBypassCache(cache) {
     try {
-      await fs.promises.writeFile(
-        this.config.localCachePath, 
-        JSON.stringify(cache, null, 2)
-      );
+      await fs.promises.writeFile(this.config.localCachePath, JSON.stringify(cache, null, 2));
     } catch (error) {
-      console.error('Failed to save bypass cache:', error.message);
+      console.error("Failed to save bypass cache:", error.message);
     }
   }
 
   _cleanOldCacheEntries(cache) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 7);
-    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    const cutoffString = cutoffDate.toISOString().split("T")[0];
 
     for (const date of Object.keys(cache)) {
       if (date < cutoffString) {
@@ -531,18 +525,18 @@ class ServerSideBypassValidator {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const command = args[0];
-  
+
   const validator = new ServerSideBypassValidator();
 
   switch (command) {
-    case 'validate':
+    case "validate": {
       // Validate bypass request from JSON input
       const requestJson = args[1];
       if (!requestJson) {
-        console.error('Usage: node server-side-bypass-validator.js validate <request-json>');
+        console.error("Usage: node server-side-bypass-validator.js validate <request-json>");
         process.exit(1);
       }
-      
+
       try {
         const request = JSON.parse(requestJson);
         validator.validateBypass(request).then(result => {
@@ -550,25 +544,27 @@ if (import.meta.url === `file://${process.argv[1]}`) {
           process.exit(result.valid ? 0 : 1);
         });
       } catch (error) {
-        console.error('Invalid JSON request:', error.message);
+        console.error("Invalid JSON request:", error.message);
         process.exit(1);
       }
       break;
+    }
 
-    case 'verify':
+    case "verify": {
       // Verify bypass token
       const token = args[1];
       if (!token) {
-        console.error('Usage: node server-side-bypass-validator.js verify <token>');
+        console.error("Usage: node server-side-bypass-validator.js verify <token>");
         process.exit(1);
       }
-      
+
       const verification = validator.verifyBypassToken(token);
       console.log(JSON.stringify(verification, null, 2));
       process.exit(verification.valid ? 0 : 1);
       break;
+    }
 
-    case 'stats':
+    case "stats":
       // Show bypass statistics
       validator.getBypassStatistics().then(stats => {
         console.log(JSON.stringify(stats, null, 2));

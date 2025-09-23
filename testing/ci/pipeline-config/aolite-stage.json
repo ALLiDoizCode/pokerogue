@@ -1,0 +1,41 @@
+{
+  "name": "aolite",
+  "description": "Unit testing with aolite framework for AO process simulation",
+  "commands": ["npm run test:aolite"],
+  "timeout": 180000,
+  "required": true,
+  "parallel": true,
+  "processTypes": ["data", "logic"],
+  "artifacts": ["testing/reports/aolite-*.json", "testing/aolite/test-results.json"],
+  "qualityGates": [
+    {
+      "name": "unit-test-success",
+      "requirement": "100% unit test success rate",
+      "critical": true
+    },
+    {
+      "name": "ao-globals-simulation",
+      "requirement": "Proper AO globals simulation in test environment",
+      "critical": true
+    }
+  ],
+  "environment": {
+    "NODE_ENV": "test",
+    "AOLITE_MODE": "test",
+    "LUA_VERSION": "5.3"
+  },
+  "processMatrix": [
+    {
+      "type": "data",
+      "processes": ["pokemon-species-db", "moves-database", "items-database", "abilities-database"],
+      "testPattern": "**/*-db.test.lua",
+      "timeout": 120000
+    },
+    {
+      "type": "logic",
+      "processes": ["battle-engine", "evolution-engine", "capture-engine", "status-effects-engine"],
+      "testPattern": "**/*-engine.test.lua",
+      "timeout": 180000
+    }
+  ]
+}

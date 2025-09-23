@@ -3,22 +3,22 @@
  * Validates that the coverage collector produces accurate coverage reports
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { execSync } from 'child_process';
-import { existsSync, writeFileSync, unlinkSync, mkdirSync, rmSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { execSync } from "child_process";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
+import { join } from "path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-const TEST_DIR = join(process.cwd(), 'test-temp-coverage-validation');
-const COVERAGE_COLLECTOR_PATH = join(process.cwd(), 'scripts/coverage/lua-coverage-collector.lua');
+const TEST_DIR = join(process.cwd(), "test-temp-coverage-validation");
+const COVERAGE_COLLECTOR_PATH = join(process.cwd(), "scripts/coverage/lua-coverage-collector.lua");
 
-describe('Coverage Collector Accuracy Validation', () => {
+describe("Coverage Collector Accuracy Validation", () => {
   beforeEach(() => {
     // Create temporary test directory
     if (existsSync(TEST_DIR)) {
       rmSync(TEST_DIR, { recursive: true, force: true });
     }
     mkdirSync(TEST_DIR, { recursive: true });
-    mkdirSync(join(TEST_DIR, 'testing', 'coverage'), { recursive: true });
+    mkdirSync(join(TEST_DIR, "testing", "coverage"), { recursive: true });
   });
 
   afterEach(() => {
@@ -28,10 +28,12 @@ describe('Coverage Collector Accuracy Validation', () => {
     }
   });
 
-  describe('Line Coverage Accuracy', () => {
-    it('should accurately track line execution with known scenario', () => {
-      const testScript = join(TEST_DIR, 'line_coverage_test.lua');
-      writeFileSync(testScript, `
+  describe("Line Coverage Accuracy", () => {
+    it("should accurately track line execution with known scenario", () => {
+      const testScript = join(TEST_DIR, "line_coverage_test.lua");
+      writeFileSync(
+        testScript,
+        `
         package.path = package.path .. ";${process.cwd()}/scripts/coverage/?.lua"
         local CoverageCollector = require("lua-coverage-collector")
         
@@ -58,19 +60,22 @@ describe('Coverage Collector Accuracy Validation', () => {
         assert(fileReport.lines.percentage == 60, "Should have 60% coverage")
         
         print("✓ Line coverage accuracy validated")
-      `);
-      
-      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: 'utf8' });
-      
-      expect(result).toContain('Lines covered: 3');
-      expect(result).toContain('Total lines: 5');
-      expect(result).toContain('Coverage percentage: 60');
-      expect(result).toContain('✓ Line coverage accuracy validated');
+      `,
+      );
+
+      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: "utf8" });
+
+      expect(result).toContain("Lines covered: 3");
+      expect(result).toContain("Total lines: 5");
+      expect(result).toContain("Coverage percentage: 60");
+      expect(result).toContain("✓ Line coverage accuracy validated");
     });
 
-    it('should handle duplicate line hits correctly', () => {
-      const testScript = join(TEST_DIR, 'duplicate_hits_test.lua');
-      writeFileSync(testScript, `
+    it("should handle duplicate line hits correctly", () => {
+      const testScript = join(TEST_DIR, "duplicate_hits_test.lua");
+      writeFileSync(
+        testScript,
+        `
         package.path = package.path .. ";${process.cwd()}/scripts/coverage/?.lua"
         local CoverageCollector = require("lua-coverage-collector")
         
@@ -95,17 +100,20 @@ describe('Coverage Collector Accuracy Validation', () => {
         assert(fileReport.lines.percentage == math.floor((2/3)*100), "Should have ~67% coverage")
         
         print("✓ Duplicate hits handled correctly")
-      `);
-      
-      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: 'utf8' });
-      
-      expect(result).toContain('Unique lines covered: 2');
-      expect(result).toContain('✓ Duplicate hits handled correctly');
+      `,
+      );
+
+      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: "utf8" });
+
+      expect(result).toContain("Unique lines covered: 2");
+      expect(result).toContain("✓ Duplicate hits handled correctly");
     });
 
-    it('should calculate hit counts accurately', () => {
-      const testScript = join(TEST_DIR, 'hit_counts_test.lua');
-      writeFileSync(testScript, `
+    it("should calculate hit counts accurately", () => {
+      const testScript = join(TEST_DIR, "hit_counts_test.lua");
+      writeFileSync(
+        testScript,
+        `
         package.path = package.path .. ";${process.cwd()}/scripts/coverage/?.lua"
         local CoverageCollector = require("lua-coverage-collector")
         
@@ -133,21 +141,24 @@ describe('Coverage Collector Accuracy Validation', () => {
         assert(coverage.hitCounts[3] == 1, "Line 3 should have 1 hit")
         
         print("✓ Hit counts accurate")
-      `);
-      
-      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: 'utf8' });
-      
-      expect(result).toContain('Line 1 hits: 5');
-      expect(result).toContain('Line 2 hits: 3');
-      expect(result).toContain('Line 3 hits: 1');
-      expect(result).toContain('✓ Hit counts accurate');
+      `,
+      );
+
+      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: "utf8" });
+
+      expect(result).toContain("Line 1 hits: 5");
+      expect(result).toContain("Line 2 hits: 3");
+      expect(result).toContain("Line 3 hits: 1");
+      expect(result).toContain("✓ Hit counts accurate");
     });
   });
 
-  describe('Function Coverage Accuracy', () => {
-    it('should accurately track function calls', () => {
-      const testScript = join(TEST_DIR, 'function_coverage_test.lua');
-      writeFileSync(testScript, `
+  describe("Function Coverage Accuracy", () => {
+    it("should accurately track function calls", () => {
+      const testScript = join(TEST_DIR, "function_coverage_test.lua");
+      writeFileSync(
+        testScript,
+        `
         package.path = package.path .. ";${process.cwd()}/scripts/coverage/?.lua"
         local CoverageCollector = require("lua-coverage-collector")
         
@@ -175,18 +186,21 @@ describe('Coverage Collector Accuracy Validation', () => {
         assert(fileReport.functions.percentage == math.floor((2/3)*100), "Should have ~67% function coverage")
         
         print("✓ Function coverage accuracy validated")
-      `);
-      
-      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: 'utf8' });
-      
-      expect(result).toContain('Functions covered: 2');
-      expect(result).toContain('Total functions: 3');
-      expect(result).toContain('✓ Function coverage accuracy validated');
+      `,
+      );
+
+      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: "utf8" });
+
+      expect(result).toContain("Functions covered: 2");
+      expect(result).toContain("Total functions: 3");
+      expect(result).toContain("✓ Function coverage accuracy validated");
     });
 
-    it('should track function call counts correctly', () => {
-      const testScript = join(TEST_DIR, 'function_call_counts_test.lua');
-      writeFileSync(testScript, `
+    it("should track function call counts correctly", () => {
+      const testScript = join(TEST_DIR, "function_call_counts_test.lua");
+      writeFileSync(
+        testScript,
+        `
         package.path = package.path .. ";${process.cwd()}/scripts/coverage/?.lua"
         local CoverageCollector = require("lua-coverage-collector")
         
@@ -210,20 +224,23 @@ describe('Coverage Collector Accuracy Validation', () => {
         assert(coverage.callCounts["coldFunction"] == 2, "Cold function should have 2 calls")
         
         print("✓ Function call counts accurate")
-      `);
-      
-      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: 'utf8' });
-      
-      expect(result).toContain('Hot function calls: 10');
-      expect(result).toContain('Cold function calls: 2');
-      expect(result).toContain('✓ Function call counts accurate');
+      `,
+      );
+
+      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: "utf8" });
+
+      expect(result).toContain("Hot function calls: 10");
+      expect(result).toContain("Cold function calls: 2");
+      expect(result).toContain("✓ Function call counts accurate");
     });
   });
 
-  describe('Multi-File Coverage Accuracy', () => {
-    it('should handle multiple files independently', () => {
-      const testScript = join(TEST_DIR, 'multi_file_test.lua');
-      writeFileSync(testScript, `
+  describe("Multi-File Coverage Accuracy", () => {
+    it("should handle multiple files independently", () => {
+      const testScript = join(TEST_DIR, "multi_file_test.lua");
+      writeFileSync(
+        testScript,
+        `
         package.path = package.path .. ";${process.cwd()}/scripts/coverage/?.lua"
         local CoverageCollector = require("lua-coverage-collector")
         
@@ -254,20 +271,23 @@ describe('Coverage Collector Accuracy Validation', () => {
         assert(report.summary.linesPercentage == expectedOverall, "Overall coverage should be " .. expectedOverall .. "%")
         
         print("✓ Multi-file coverage accurate")
-      `);
-      
-      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: 'utf8' });
-      
-      expect(result).toContain('File1 coverage: 50');
-      expect(result).toContain('File2 coverage: 75');
-      expect(result).toContain('✓ Multi-file coverage accurate');
+      `,
+      );
+
+      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: "utf8" });
+
+      expect(result).toContain("File1 coverage: 50");
+      expect(result).toContain("File2 coverage: 75");
+      expect(result).toContain("✓ Multi-file coverage accurate");
     });
   });
 
-  describe('Report Generation Accuracy', () => {
-    it('should generate accurate summary statistics', () => {
-      const testScript = join(TEST_DIR, 'summary_accuracy_test.lua');
-      writeFileSync(testScript, `
+  describe("Report Generation Accuracy", () => {
+    it("should generate accurate summary statistics", () => {
+      const testScript = join(TEST_DIR, "summary_accuracy_test.lua");
+      writeFileSync(
+        testScript,
+        `
         package.path = package.path .. ";${process.cwd()}/scripts/coverage/?.lua"
         local CoverageCollector = require("lua-coverage-collector")
         
@@ -317,21 +337,24 @@ describe('Coverage Collector Accuracy Validation', () => {
         assert(summary.functionsPercentage == expectedFunctionPercentage, "Function percentage should be " .. expectedFunctionPercentage)
         
         print("✓ Summary statistics accurate")
-      `);
-      
-      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: 'utf8' });
-      
-      expect(result).toContain('Total files: 2');
-      expect(result).toContain('Lines covered: 5');
-      expect(result).toContain('Lines total: 7');
-      expect(result).toContain('Functions covered: 3');
-      expect(result).toContain('Functions total: 4');
-      expect(result).toContain('✓ Summary statistics accurate');
+      `,
+      );
+
+      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: "utf8" });
+
+      expect(result).toContain("Total files: 2");
+      expect(result).toContain("Lines covered: 5");
+      expect(result).toContain("Lines total: 7");
+      expect(result).toContain("Functions covered: 3");
+      expect(result).toContain("Functions total: 4");
+      expect(result).toContain("✓ Summary statistics accurate");
     });
 
-    it('should handle edge cases correctly', () => {
-      const testScript = join(TEST_DIR, 'edge_cases_test.lua');
-      writeFileSync(testScript, `
+    it("should handle edge cases correctly", () => {
+      const testScript = join(TEST_DIR, "edge_cases_test.lua");
+      writeFileSync(
+        testScript,
+        `
         package.path = package.path .. ";${process.cwd()}/scripts/coverage/?.lua"
         local CoverageCollector = require("lua-coverage-collector")
         
@@ -365,18 +388,21 @@ describe('Coverage Collector Accuracy Validation', () => {
         assert(report.files["noFunc.lua"].functions.total == 0, "No-func file should have 0 total functions")
         
         print("✓ Edge cases handled correctly")
-      `);
-      
-      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: 'utf8' });
-      
-      expect(result).toContain('✓ Edge cases handled correctly');
+      `,
+      );
+
+      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: "utf8" });
+
+      expect(result).toContain("✓ Edge cases handled correctly");
     });
   });
 
-  describe('Performance and Consistency', () => {
-    it('should produce consistent results across multiple runs', () => {
-      const testScript = join(TEST_DIR, 'consistency_test.lua');
-      writeFileSync(testScript, `
+  describe("Performance and Consistency", () => {
+    it("should produce consistent results across multiple runs", () => {
+      const testScript = join(TEST_DIR, "consistency_test.lua");
+      writeFileSync(
+        testScript,
+        `
         package.path = package.path .. ";${process.cwd()}/scripts/coverage/?.lua"
         local CoverageCollector = require("lua-coverage-collector")
         
@@ -418,11 +444,12 @@ describe('Coverage Collector Accuracy Validation', () => {
         print("Line percentage:", firstLinePercentage)
         print("Function percentage:", firstFunctionPercentage)
         print("✓ Results consistent across multiple runs")
-      `);
-      
-      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: 'utf8' });
-      
-      expect(result).toContain('✓ Results consistent across multiple runs');
+      `,
+      );
+
+      const result = execSync(`cd ${TEST_DIR} && lua ${testScript}`, { encoding: "utf8" });
+
+      expect(result).toContain("✓ Results consistent across multiple runs");
     });
   });
 });

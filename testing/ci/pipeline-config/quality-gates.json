@@ -1,0 +1,118 @@
+{
+  "gates": [
+    {
+      "name": "all-tests-pass",
+      "description": "All test suites must pass with 100% success rate",
+      "requirement": "100% test success rate",
+      "critical": true,
+      "evaluator": "testPassRate",
+      "threshold": 100,
+      "applicableStages": ["aolite", "aos-local", "integration", "parity"]
+    },
+    {
+      "name": "coverage-threshold",
+      "description": "Code coverage must meet minimum threshold",
+      "requirement": "95% minimum coverage",
+      "critical": true,
+      "evaluator": "coverageThreshold",
+      "threshold": 95,
+      "applicableStages": ["aolite", "integration"]
+    },
+    {
+      "name": "process-size-limit",
+      "description": "All AO processes must be under 500KB size limit",
+      "requirement": "500KB per process maximum",
+      "critical": true,
+      "evaluator": "processSizeLimit",
+      "threshold": 512000,
+      "applicableStages": ["validation"]
+    },
+    {
+      "name": "ao-sandbox-compliance",
+      "description": "All processes must be compatible with AO runtime",
+      "requirement": "AO runtime compatibility",
+      "critical": true,
+      "evaluator": "aoSandboxCompliance",
+      "threshold": null,
+      "applicableStages": ["validation", "aos-local"]
+    },
+    {
+      "name": "performance-regression",
+      "description": "Performance must not regress below baseline",
+      "requirement": "No performance regression",
+      "critical": false,
+      "evaluator": "performanceRegression",
+      "threshold": 120,
+      "applicableStages": ["performance"],
+      "baselineComparison": true
+    },
+    {
+      "name": "parity-validation",
+      "description": "AO Lua implementation must match TypeScript behavior",
+      "requirement": "100% behavioral parity with TypeScript",
+      "critical": true,
+      "evaluator": "parityValidation",
+      "threshold": 100,
+      "applicableStages": ["parity"]
+    },
+    {
+      "name": "memory-constraints",
+      "description": "Process memory usage must be within AO limits",
+      "requirement": "Memory usage within AO constraints",
+      "critical": true,
+      "evaluator": "memoryConstraints",
+      "threshold": null,
+      "applicableStages": ["aos-local", "integration"]
+    },
+    {
+      "name": "execution-timeout",
+      "description": "All processes must execute within 5-second timeout",
+      "requirement": "5-second execution timeout compliance",
+      "critical": true,
+      "evaluator": "executionTimeout",
+      "threshold": 5000,
+      "applicableStages": ["aos-local", "integration"]
+    }
+  ],
+  "thresholds": {
+    "successRate": 100,
+    "coverageMinimum": 95,
+    "processSizeLimit": 512000,
+    "executionTimeout": 5000,
+    "performanceRegression": 120,
+    "memoryUsage": "moderate"
+  },
+  "enforcement": {
+    "blockOnCriticalFailure": true,
+    "allowOverride": false,
+    "notificationRequired": true,
+    "retryPolicy": {
+      "enabled": false,
+      "maxRetries": 0,
+      "retryDelay": 30000
+    }
+  },
+  "reporting": {
+    "generateDetailedReport": true,
+    "includeMetrics": true,
+    "includeTrends": true,
+    "artifactRetention": 30
+  },
+  "escalation": [
+    {
+      "condition": "critical-gate-failure",
+      "action": "block-deployment",
+      "notification": ["github-issue", "pr-comment"]
+    },
+    {
+      "condition": "multiple-failures",
+      "action": "escalate-to-team",
+      "notification": ["github-issue", "team-notification"]
+    },
+    {
+      "condition": "performance-regression",
+      "action": "alert-performance-team",
+      "notification": ["performance-alert"]
+    }
+  ]
+}

@@ -4,28 +4,28 @@
  * regression detection, and advanced validation capabilities
  */
 
-import { ParityTestFramework } from "./parity-test-framework.js";
-import { GoldenMasterStorage } from "./golden-master-storage.js";
 import fs from "fs/promises";
 import path from "path";
 import chalk from "chalk";
+import { GoldenMasterStorage } from "./golden-master-storage.js";
+import { ParityTestFramework } from "./parity-test-framework.js";
 
 export class EnhancedParityTestFramework extends ParityTestFramework {
   constructor(options = {}) {
     super(options);
-    
+
     // Enhanced components
     this.goldenMasterStorage = new GoldenMasterStorage({
       storageDir: options.goldenMasterDir || path.join(process.cwd(), "testing/parity/scenarios/golden-masters"),
-      version: options.typescriptVersion || "1.10.4"
+      version: options.typescriptVersion || "1.10.4",
     });
-    
+
     // Configuration
     this.enableGoldenMasterMode = options.enableGoldenMasterMode || false;
     this.enableRegressionDetection = options.enableRegressionDetection || true;
     this.enablePerformanceComparison = options.enablePerformanceComparison || true;
     this.enableStatisticalAnalysis = options.enableStatisticalAnalysis || true;
-    
+
     // Results tracking
     this.goldenMasterResults = [];
     this.regressionResults = [];
@@ -38,13 +38,13 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
    */
   async initialize() {
     console.log(chalk.blue("\n🚀 Initializing Enhanced Parity Test Framework..."));
-    
+
     // Initialize base framework
     await this.initializeTestEnvironment();
-    
+
     // Initialize golden master storage
     await this.goldenMasterStorage.initialize();
-    
+
     console.log(chalk.green("✅ Enhanced Parity Framework initialized"));
   }
 
@@ -87,12 +87,12 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
       scenarioName: scenario.name,
       scenarioType: scenario.scenarioType || "unknown",
       timestamp: new Date().toISOString(),
-      phases: {}
+      phases: {},
     };
 
     try {
       // Phase 1: Golden Master Testing
-      if (this.enableGoldenMasterMode || !await this.goldenMasterStorage.hasGoldenMaster(scenario.id)) {
+      if (this.enableGoldenMasterMode || !(await this.goldenMasterStorage.hasGoldenMaster(scenario.id))) {
         console.log(chalk.blue("  📸 Phase 1: Golden Master Capture/Validation"));
         scenarioResult.phases.goldenMaster = await this.executeGoldenMasterPhase(scenario);
       }
@@ -121,10 +121,10 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
 
       // Aggregate scenario results
       scenarioResult.overallStatus = this.aggregateScenarioStatus(scenarioResult.phases);
-      
-      console.log(this.getStatusEmoji(scenarioResult.overallStatus) + 
-                 ` Overall: ${scenarioResult.overallStatus.toUpperCase()}`);
 
+      console.log(
+        this.getStatusEmoji(scenarioResult.overallStatus) + ` Overall: ${scenarioResult.overallStatus.toUpperCase()}`,
+      );
     } catch (error) {
       scenarioResult.overallStatus = "error";
       scenarioResult.error = error.message;
@@ -141,17 +141,17 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     const phase = {
       name: "golden_master",
       status: "pending",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     try {
       // Check if golden master exists
       const hasExistingMaster = await this.goldenMasterStorage.hasGoldenMaster(scenario.id);
-      
+
       if (!hasExistingMaster || this.enableGoldenMasterMode) {
         // Capture new golden master
         console.log(chalk.blue(`    📸 Capturing golden master for: ${scenario.name}`));
-        
+
         const typescriptResult = await this.executeOnTypeScript(scenario);
         const goldenMaster = {
           scenarioId: scenario.id,
@@ -163,36 +163,35 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
             id: scenario.id,
             name: scenario.name,
             category: scenario.category || "unknown",
-            scenarioType: scenario.scenarioType || "unknown"
-          }
+            scenarioType: scenario.scenarioType || "unknown",
+          },
         };
-        
+
         const storageResult = await this.goldenMasterStorage.storeGoldenMaster(scenario.id, goldenMaster);
-        
+
         phase.status = "captured";
         phase.action = "golden_master_captured";
         phase.checksum = storageResult.checksum;
         phase.fileSize = storageResult.size;
-        
+
         console.log(chalk.green(`    ✅ Golden master captured: ${scenario.id}`));
-        
       } else {
         // Validate against existing golden master
-        console.log(chalk.blue(`    🔍 Validating against existing golden master`));
-        
+        console.log(chalk.blue("    🔍 Validating against existing golden master"));
+
         const goldenMaster = await this.goldenMasterStorage.loadGoldenMaster(scenario.id);
         const aoResult = await this.executeOnAO(scenario);
-        
+
         const comparison = await this.compareAgainstGoldenMaster(goldenMaster, aoResult, scenario);
-        
+
         phase.status = comparison.status;
         phase.action = "golden_master_validation";
         phase.comparison = comparison;
-        
-        console.log(this.getStatusEmoji(comparison.status) + 
-                   ` Golden master validation: ${comparison.status.toUpperCase()}`);
-      }
 
+        console.log(
+          this.getStatusEmoji(comparison.status) + ` Golden master validation: ${comparison.status.toUpperCase()}`,
+        );
+      }
     } catch (error) {
       phase.status = "error";
       phase.error = error.message;
@@ -210,13 +209,13 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     const phase = {
       name: "regression_detection",
       status: "pending",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     try {
       // Load baseline (golden master)
       const goldenMaster = await this.goldenMasterStorage.loadGoldenMaster(scenario.id);
-      
+
       if (!goldenMaster) {
         phase.status = "skipped";
         phase.reason = "no_golden_master";
@@ -225,26 +224,25 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
 
       // Execute current AO implementation
       const currentResult = await this.executeOnAO(scenario);
-      
+
       // Perform regression analysis
       const regressionAnalysis = await this.performRegressionAnalysis(
-        goldenMaster.typescriptReference, 
-        currentResult, 
-        scenario
+        goldenMaster.typescriptReference,
+        currentResult,
+        scenario,
       );
-      
+
       phase.status = regressionAnalysis.hasRegression ? "regression_detected" : "pass";
       phase.analysis = regressionAnalysis;
-      
+
       if (regressionAnalysis.hasRegression) {
         console.log(chalk.red(`    ⚠️  Regression detected: ${regressionAnalysis.regressionType}`));
         regressionAnalysis.regressions.forEach(regression => {
           console.log(chalk.red(`      - ${regression.description}`));
         });
       } else {
-        console.log(chalk.green(`    ✅ No regression detected`));
+        console.log(chalk.green("    ✅ No regression detected"));
       }
-
     } catch (error) {
       phase.status = "error";
       phase.error = error.message;
@@ -261,35 +259,31 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     const phase = {
       name: "equivalence_testing",
       status: "pending",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     try {
       // Execute both implementations
-      const [tsResult, aoResult] = await Promise.all([
-        this.executeOnTypeScript(scenario),
-        this.executeOnAO(scenario)
-      ]);
-      
+      const [tsResult, aoResult] = await Promise.all([this.executeOnTypeScript(scenario), this.executeOnAO(scenario)]);
+
       // Perform equivalence analysis
       const equivalenceAnalysis = await this.performEquivalenceAnalysis(tsResult, aoResult, scenario);
-      
+
       phase.status = equivalenceAnalysis.isEquivalent ? "pass" : "fail";
       phase.analysis = equivalenceAnalysis;
       phase.executionTimes = {
         typescript: equivalenceAnalysis.typescriptTime,
-        ao: equivalenceAnalysis.aoTime
+        ao: equivalenceAnalysis.aoTime,
       };
-      
+
       if (equivalenceAnalysis.isEquivalent) {
-        console.log(chalk.green(`    ✅ Implementations are equivalent`));
+        console.log(chalk.green("    ✅ Implementations are equivalent"));
       } else {
-        console.log(chalk.red(`    ❌ Equivalence validation failed`));
+        console.log(chalk.red("    ❌ Equivalence validation failed"));
         equivalenceAnalysis.differences.forEach(diff => {
           console.log(chalk.red(`      - ${diff.description}`));
         });
       }
-
     } catch (error) {
       phase.status = "error";
       phase.error = error.message;
@@ -305,7 +299,7 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     const phase = {
       name: "rng_determinism",
       status: "pending",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     try {
@@ -316,19 +310,18 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
       }
 
       console.log(chalk.blue(`    🎲 Validating RNG determinism with seed: ${scenario.rngSeed}`));
-      
+
       const rngAnalysis = await this.validateRandomization(scenario);
-      
+
       phase.status = rngAnalysis.isDeterministic ? "pass" : "fail";
       phase.analysis = rngAnalysis;
-      
+
       if (rngAnalysis.isDeterministic) {
-        console.log(chalk.green(`    ✅ RNG is deterministic across implementations`));
+        console.log(chalk.green("    ✅ RNG is deterministic across implementations"));
       } else {
-        console.log(chalk.red(`    ❌ RNG determinism validation failed`));
+        console.log(chalk.red("    ❌ RNG determinism validation failed"));
         console.log(chalk.red(`      Consistency: ${(rngAnalysis.consistency * 100).toFixed(1)}%`));
       }
-
     } catch (error) {
       phase.status = "error";
       phase.error = error.message;
@@ -344,28 +337,27 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     const phase = {
       name: "performance_comparison",
       status: "pending",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     try {
       const performanceComparison = await this.runPerformanceComparison([scenario]);
-      
+
       if (performanceComparison.length > 0) {
         const result = performanceComparison[0];
-        
+
         phase.status = result.speedRatio <= 2.0 ? "pass" : "performance_degradation";
         phase.metrics = result;
-        
+
         console.log(chalk.blue(`    ⚡ Performance ratio: ${result.speedRatio.toFixed(2)}x`));
         console.log(chalk.blue(`    📊 TS: ${result.typescript.executionTime}ms, AO: ${result.aoLua.executionTime}ms`));
-        
+
         if (result.speedRatio > 2.0) {
-          console.log(chalk.yellow(`    ⚠️  Performance degradation detected`));
+          console.log(chalk.yellow("    ⚠️  Performance degradation detected"));
         } else {
-          console.log(chalk.green(`    ✅ Performance within acceptable range`));
+          console.log(chalk.green("    ✅ Performance within acceptable range"));
         }
       }
-
     } catch (error) {
       phase.status = "error";
       phase.error = error.message;
@@ -384,19 +376,19 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
       timestamp: new Date().toISOString(),
       exactMatch: false,
       differences: [],
-      toleranceViolations: []
+      toleranceViolations: [],
     };
 
     try {
       const tsReference = goldenMaster.typescriptReference;
-      
+
       // Perform deep comparison
       const differences = await this.performDeepComparison(tsReference.result, aoResult.result, scenario);
-      
+
       comparison.differences = differences;
       comparison.exactMatch = differences.length === 0;
       comparison.status = comparison.exactMatch ? "pass" : "fail";
-      
+
       // Check tolerance violations
       if (scenario.tolerances) {
         comparison.toleranceViolations = differences.filter(diff => {
@@ -404,10 +396,9 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
           return tolerance !== undefined && !this.withinTolerance(diff, tolerance);
         });
       }
-      
+
       // Performance comparison
       comparison.performanceRatio = aoResult.metadata.executionTime / tsReference.metadata.executionTime;
-      
     } catch (error) {
       comparison.status = "error";
       comparison.error = error.message;
@@ -425,7 +416,7 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
       regressionType: null,
       regressions: [],
       timestamp: new Date().toISOString(),
-      confidence: 1.0
+      confidence: 1.0,
     };
 
     // Compare results structure
@@ -433,27 +424,31 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     if (structuralDiffs.length > 0) {
       analysis.hasRegression = true;
       analysis.regressionType = "structural";
-      analysis.regressions.push(...structuralDiffs.map(diff => ({
-        type: "structural",
-        description: `Structural change: ${diff.description}`,
-        severity: "high"
-      })));
+      analysis.regressions.push(
+        ...structuralDiffs.map(diff => ({
+          type: "structural",
+          description: `Structural change: ${diff.description}`,
+          severity: "high",
+        })),
+      );
     }
 
     // Compare values
     const valueDiffs = await this.performDeepComparison(baseline.result, current.result, scenario);
     const significantDiffs = valueDiffs.filter(diff => !this.withinTolerance(diff, scenario.tolerances?.[diff.key]));
-    
+
     if (significantDiffs.length > 0) {
       analysis.hasRegression = true;
       analysis.regressionType = analysis.regressionType || "behavioral";
-      analysis.regressions.push(...significantDiffs.map(diff => ({
-        type: "behavioral",
-        description: `Value regression: ${diff.description}`,
-        severity: this.assessRegressionSeverity(diff),
-        expected: diff.typescriptValue,
-        actual: diff.aoValue
-      })));
+      analysis.regressions.push(
+        ...significantDiffs.map(diff => ({
+          type: "behavioral",
+          description: `Value regression: ${diff.description}`,
+          severity: this.assessRegressionSeverity(diff),
+          expected: diff.typescriptValue,
+          actual: diff.aoValue,
+        })),
+      );
     }
 
     // Performance regression check
@@ -465,7 +460,7 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
         type: "performance",
         description: `Performance regression: ${performanceRatio.toFixed(2)}x slower`,
         severity: "medium",
-        ratio: performanceRatio
+        ratio: performanceRatio,
       });
     }
 
@@ -477,14 +472,14 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
    */
   async performEquivalenceAnalysis(tsResult, aoResult, scenario) {
     const startTime = Date.now();
-    
+
     const analysis = {
       isEquivalent: false,
       differences: [],
       timestamp: new Date().toISOString(),
       typescriptTime: Date.now() - startTime,
       aoTime: Date.now() - startTime, // Will be updated with actual times
-      confidence: 1.0
+      confidence: 1.0,
     };
 
     // Record actual execution times from results
@@ -493,7 +488,7 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
 
     // Perform deep comparison
     analysis.differences = await this.performDeepComparison(tsResult.result, aoResult.result, scenario);
-    
+
     // Check if within tolerances
     const toleranceViolations = analysis.differences.filter(diff => {
       const tolerance = scenario.tolerances?.[diff.key];
@@ -511,36 +506,36 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
    */
   async validateRandomization(scenario) {
     console.log(chalk.blue(`    🎲 Validating RNG determinism: ${scenario.name}`));
-    
+
     if (!scenario.rngSeed) {
       throw new Error("RNG scenario requires seed");
     }
-    
+
     const iterations = scenario.testIterations || 10;
     const results = [];
-    
+
     for (let i = 0; i < iterations; i++) {
       const testScenario = {
         ...scenario,
-        rngSeed: scenario.rngSeed + i
+        rngSeed: scenario.rngSeed + i,
       };
-      
+
       const [tsResult, aoResult] = await Promise.all([
         this.executeOnTypeScript(testScenario),
-        this.executeOnAO(testScenario)
+        this.executeOnAO(testScenario),
       ]);
-      
+
       const matches = this.compareRNGResults(tsResult, aoResult);
-      
+
       results.push({
         seed: scenario.rngSeed + i,
         typescript: tsResult,
         aoLua: aoResult,
         matches: matches,
-        iteration: i + 1
+        iteration: i + 1,
       });
     }
-    
+
     return this.analyzeRNGConsistency(results);
   }
 
@@ -551,7 +546,7 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     const totalIterations = results.length;
     const matchingIterations = results.filter(r => r.matches).length;
     const consistency = matchingIterations / totalIterations;
-    
+
     const analysis = {
       isDeterministic: consistency >= 0.95, // 95% consistency threshold
       consistency: consistency,
@@ -561,22 +556,22 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
       detailedResults: results.map(r => ({
         seed: r.seed,
         matches: r.matches,
-        iteration: r.iteration
-      }))
+        iteration: r.iteration,
+      })),
     };
-    
+
     // Statistical analysis for randomized scenarios
     if (results.length > 0 && results[0].typescript.result.damage !== undefined) {
       const tsDamages = results.map(r => r.typescript.result.damage);
       const aoDamages = results.map(r => r.aoLua.result.damage);
-      
+
       analysis.statisticalAnalysis = {
         typescript: this.calculateStatistics(tsDamages),
         aoLua: this.calculateStatistics(aoDamages),
-        correlation: this.calculateCorrelation(tsDamages, aoDamages)
+        correlation: this.calculateCorrelation(tsDamages, aoDamages),
       };
     }
-    
+
     return analysis;
   }
 
@@ -585,19 +580,19 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
    */
   async generateComprehensiveReports() {
     console.log(chalk.blue("📊 Generating comprehensive reports..."));
-    
+
     // Generate enhanced parity report
     await this.generateEnhancedParityReport();
-    
+
     // Generate golden master report
     await this.generateGoldenMasterReport();
-    
+
     // Generate regression analysis report
     await this.generateRegressionReport();
-    
+
     // Generate performance comparison report
     await this.generatePerformanceReport();
-    
+
     console.log(chalk.green("✅ All comprehensive reports generated"));
   }
 
@@ -621,14 +616,14 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
         aoProcessesDir: this.aoProcessesDir,
         nodeVersion: process.version,
         platform: process.platform,
-        architecture: process.arch
+        architecture: process.arch,
       },
       configuration: {
         enableGoldenMasterMode: this.enableGoldenMasterMode,
         enableRegressionDetection: this.enableRegressionDetection,
         enablePerformanceComparison: this.enablePerformanceComparison,
-        enableStatisticalAnalysis: this.enableStatisticalAnalysis
-      }
+        enableStatisticalAnalysis: this.enableStatisticalAnalysis,
+      },
     };
 
     // Write JSON report
@@ -648,7 +643,7 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
    */
   generateEnhancedHtmlReport(report) {
     const summary = report.summary;
-    
+
     return `
 <!DOCTYPE html>
 <html>
@@ -712,7 +707,7 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
 
         <div class="scenario-results">
             <h2>🧪 Detailed Scenario Results</h2>
-            ${report.results.map(result => this.generateScenarioCard(result)).join('')}
+            ${report.results.map(result => this.generateScenarioCard(result)).join("")}
         </div>
 
         <div class="system-info">
@@ -735,29 +730,31 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
    */
   generatePhaseCards(report) {
     const phases = [
-      { name: 'Golden Master', results: report.goldenMasterResults },
-      { name: 'Regression Detection', results: report.regressionResults },
-      { name: 'Performance Comparison', results: report.performanceResults }
+      { name: "Golden Master", results: report.goldenMasterResults },
+      { name: "Regression Detection", results: report.regressionResults },
+      { name: "Performance Comparison", results: report.performanceResults },
     ];
 
-    return phases.map(phase => {
-      const passed = phase.results.filter(r => r.status === 'pass').length;
-      const total = phase.results.length;
-      const rate = total > 0 ? (passed / total * 100).toFixed(1) : '0.0';
+    return phases
+      .map(phase => {
+        const passed = phase.results.filter(r => r.status === "pass").length;
+        const total = phase.results.length;
+        const rate = total > 0 ? ((passed / total) * 100).toFixed(1) : "0.0";
 
-      return `
+        return `
         <div class="phase-card">
             <div class="phase-header">${phase.name}</div>
             <p><strong>Success Rate:</strong> ${rate}% (${passed}/${total})</p>
             <div class="chart-placeholder">Phase Results Chart</div>
         </div>
       `;
-    }).join('');
+      })
+      .join("");
   }
 
   generateScenarioCard(result) {
     const statusClass = `status-${result.overallStatus}`;
-    
+
     return `
       <div class="scenario-details">
           <h3>${result.scenarioName} <span class="${statusClass}">${result.overallStatus.toUpperCase()}</span></h3>
@@ -765,12 +762,16 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
           <p><strong>Type:</strong> ${result.scenarioType}</p>
           <p><strong>Executed:</strong> ${result.timestamp}</p>
           
-          ${Object.entries(result.phases || {}).map(([phaseName, phase]) => `
+          ${Object.entries(result.phases || {})
+            .map(
+              ([phaseName, phase]) => `
               <div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 3px;">
-                  <strong>${phaseName.replace('_', ' ').toUpperCase()}:</strong> 
+                  <strong>${phaseName.replace("_", " ").toUpperCase()}:</strong> 
                   <span class="status-${phase.status}">${phase.status.toUpperCase()}</span>
               </div>
-          `).join('')}
+          `,
+            )
+            .join("")}
       </div>
     `;
   }
@@ -780,47 +781,57 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
    */
   getStatusEmoji(status) {
     const emojis = {
-      'pass': '✅',
-      'fail': '❌',
-      'error': '💥',
-      'regression_detected': '⚠️',
-      'performance_degradation': '🐌',
-      'captured': '📸',
-      'skipped': '⏭️'
+      pass: "✅",
+      fail: "❌",
+      error: "💥",
+      regression_detected: "⚠️",
+      performance_degradation: "🐌",
+      captured: "📸",
+      skipped: "⏭️",
     };
-    return emojis[status] || '❓';
+    return emojis[status] || "❓";
   }
 
   aggregateScenarioStatus(phases) {
     const statuses = Object.values(phases).map(phase => phase.status);
-    
-    if (statuses.includes('error')) return 'error';
-    if (statuses.includes('regression_detected')) return 'regression_detected';
-    if (statuses.includes('fail')) return 'fail';
-    if (statuses.includes('performance_degradation')) return 'performance_degradation';
-    if (statuses.every(status => ['pass', 'captured', 'skipped'].includes(status))) return 'pass';
-    
-    return 'unknown';
+
+    if (statuses.includes("error")) {
+      return "error";
+    }
+    if (statuses.includes("regression_detected")) {
+      return "regression_detected";
+    }
+    if (statuses.includes("fail")) {
+      return "fail";
+    }
+    if (statuses.includes("performance_degradation")) {
+      return "performance_degradation";
+    }
+    if (statuses.every(status => ["pass", "captured", "skipped"].includes(status))) {
+      return "pass";
+    }
+
+    return "unknown";
   }
 
   getComprehensiveSummary() {
     const base = super.getTestSummary();
-    
+
     return {
       ...base,
       goldenMasters: {
-        captured: this.goldenMasterResults.filter(r => r.status === 'captured').length,
-        validated: this.goldenMasterResults.filter(r => r.status === 'pass').length,
-        total: this.goldenMasterResults.length
+        captured: this.goldenMasterResults.filter(r => r.status === "captured").length,
+        validated: this.goldenMasterResults.filter(r => r.status === "pass").length,
+        total: this.goldenMasterResults.length,
       },
       regressions: {
-        detected: this.regressionResults.filter(r => r.status === 'regression_detected').length,
-        total: this.regressionResults.length
+        detected: this.regressionResults.filter(r => r.status === "regression_detected").length,
+        total: this.regressionResults.length,
       },
       performance: {
-        degradations: this.performanceResults.filter(r => r.status === 'performance_degradation').length,
-        total: this.performanceResults.length
-      }
+        degradations: this.performanceResults.filter(r => r.status === "performance_degradation").length,
+        total: this.performanceResults.length,
+      },
     };
   }
 
@@ -829,41 +840,43 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     const differences = [];
     const visited = new Set();
 
-    const compare = (val1, val2, path = '') => {
-      if (visited.has(path)) return;
+    const compare = (val1, val2, path = "") => {
+      if (visited.has(path)) {
+        return;
+      }
       visited.add(path);
 
       if (typeof val1 !== typeof val2) {
         differences.push({
-          type: 'type_mismatch',
+          type: "type_mismatch",
           key: path,
           typescriptValue: val1,
           aoValue: val2,
-          description: `Type mismatch at ${path}: ${typeof val1} vs ${typeof val2}`
+          description: `Type mismatch at ${path}: ${typeof val1} vs ${typeof val2}`,
         });
         return;
       }
 
-      if (typeof val1 === 'object' && val1 !== null && val2 !== null) {
+      if (typeof val1 === "object" && val1 !== null && val2 !== null) {
         const keys1 = Object.keys(val1);
         const keys2 = Object.keys(val2);
 
         for (const key of new Set([...keys1, ...keys2])) {
           const newPath = path ? `${path}.${key}` : key;
-          
+
           if (!(key in val1)) {
             differences.push({
-              type: 'missing_key',
+              type: "missing_key",
               key: newPath,
               aoValue: val2[key],
-              description: `Key '${newPath}' missing in TypeScript result`
+              description: `Key '${newPath}' missing in TypeScript result`,
             });
           } else if (!(key in val2)) {
             differences.push({
-              type: 'extra_key',
+              type: "extra_key",
               key: newPath,
               typescriptValue: val1[key],
-              description: `Key '${newPath}' missing in AO result`
+              description: `Key '${newPath}' missing in AO result`,
             });
           } else {
             compare(val1[key], val2[key], newPath);
@@ -871,11 +884,11 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
         }
       } else if (!this.valuesEqual(val1, val2, scenario.tolerances?.[path])) {
         differences.push({
-          type: 'value_difference',
+          type: "value_difference",
           key: path,
           typescriptValue: val1,
           aoValue: val2,
-          description: `Value difference at ${path}: ${val1} vs ${val2}`
+          description: `Value difference at ${path}: ${val1} vs ${val2}`,
         });
       }
     };
@@ -886,12 +899,12 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
 
   compareStructure(obj1, obj2) {
     const differences = [];
-    
-    const getStructure = (obj, path = '') => {
-      if (typeof obj !== 'object' || obj === null) {
+
+    const getStructure = (obj, path = "") => {
+      if (typeof obj !== "object" || obj === null) {
         return { [path]: typeof obj };
       }
-      
+
       const structure = {};
       for (const [key, value] of Object.entries(obj)) {
         const newPath = path ? `${path}.${key}` : key;
@@ -906,15 +919,15 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     for (const [path, type] of Object.entries(struct1)) {
       if (!(path in struct2)) {
         differences.push({
-          type: 'missing_path',
+          type: "missing_path",
           path,
-          description: `Path '${path}' missing in current result`
+          description: `Path '${path}' missing in current result`,
         });
       } else if (struct2[path] !== type) {
         differences.push({
-          type: 'type_change',
+          type: "type_change",
           path,
-          description: `Type changed at '${path}': ${type} → ${struct2[path]}`
+          description: `Type changed at '${path}': ${type} → ${struct2[path]}`,
         });
       }
     }
@@ -922,9 +935,9 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     for (const [path, type] of Object.entries(struct2)) {
       if (!(path in struct1)) {
         differences.push({
-          type: 'new_path',
+          type: "new_path",
           path,
-          description: `New path '${path}' added to current result`
+          description: `New path '${path}' added to current result`,
         });
       }
     }
@@ -937,7 +950,7 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
       return difference.typescriptValue === difference.aoValue;
     }
 
-    if (typeof difference.typescriptValue === 'number' && typeof difference.aoValue === 'number') {
+    if (typeof difference.typescriptValue === "number" && typeof difference.aoValue === "number") {
       return Math.abs(difference.typescriptValue - difference.aoValue) <= tolerance;
     }
 
@@ -945,17 +958,25 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
   }
 
   assessRegressionSeverity(difference) {
-    if (difference.type === 'type_mismatch') return 'high';
-    if (difference.type === 'missing_key' || difference.type === 'extra_key') return 'high';
-    
-    if (typeof difference.typescriptValue === 'number' && typeof difference.aoValue === 'number') {
-      const percentDiff = Math.abs(difference.typescriptValue - difference.aoValue) / difference.typescriptValue;
-      if (percentDiff > 0.1) return 'high';
-      if (percentDiff > 0.05) return 'medium';
-      return 'low';
+    if (difference.type === "type_mismatch") {
+      return "high";
     }
-    
-    return 'medium';
+    if (difference.type === "missing_key" || difference.type === "extra_key") {
+      return "high";
+    }
+
+    if (typeof difference.typescriptValue === "number" && typeof difference.aoValue === "number") {
+      const percentDiff = Math.abs(difference.typescriptValue - difference.aoValue) / difference.typescriptValue;
+      if (percentDiff > 0.1) {
+        return "high";
+      }
+      if (percentDiff > 0.05) {
+        return "medium";
+      }
+      return "low";
+    }
+
+    return "medium";
   }
 
   compareRNGResults(tsResult, aoResult) {
@@ -967,14 +988,14 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     const n = values.length;
     const mean = values.reduce((sum, val) => sum + val, 0) / n;
     const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
-    
+
     return {
       count: n,
       mean: mean,
       variance: variance,
       standardDeviation: Math.sqrt(variance),
       min: Math.min(...values),
-      max: Math.max(...values)
+      max: Math.max(...values),
     };
   }
 
@@ -982,20 +1003,20 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
     const n = arr1.length;
     const mean1 = arr1.reduce((sum, val) => sum + val, 0) / n;
     const mean2 = arr2.reduce((sum, val) => sum + val, 0) / n;
-    
+
     let numerator = 0;
     let denominator1 = 0;
     let denominator2 = 0;
-    
+
     for (let i = 0; i < n; i++) {
       const diff1 = arr1[i] - mean1;
       const diff2 = arr2[i] - mean2;
-      
+
       numerator += diff1 * diff2;
       denominator1 += diff1 * diff1;
       denominator2 += diff2 * diff2;
     }
-    
+
     return numerator / Math.sqrt(denominator1 * denominator2);
   }
 

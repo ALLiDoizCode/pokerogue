@@ -16,16 +16,16 @@ export class RegressionDetector {
     this.alertThreshold = options.alertThreshold || 0.05; // 5% threshold for regression alerts
     this.monitoringEnabled = options.monitoringEnabled || true;
     this.continuousMode = options.continuousMode || false;
-    
+
     // Regression tracking
     this.regressionHistory = [];
     this.baselineMap = new Map();
     this.alertCallbacks = [];
-    
+
     // Performance tracking
     this.performanceBaselines = new Map();
     this.performanceThreshold = options.performanceThreshold || 2.0; // 2x slowdown threshold
-    
+
     // Behavioral change detection
     this.behavioralPatterns = new Map();
     this.changeDetectionSensitivity = options.changeDetectionSensitivity || "medium"; // low, medium, high
@@ -36,14 +36,14 @@ export class RegressionDetector {
    */
   async initialize() {
     console.log(chalk.blue("🔧 Initializing Regression Detection System..."));
-    
+
     await this.goldenMasterStorage.initialize();
     await fs.mkdir(this.reportsDir, { recursive: true });
-    
+
     // Load existing baselines and history
     await this.loadRegressionHistory();
     await this.loadPerformanceBaselines();
-    
+
     console.log(chalk.green("✅ Regression Detection System initialized"));
   }
 
@@ -52,7 +52,7 @@ export class RegressionDetector {
    */
   async detectRegressions(testResults) {
     console.log(chalk.blue("🔍 Analyzing test results for regressions..."));
-    
+
     const regressionAnalysis = {
       timestamp: new Date().toISOString(),
       totalScenarios: testResults.length,
@@ -62,8 +62,8 @@ export class RegressionDetector {
       summary: {
         hasRegressions: false,
         regressionCount: 0,
-        severityDistribution: { high: 0, medium: 0, low: 0 }
-      }
+        severityDistribution: { high: 0, medium: 0, low: 0 },
+      },
     };
 
     for (const testResult of testResults) {
@@ -85,18 +85,16 @@ export class RegressionDetector {
         if (behavioralChange.hasChange) {
           regressionAnalysis.behavioralChanges.push(behavioralChange);
         }
-
       } catch (error) {
         console.error(chalk.red(`❌ Error analyzing ${testResult.scenarioId}: ${error.message}`));
       }
     }
 
     // Update analysis summary
-    regressionAnalysis.summary.hasRegressions = 
-      regressionAnalysis.regressions.length > 0 || 
-      regressionAnalysis.performanceRegressions.length > 0;
-    
-    regressionAnalysis.summary.regressionCount = 
+    regressionAnalysis.summary.hasRegressions =
+      regressionAnalysis.regressions.length > 0 || regressionAnalysis.performanceRegressions.length > 0;
+
+    regressionAnalysis.summary.regressionCount =
       regressionAnalysis.regressions.length + regressionAnalysis.performanceRegressions.length;
 
     // Calculate severity distribution
@@ -129,7 +127,7 @@ export class RegressionDetector {
       severity: "low",
       differences: [],
       confidence: 1.0,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     try {
@@ -145,7 +143,7 @@ export class RegressionDetector {
       const comparison = await this.compareWithBaseline(
         goldenMaster.typescriptReference,
         testResult.aoResult || testResult.typescriptResult,
-        testResult
+        testResult,
       );
 
       if (comparison.differences.length > 0) {
@@ -153,11 +151,10 @@ export class RegressionDetector {
         regression.regressionType = "functional";
         regression.differences = comparison.differences;
         regression.severity = this.assessRegressionSeverity(comparison.differences);
-        
+
         // Check if this is a new regression or existing issue
         regression.isNewRegression = await this.isNewRegression(testResult.scenarioId, comparison);
       }
-
     } catch (error) {
       console.error(chalk.red(`Error detecting functional regression for ${testResult.scenarioId}: ${error.message}`));
       regression.hasRegression = false;
@@ -178,13 +175,13 @@ export class RegressionDetector {
       regressionType: "performance",
       severity: "medium",
       metrics: {},
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     try {
       const executionTimes = testResult.executionTimes || {};
       const currentTime = executionTimes.ao || executionTimes.typescript || 0;
-      
+
       // Get performance baseline
       const baseline = this.performanceBaselines.get(testResult.scenarioId);
       if (!baseline) {
@@ -192,7 +189,7 @@ export class RegressionDetector {
         this.performanceBaselines.set(testResult.scenarioId, {
           baselineTime: currentTime,
           timestamp: new Date().toISOString(),
-          samples: [currentTime]
+          samples: [currentTime],
         });
         regression.hasRegression = false;
         regression.reason = "establishing_baseline";
@@ -205,27 +202,26 @@ export class RegressionDetector {
         currentTime: currentTime,
         baselineTime: baseline.baselineTime,
         performanceRatio: performanceRatio,
-        threshold: this.performanceThreshold
+        threshold: this.performanceThreshold,
       };
 
       // Check for regression
       if (performanceRatio > this.performanceThreshold) {
         regression.hasRegression = true;
         regression.severity = this.assessPerformanceSeverity(performanceRatio);
-        
+
         // Update performance baseline with new sample
         baseline.samples.push(currentTime);
         if (baseline.samples.length > 100) {
           baseline.samples = baseline.samples.slice(-100); // Keep last 100 samples
         }
-        
+
         // Check if this is a consistent degradation
         regression.isConsistent = await this.isConsistentPerformanceDegradation(
-          testResult.scenarioId, 
-          performanceRatio
+          testResult.scenarioId,
+          performanceRatio,
         );
       }
-
     } catch (error) {
       console.error(chalk.red(`Error detecting performance regression for ${testResult.scenarioId}: ${error.message}`));
       regression.hasRegression = false;
@@ -246,20 +242,20 @@ export class RegressionDetector {
       changeType: "behavioral",
       patterns: [],
       confidence: 0.0,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     try {
       // Analyze result patterns
       const resultPattern = this.extractResultPattern(testResult);
-      
+
       // Get historical patterns
       const historicalPatterns = this.behavioralPatterns.get(testResult.scenarioId) || [];
-      
+
       if (historicalPatterns.length > 0) {
         // Compare with historical patterns
         const patternComparison = this.comparePatterns(resultPattern, historicalPatterns);
-        
+
         if (patternComparison.similarity < this.getChangeDetectionThreshold()) {
           change.hasChange = true;
           change.patterns = patternComparison.differences;
@@ -270,7 +266,7 @@ export class RegressionDetector {
       // Store current pattern
       historicalPatterns.push({
         pattern: resultPattern,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       // Keep only recent patterns
@@ -279,7 +275,6 @@ export class RegressionDetector {
       }
 
       this.behavioralPatterns.set(testResult.scenarioId, historicalPatterns);
-
     } catch (error) {
       console.error(chalk.red(`Error detecting behavioral change for ${testResult.scenarioId}: ${error.message}`));
       change.hasChange = false;
@@ -292,43 +287,45 @@ export class RegressionDetector {
   /**
    * Monitor continuous execution for regressions
    */
-  async startContinuousMonitoring(testRunner, interval = 300000) { // 5 minutes default
+  async startContinuousMonitoring(testRunner, interval = 300000) {
+    // 5 minutes default
     if (!this.monitoringEnabled) {
       console.log(chalk.yellow("⚠️  Continuous monitoring is disabled"));
       return;
     }
 
     console.log(chalk.blue(`🔄 Starting continuous regression monitoring (${interval / 1000}s interval)...`));
-    
+
     this.continuousMode = true;
-    
+
     const monitoringLoop = async () => {
-      if (!this.continuousMode) return;
-      
+      if (!this.continuousMode) {
+        return;
+      }
+
       try {
         console.log(chalk.blue("📊 Running continuous regression check..."));
-        
+
         // Run test suite
         const testResults = await testRunner.runParityTests();
-        
+
         // Detect regressions
         const regressionAnalysis = await this.detectRegressions(testResults.results || []);
-        
+
         // Log summary
         if (regressionAnalysis.summary.hasRegressions) {
           console.log(chalk.red(`🚨 ${regressionAnalysis.summary.regressionCount} regressions detected`));
         } else {
           console.log(chalk.green("✅ No regressions detected"));
         }
-        
       } catch (error) {
         console.error(chalk.red(`❌ Continuous monitoring error: ${error.message}`));
       }
-      
+
       // Schedule next check
       setTimeout(monitoringLoop, interval);
     };
-    
+
     // Start monitoring
     monitoringLoop();
   }
@@ -357,7 +354,7 @@ export class RegressionDetector {
       severity: this.getOverallSeverity(regressionAnalysis),
       regressionCount: regressionAnalysis.summary.regressionCount,
       scenarios: regressionAnalysis.regressions.map(r => r.scenarioId),
-      summary: regressionAnalysis.summary
+      summary: regressionAnalysis.summary,
     };
 
     // Console alert
@@ -379,19 +376,20 @@ export class RegressionDetector {
   /**
    * Generate regression trend analysis
    */
-  async generateTrendAnalysis(timeRange = 7 * 24 * 60 * 60 * 1000) { // 7 days default
+  async generateTrendAnalysis(timeRange = 7 * 24 * 60 * 60 * 1000) {
+    // 7 days default
     console.log(chalk.blue("📈 Generating regression trend analysis..."));
-    
+
     const endTime = Date.now();
     const startTime = endTime - timeRange;
-    
+
     const trends = {
       timeRange: { start: new Date(startTime).toISOString(), end: new Date(endTime).toISOString() },
       regressionFrequency: {},
       severityTrends: { high: [], medium: [], low: [] },
       affectedScenarios: new Set(),
       performanceTrends: {},
-      recommendations: []
+      recommendations: [],
     };
 
     // Analyze historical regression data
@@ -428,7 +426,7 @@ export class RegressionDetector {
    */
   async updateBaseline(scenarioId, newBaseline, approvalReason) {
     console.log(chalk.blue(`🔄 Updating baseline for scenario: ${scenarioId}`));
-    
+
     try {
       // Store the new baseline as golden master
       const goldenMaster = {
@@ -437,16 +435,15 @@ export class RegressionDetector {
         typescriptReference: newBaseline,
         validated: true,
         approvalReason: approvalReason,
-        previousBaseline: await this.goldenMasterStorage.loadGoldenMaster(scenarioId)
+        previousBaseline: await this.goldenMasterStorage.loadGoldenMaster(scenarioId),
       };
 
       await this.goldenMasterStorage.storeGoldenMaster(scenarioId, goldenMaster);
-      
+
       // Update local baseline map
       this.baselineMap.set(scenarioId, goldenMaster);
-      
+
       console.log(chalk.green(`✅ Baseline updated for ${scenarioId}: ${approvalReason}`));
-      
     } catch (error) {
       console.error(chalk.red(`❌ Failed to update baseline for ${scenarioId}: ${error.message}`));
       throw error;
@@ -456,43 +453,43 @@ export class RegressionDetector {
   /**
    * Helper methods
    */
-  
+
   async compareWithBaseline(baseline, current, testResult) {
     const differences = [];
-    
+
     // Deep comparison logic (simplified)
-    const compare = (baseObj, currentObj, path = '') => {
+    const compare = (baseObj, currentObj, path = "") => {
       if (typeof baseObj !== typeof currentObj) {
         differences.push({
-          type: 'type_mismatch',
+          type: "type_mismatch",
           path: path,
           baseline: baseObj,
           current: currentObj,
-          description: `Type mismatch at ${path}`
+          description: `Type mismatch at ${path}`,
         });
         return;
       }
 
-      if (typeof baseObj === 'object' && baseObj !== null) {
+      if (typeof baseObj === "object" && baseObj !== null) {
         const baseKeys = Object.keys(baseObj);
         const currentKeys = Object.keys(currentObj);
 
         for (const key of new Set([...baseKeys, ...currentKeys])) {
           const newPath = path ? `${path}.${key}` : key;
-          
+
           if (!(key in baseObj)) {
             differences.push({
-              type: 'missing_key',
+              type: "missing_key",
               path: newPath,
               current: currentObj[key],
-              description: `New key '${newPath}' in current result`
+              description: `New key '${newPath}' in current result`,
             });
           } else if (!(key in currentObj)) {
             differences.push({
-              type: 'removed_key',
+              type: "removed_key",
               path: newPath,
               baseline: baseObj[key],
-              description: `Missing key '${newPath}' in current result`
+              description: `Missing key '${newPath}' in current result`,
             });
           } else {
             compare(baseObj[key], currentObj[key], newPath);
@@ -500,17 +497,17 @@ export class RegressionDetector {
         }
       } else if (baseObj !== currentObj) {
         differences.push({
-          type: 'value_change',
+          type: "value_change",
           path: path,
           baseline: baseObj,
           current: currentObj,
-          description: `Value changed at ${path}: ${baseObj} → ${currentObj}`
+          description: `Value changed at ${path}: ${baseObj} → ${currentObj}`,
         });
       }
     };
 
     compare(baseline.result, current.result);
-    
+
     return { differences };
   }
 
@@ -519,22 +516,30 @@ export class RegressionDetector {
     let mediumSeverityCount = 0;
 
     differences.forEach(diff => {
-      if (diff.type === 'type_mismatch' || diff.type === 'removed_key') {
+      if (diff.type === "type_mismatch" || diff.type === "removed_key") {
         highSeverityCount++;
-      } else if (diff.type === 'missing_key') {
+      } else if (diff.type === "missing_key") {
         mediumSeverityCount++;
       }
     });
 
-    if (highSeverityCount > 0) return 'high';
-    if (mediumSeverityCount > 0) return 'medium';
-    return 'low';
+    if (highSeverityCount > 0) {
+      return "high";
+    }
+    if (mediumSeverityCount > 0) {
+      return "medium";
+    }
+    return "low";
   }
 
   assessPerformanceSeverity(performanceRatio) {
-    if (performanceRatio > 5.0) return 'high';
-    if (performanceRatio > 3.0) return 'medium';
-    return 'low';
+    if (performanceRatio > 5.0) {
+      return "high";
+    }
+    if (performanceRatio > 3.0) {
+      return "medium";
+    }
+    return "low";
   }
 
   async isNewRegression(scenarioId, comparison) {
@@ -543,7 +548,9 @@ export class RegressionDetector {
       .filter(entry => entry.regressions.some(r => r.scenarioId === scenarioId))
       .slice(-5); // Last 5 entries
 
-    if (recentHistory.length === 0) return true;
+    if (recentHistory.length === 0) {
+      return true;
+    }
 
     // Simple pattern matching (can be enhanced)
     const currentPattern = this.createRegressionPattern(comparison);
@@ -557,12 +564,14 @@ export class RegressionDetector {
 
   async isConsistentPerformanceDegradation(scenarioId, performanceRatio) {
     const baseline = this.performanceBaselines.get(scenarioId);
-    if (!baseline || baseline.samples.length < 5) return false;
+    if (!baseline || baseline.samples.length < 5) {
+      return false;
+    }
 
     // Check if recent samples show consistent degradation
     const recentSamples = baseline.samples.slice(-5);
-    const degradationCount = recentSamples.filter(sample => 
-      sample / baseline.baselineTime > this.performanceThreshold
+    const degradationCount = recentSamples.filter(
+      sample => sample / baseline.baselineTime > this.performanceThreshold,
     ).length;
 
     return degradationCount >= 3; // 3 out of 5 recent samples show degradation
@@ -574,7 +583,7 @@ export class RegressionDetector {
       resultStructure: this.getObjectStructure(testResult.aoResult?.result || {}),
       valueRanges: this.getValueRanges(testResult.aoResult?.result || {}),
       executionTime: testResult.executionTimes?.ao || 0,
-      status: testResult.comparisonStatus || testResult.overallStatus
+      status: testResult.comparisonStatus || testResult.overallStatus,
     };
   }
 
@@ -585,15 +594,15 @@ export class RegressionDetector {
 
     // Compare with most recent patterns
     const recentPatterns = historicalPatterns.slice(-10);
-    const similarities = recentPatterns.map(historical => 
-      this.calculatePatternSimilarity(currentPattern, historical.pattern)
+    const similarities = recentPatterns.map(historical =>
+      this.calculatePatternSimilarity(currentPattern, historical.pattern),
     );
 
     const avgSimilarity = similarities.reduce((sum, sim) => sum + sim, 0) / similarities.length;
-    
+
     return {
       similarity: avgSimilarity,
-      differences: avgSimilarity < 0.8 ? ['pattern_divergence'] : []
+      differences: avgSimilarity < 0.8 ? ["pattern_divergence"] : [],
     };
   }
 
@@ -627,13 +636,13 @@ export class RegressionDetector {
     const thresholds = {
       low: 0.6,
       medium: 0.8,
-      high: 0.9
+      high: 0.9,
     };
     return thresholds[this.changeDetectionSensitivity] || 0.8;
   }
 
   getObjectStructure(obj, depth = 0, maxDepth = 3) {
-    if (depth > maxDepth || typeof obj !== 'object' || obj === null) {
+    if (depth > maxDepth || typeof obj !== "object" || obj === null) {
       return typeof obj;
     }
 
@@ -646,13 +655,13 @@ export class RegressionDetector {
 
   getValueRanges(obj) {
     const ranges = {};
-    
-    const traverse = (current, path = '') => {
-      if (typeof current === 'number') {
-        ranges[path] = { min: current, max: current, type: 'number' };
-      } else if (typeof current === 'string') {
-        ranges[path] = { length: current.length, type: 'string' };
-      } else if (typeof current === 'object' && current !== null) {
+
+    const traverse = (current, path = "") => {
+      if (typeof current === "number") {
+        ranges[path] = { min: current, max: current, type: "number" };
+      } else if (typeof current === "string") {
+        ranges[path] = { length: current.length, type: "string" };
+      } else if (typeof current === "object" && current !== null) {
         for (const [key, value] of Object.entries(current)) {
           traverse(value, path ? `${path}.${key}` : key);
         }
@@ -667,7 +676,7 @@ export class RegressionDetector {
     return {
       differenceCount: comparison.differences.length,
       differenceTypes: [...new Set(comparison.differences.map(d => d.type))],
-      affectedPaths: comparison.differences.map(d => d.path)
+      affectedPaths: comparison.differences.map(d => d.path),
     };
   }
 
@@ -681,23 +690,29 @@ export class RegressionDetector {
 
   getOverallSeverity(regressionAnalysis) {
     const { severityDistribution } = regressionAnalysis.summary;
-    
-    if (severityDistribution.high > 0) return 'high';
-    if (severityDistribution.medium > 0) return 'medium';
-    if (severityDistribution.low > 0) return 'low';
-    return 'none';
+
+    if (severityDistribution.high > 0) {
+      return "high";
+    }
+    if (severityDistribution.medium > 0) {
+      return "medium";
+    }
+    if (severityDistribution.low > 0) {
+      return "low";
+    }
+    return "none";
   }
 
   getRegressionStatusMessage(regressionAnalysis) {
     const { summary } = regressionAnalysis;
-    
+
     if (!summary.hasRegressions) {
       return chalk.green("✅ No regressions detected");
     }
 
     const severity = this.getOverallSeverity(regressionAnalysis);
-    const color = severity === 'high' ? 'red' : severity === 'medium' ? 'yellow' : 'blue';
-    
+    const color = severity === "high" ? "red" : severity === "medium" ? "yellow" : "blue";
+
     return chalk[color](`🚨 ${summary.regressionCount} regressions detected (${severity} severity)`);
   }
 
@@ -705,7 +720,7 @@ export class RegressionDetector {
     console.log(chalk.red.bold("\n🚨 REGRESSION ALERT 🚨"));
     console.log(chalk.red(`Severity: ${alertData.severity.toUpperCase()}`));
     console.log(chalk.red(`Regressions: ${alertData.regressionCount}`));
-    console.log(chalk.red(`Affected scenarios: ${alertData.scenarios.join(', ')}`));
+    console.log(chalk.red(`Affected scenarios: ${alertData.scenarios.join(", ")}`));
     console.log(chalk.red(`Timestamp: ${alertData.timestamp}`));
   }
 
@@ -719,20 +734,20 @@ export class RegressionDetector {
 
     if (frequentRegressions.length > 0) {
       recommendations.push({
-        type: 'investigation',
-        priority: 'high',
-        description: `Investigate frequently regressing scenarios: ${frequentRegressions.join(', ')}`,
-        scenarios: frequentRegressions
+        type: "investigation",
+        priority: "high",
+        description: `Investigate frequently regressing scenarios: ${frequentRegressions.join(", ")}`,
+        scenarios: frequentRegressions,
       });
     }
 
     // Performance trends
     if (Object.keys(trends.performanceTrends).length > 0) {
       recommendations.push({
-        type: 'performance',
-        priority: 'medium',
-        description: 'Review performance optimization for degraded scenarios',
-        action: 'performance_review'
+        type: "performance",
+        priority: "medium",
+        description: "Review performance optimization for degraded scenarios",
+        action: "performance_review",
       });
     }
 
@@ -742,7 +757,7 @@ export class RegressionDetector {
   async storeRegressionAnalysis(analysis) {
     // Store in history
     this.regressionHistory.push(analysis);
-    
+
     // Keep only recent history (last 100 entries)
     if (this.regressionHistory.length > 100) {
       this.regressionHistory = this.regressionHistory.slice(-100);
@@ -762,8 +777,8 @@ export class RegressionDetector {
   async loadRegressionHistory() {
     // Load from persistent storage if available
     try {
-      const historyPath = path.join(this.reportsDir, 'regression-history.json');
-      const historyData = await fs.readFile(historyPath, 'utf8');
+      const historyPath = path.join(this.reportsDir, "regression-history.json");
+      const historyData = await fs.readFile(historyPath, "utf8");
       this.regressionHistory = JSON.parse(historyData);
     } catch (error) {
       // No existing history, start fresh
@@ -774,10 +789,10 @@ export class RegressionDetector {
   async loadPerformanceBaselines() {
     // Load from persistent storage if available
     try {
-      const baselinesPath = path.join(this.reportsDir, 'performance-baselines.json');
-      const baselinesData = await fs.readFile(baselinesPath, 'utf8');
+      const baselinesPath = path.join(this.reportsDir, "performance-baselines.json");
+      const baselinesData = await fs.readFile(baselinesPath, "utf8");
       const baselines = JSON.parse(baselinesData);
-      
+
       for (const [scenarioId, baseline] of Object.entries(baselines)) {
         this.performanceBaselines.set(scenarioId, baseline);
       }
@@ -793,11 +808,11 @@ export class RegressionDetector {
   async saveState() {
     try {
       // Save regression history
-      const historyPath = path.join(this.reportsDir, 'regression-history.json');
+      const historyPath = path.join(this.reportsDir, "regression-history.json");
       await fs.writeFile(historyPath, JSON.stringify(this.regressionHistory, null, 2));
 
       // Save performance baselines
-      const baselinesPath = path.join(this.reportsDir, 'performance-baselines.json');
+      const baselinesPath = path.join(this.reportsDir, "performance-baselines.json");
       const baselinesObj = Object.fromEntries(this.performanceBaselines);
       await fs.writeFile(baselinesPath, JSON.stringify(baselinesObj, null, 2));
 
