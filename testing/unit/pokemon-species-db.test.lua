@@ -122,7 +122,12 @@ local function testPokemonSpeciesDB()
         
         -- Check that required handlers are registered
         local requiredHandlers = {
-            "pokemon-species-query",
+            "get-species",
+            "get-base-stats", 
+            "get-evolution-chain",
+            "get-level-moves",
+            "get-chunk-stats",
+            "preload-generation",
             "health-check"
         }
         
@@ -148,7 +153,7 @@ local function testPokemonSpeciesDB()
             Timestamp = 1234567890
         }
         
-        local responses = sendTestMessage("pokemon-species-query", speciesMessage)
+        local responses = sendTestMessage("get-species", speciesMessage)
         
         assert(#responses >= 1, "Should send at least one response")
         local response = responses[1]
@@ -171,7 +176,7 @@ local function testPokemonSpeciesDB()
             Timestamp = 1234567890
         }
         
-        local responses = sendTestMessage("pokemon-species-query", evolutionMessage)
+        local responses = sendTestMessage("get-evolution-chain", evolutionMessage)
         
         assert(#responses >= 1, "Should send at least one response")
         local response = responses[1]
@@ -194,7 +199,7 @@ local function testPokemonSpeciesDB()
             Timestamp = 1234567890
         }
         
-        local responses = sendTestMessage("pokemon-species-query", baseStatsMessage)
+        local responses = sendTestMessage("get-base-stats", baseStatsMessage)
         
         assert(#responses >= 1, "Should send at least one response")
         local response = responses[1]
@@ -239,7 +244,7 @@ local function testPokemonSpeciesDB()
             Timestamp = 1234567890
         }
         
-        local responses = sendTestMessage("pokemon-species-query", invalidMessage)
+        local responses = sendTestMessage("get-species", invalidMessage)
         
         assert(#responses >= 1, "Should send error response")
         local response = responses[1]
@@ -259,7 +264,7 @@ local function testPokemonSpeciesDB()
             -- Missing Data and Timestamp
         }
         
-        local responses = sendTestMessage("pokemon-species-query", malformedMessage)
+        local responses = sendTestMessage("get-species", malformedMessage)
         
         assert(#responses >= 1, "Should send error response")
         local response = responses[1]
@@ -275,6 +280,13 @@ local function testPokemonSpeciesDB()
         
         local queryTypes = {"GetSpecies", "GetEvolutionChain", "GetBaseStats"}
         
+        -- Map actions to handler names
+        local handlerMap = {
+            ["GetSpecies"] = "get-species",
+            ["GetEvolutionChain"] = "get-evolution-chain", 
+            ["GetBaseStats"] = "get-base-stats"
+        }
+        
         for _, queryType in ipairs(queryTypes) do
             local message = {
                 From = "test-client",
@@ -285,7 +297,8 @@ local function testPokemonSpeciesDB()
                 Timestamp = 1234567890
             }
             
-            local responses = sendTestMessage("pokemon-species-query", message)
+            local handlerName = handlerMap[queryType]
+            local responses = sendTestMessage(handlerName, message)
             assert(#responses >= 1, "Should handle " .. queryType .. " query")
         end
         
@@ -308,7 +321,7 @@ local function testPokemonSpeciesDB()
                 Timestamp = 1234567890
             }
             
-            local responses = sendTestMessage("pokemon-species-query", message)
+            local responses = sendTestMessage("get-species", message)
             assert(#responses >= 1, "Should handle request " .. i)
         end
         
@@ -331,7 +344,7 @@ local function testPokemonSpeciesDB()
             Timestamp = startTime
         }
         
-        local responses = sendTestMessage("pokemon-species-query", message)
+        local responses = sendTestMessage("get-species", message)
         assert(#responses >= 1, "Should complete performance test")
         
         print("✓ Performance monitoring test passed")

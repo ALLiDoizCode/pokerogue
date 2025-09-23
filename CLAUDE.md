@@ -248,11 +248,29 @@ end
 -- ❌ FORBIDDEN: Direct assignment
 Handlers["ProcessLogic"] = function(msg) end
 
--- ✅ REQUIRED: Handlers.add pattern
-Handlers.add("process-logic",
-    Handlers.utils.hasMatchingTag("Action", "ProcessLogic"),
+-- ❌ FORBIDDEN: Multi-action handlers (won't work in AO runtime)
+Handlers.add("multi-handler",
+    Handlers.utils.hasMatchingTag("Action", {"Action1", "Action2", "Action3"}),
+    function(msg) end
+)
+
+-- ✅ REQUIRED: Individual handlers for each action
+Handlers.add("action-one",
+    Handlers.utils.hasMatchingTag("Action", "Action1"),
     function(msg)
-        local response = processLogic(msg)
+        local response = processAction1(msg)
+        ao.send({
+            Target = msg.From,
+            Action = response.Action,
+            Data = response.Data
+        })
+    end
+)
+
+Handlers.add("action-two",
+    Handlers.utils.hasMatchingTag("Action", "Action2"),
+    function(msg)
+        local response = processAction2(msg)
         ao.send({
             Target = msg.From,
             Action = response.Action,

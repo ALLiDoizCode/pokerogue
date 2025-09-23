@@ -645,7 +645,7 @@ function AOMessageTests.testBackwardsCompatibility()
         }),
         Timestamp = tostring(os.time()),
         Tags = {Action = "ProcessLogic", Version = "2.0", Priority = "Normal"},
-        References = ["ref-1"]
+        References = {"ref-1"}
       }
     }
   }

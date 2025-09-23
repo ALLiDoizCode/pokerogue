@@ -1,0 +1,71 @@
+{
+  "version": "1.0.0",
+  "generated": "2025-09-23T17:31:06.798Z",
+  "totalSpecies": 1082,
+  "chunkCount": 9,
+  "chunks": [
+    {
+      "generation": 1,
+      "file": "gen1-species.lua",
+      "size": 323027,
+      "speciesCount": 944,
+      "path": "chunks/gen1-species.lua"
+    },
+    {
+      "generation": 2,
+      "file": "gen2-species.lua",
+      "size": 3505,
+      "speciesCount": 8,
+      "path": "chunks/gen2-species.lua"
+    },
+    {
+      "generation": 3,
+      "file": "gen3-species.lua",
+      "size": 9389,
+      "speciesCount": 24,
+      "path": "chunks/gen3-species.lua"
+    },
+    {
+      "generation": 4,
+      "file": "gen4-species.lua",
+      "size": 6364,
+      "speciesCount": 16,
+      "path": "chunks/gen4-species.lua"
+    },
+    {
+      "generation": 5,
+      "file": "gen5-species.lua",
+      "size": 5296,
+      "speciesCount": 13,
+      "path": "chunks/gen5-species.lua"
+    },
+    {
+      "generation": 6,
+      "file": "gen6-species.lua",
+      "size": 7069,
+      "speciesCount": 18,
+      "path": "chunks/gen6-species.lua"
+    },
+    {
+      "generation": 7,
+      "file": "gen7-species.lua",
+      "size": 4447,
+      "speciesCount": 11,
+      "path": "chunks/gen7-species.lua"
+    },
+    {
+      "generation": 8,
+      "file": "gen8-species.lua",
+      "size": 12373,
+      "speciesCount": 32,
+      "path": "chunks/gen8-species.lua"
+    },
+    {
+      "generation": 9,
+      "file": "gen9-species.lua",
+      "size": 6320,
+      "speciesCount": 16,
+      "path": "chunks/gen9-species.lua"
+    }
+  ]
+}

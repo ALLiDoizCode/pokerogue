@@ -114,6 +114,44 @@ ao.send({
 
 ## Handler Patterns
 
+### CRITICAL: Individual Handler Pattern (REQUIRED)
+**AO runtime only supports individual handlers for each action. Multi-action handlers will fail.**
+
+```lua
+-- ❌ FORBIDDEN: Multi-action handlers (will NOT work in AO runtime)
+Handlers.add("multi-handler",
+    Handlers.utils.hasMatchingTag("Action", {"Action1", "Action2", "Action3"}),
+    function(msg)
+        -- This pattern FAILS in real AO environment
+    end
+)
+
+-- ✅ REQUIRED: Individual handlers for each action
+Handlers.add("action-one-handler",
+    Handlers.utils.hasMatchingTag("Action", "Action1"),
+    function(msg)
+        local result = processAction1(msg)
+        ao.send({
+            Target = msg.From,
+            Action = "Response",
+            Data = json.encode(result)
+        })
+    end
+)
+
+Handlers.add("action-two-handler", 
+    Handlers.utils.hasMatchingTag("Action", "Action2"),
+    function(msg)
+        local result = processAction2(msg)
+        ao.send({
+            Target = msg.From,
+            Action = "Response", 
+            Data = json.encode(result)
+        })
+    end
+)
+```
+
 ### Standard Handler Registration
 ```lua
 Handlers.add("handler-name",

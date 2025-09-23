@@ -344,7 +344,7 @@ function BattleCoordinationTests.testDamageCalculationCoordination()
       },
       tags = {Action = "CalculateDamage"}
     }
-  ]
+  }
   
   local validations = {
     function(processes, messageLog)
