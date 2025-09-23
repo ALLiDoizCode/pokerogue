@@ -18,9 +18,7 @@
       "messages": [],
       "processInteractions": [],
       "duration": 2,
-      "errors": [
-        "ENOENT: no such file or directory, open 'processes/pokemon-species-data.lua'"
-      ]
+      "errors": ["ENOENT: no such file or directory, open 'processes/pokemon-species-data.lua'"]
     },
     {
       "scenarioId": "end-to-end-battle",

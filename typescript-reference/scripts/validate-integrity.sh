@@ -5,14 +5,15 @@
 
 set -e
 
-SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REFERENCE_DIR="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$REFERENCE_DIR")"
 CHECKSUMS_FILE="$REFERENCE_DIR/checksums.sha256"
 
 echo "TypeScript Reference Integrity Validation"
 
-# Navigate to typescript-reference directory
-cd "$REFERENCE_DIR"
+# Navigate to project root directory to access main codebase
+cd "$PROJECT_ROOT"
 
 # Function to generate checksums
 generate_checksums() {

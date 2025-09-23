@@ -1,0 +1,177 @@
+name: 🧪 Test Failure Report
+description: Report a test failure or TDD compliance issue
+title: "[TEST FAILURE] "
+labels: ["test-failure", "bug", "tdd"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🧪 Test Failure Report
+        This template is for reporting test failures or TDD compliance issues.
+
+  - type: input
+    id: test-file
+    attributes:
+      label: Test File
+      description: Path to the failing test file
+      placeholder: "e.g., testing/unit/battle-engine.test.lua"
+    validations:
+      required: true
+
+  - type: input
+    id: test-suite
+    attributes:
+      label: Test Suite
+      description: Name of the failing test suite
+      placeholder: "e.g., Battle Engine Tests"
+    validations:
+      required: true
+
+  - type: input
+    id: test-case
+    attributes:
+      label: Test Case
+      description: Specific test case that is failing
+      placeholder: "e.g., should calculate damage correctly"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: failure-type
+    attributes:
+      label: Failure Type
+      description: Type of test failure
+      options:
+        - Assertion Failure
+        - Runtime Error
+        - Timeout
+        - Missing Test Coverage
+        - TDD Compliance Violation
+        - Integration Failure
+        - Performance Issue
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-message
+    attributes:
+      label: Error Message
+      description: The error message or assertion failure details
+      placeholder: |
+        Expected: 150
+        Actual: 120
+        at line 45 in test file
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How to reproduce this test failure
+      placeholder: |
+        1. Run `npm run test:aolite -- testing/unit/battle-engine.test.lua`
+        2. Observe failure in "should calculate damage correctly" test
+        3. Error occurs when testing critical hit damage calculation
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What should happen when the test passes
+      placeholder: "Test should pass with correct damage calculation of 150"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happens
+      placeholder: "Test fails with damage calculation of 120 instead of expected 150"
+    validations:
+      required: true
+
+  - type: input
+    id: coverage-impact
+    attributes:
+      label: Coverage Impact
+      description: How this affects code coverage percentage
+      placeholder: "e.g., Reduces line coverage from 95% to 87%"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Priority level of this test failure
+      options:
+        - Critical (Blocks deployment)
+        - High (Affects core functionality)
+        - Medium (Standard test failure)
+        - Low (Minor issue)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: environment
+    attributes:
+      label: Test Environment
+      description: Where does this test failure occur?
+      options:
+        - label: Local development (aolite)
+        - label: CI/CD pipeline (GitHub Actions)
+        - label: Integration tests (aos-local)
+        - label: Parity validation
+        - label: Performance tests
+
+  - type: textarea
+    id: source-file
+    attributes:
+      label: Related Source File
+      description: Source file being tested (if applicable)
+      placeholder: "e.g., ao-processes/battle-engine.lua"
+    validations:
+      required: false
+
+  - type: textarea
+    id: recent-changes
+    attributes:
+      label: Recent Changes
+      description: Any recent changes that might have caused this failure
+      placeholder: "Modified damage calculation formula in commit abc123"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context about the test failure
+      placeholder: |
+        - This test was passing before the recent refactor
+        - Similar tests in other files are also failing
+        - May be related to TypeScript parity validation
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have verified this test failure is reproducible
+          required: true
+        - label: I have checked if similar issues already exist
+          required: true
+        - label: I have included relevant error messages and logs
+          required: true
+        - label: I have specified the correct priority level
+          required: true

@@ -1,0 +1,56 @@
+{
+  "id": "pokemon-stat-calculation-adamant-charizard",
+  "name": "Pokemon Stat Calculation - Adamant Charizard",
+  "description": "Validate Pokemon stat calculation with Adamant nature modifier",
+  "category": "pokemon_mechanics",
+  "scenarioType": "golden_master",
+  "inputGameState": {
+    "pokemon": {
+      "species": "Charizard",
+      "speciesId": 6,
+      "level": 50,
+      "nature": "Adamant",
+      "baseStats": {
+        "hp": 78,
+        "attack": 84,
+        "defense": 78,
+        "spAttack": 109,
+        "spDefense": 85,
+        "speed": 100
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defense": 31,
+        "spAttack": 31,
+        "spDefense": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 0,
+        "attack": 252,
+        "defense": 0,
+        "spAttack": 0,
+        "spDefense": 6,
+        "speed": 252
+      }
+    },
+    "action": "calculateStats"
+  },
+  "expectedOutput": {
+    "finalStats": [185, 200, 146, 219, 207, 236],
+    "statModifiers": [1.0, 1.1, 1.0, 0.9, 1.0, 1.0],
+    "calculationMethod": "Gen8Formula",
+    "isValid": true
+  },
+  "tolerances": {
+    "finalStats": [0, 0, 0, 0, 0, 0],
+    "statModifiers": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  "validationRules": {
+    "requiresExactMatch": true,
+    "statisticalAnalysis": false,
+    "performanceComparison": true
+  },
+  "rngSeed": null
+}

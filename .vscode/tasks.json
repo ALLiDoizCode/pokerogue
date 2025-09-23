@@ -1,0 +1,293 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "🧪 Run All Tests",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "test:all"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [
+                {
+                    "owner": "lua",
+                    "fileLocation": ["relative", "${workspaceFolder}"],
+                    "pattern": {
+                        "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "message": 5
+                    }
+                }
+            ]
+        },
+        {
+            "label": "🧪 Run Unit Tests (aolite)",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "test:aolite"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "🧪 Run Integration Tests (aos-local)",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "test:aos-local"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "🧪 Run Parity Tests",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "test:parity"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "🧪 Run Current Test File",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "test:aolite", "--", "${file}"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "🔧 Generate Test Skeleton",
+            "type": "shell",
+            "command": "lua",
+            "args": [
+                "scripts/generators/test-skeleton-generator.lua",
+                "generate",
+                "${file}"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "📊 Generate Coverage Report",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "coverage:report"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "📈 Open Coverage Dashboard",
+            "type": "shell",
+            "command": "open",
+            "args": ["tools/dashboard/index.html"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "🔍 Validate AO Sandbox Compliance",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "lint:ao-sandbox"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "📏 Validate Process Sizes",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "validate:size"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "🔧 TDD: Generate Tests for Current File",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "tdd:generate-tests", "--", "${file}"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "🔍 TDD: Validate Current File",
+            "type": "shell",
+            "command": "scripts/hooks/tdd-pre-commit.sh",
+            "args": ["${file}"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "📊 TDD: Check Coverage for Current File",
+            "type": "shell",
+            "command": "lua",
+            "args": [
+                "scripts/coverage/lua-coverage-collector.lua",
+                "instrument",
+                "${file}"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "📝 Generate Test Documentation",
+            "type": "shell",
+            "command": "lua",
+            "args": [
+                "scripts/generators/test-doc-generator.lua",
+                "generate",
+                "${file}"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "🚀 Run Test Watch Mode",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "test:watch"],
+            "group": "test",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                {
+                    "pattern": [
+                        {
+                            "regexp": ".",
+                            "file": 1,
+                            "location": 2,
+                            "message": 3
+                        }
+                    ],
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": ".",
+                        "endsPattern": "."
+                    }
+                }
+            ]
+        },
+        {
+            "label": "🧹 Clean Test Reports",
+            "type": "shell",
+            "command": "rm",
+            "args": ["-rf", "testing/reports/*", "testing/coverage/*"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "🔄 Refresh TDD Dashboard",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "tdd:refresh-dashboard"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        }
+    ]
+}

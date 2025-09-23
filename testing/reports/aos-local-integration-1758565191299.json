@@ -56,17 +56,11 @@
           "validation": {
             "expected": {
               "name": "Bulbasaur",
-              "types": [
-                "Grass",
-                "Poison"
-              ]
+              "types": ["Grass", "Poison"]
             },
             "actual": {
               "name": "Bulbasaur",
-              "types": [
-                "Grass",
-                "Poison"
-              ]
+              "types": ["Grass", "Poison"]
             },
             "isValid": false
           },
