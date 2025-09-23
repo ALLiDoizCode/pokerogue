@@ -301,7 +301,7 @@ class QualityGateValidator {
     return gateResult;
   }
 
-  async validateCoverageThreshold(gate, testResults, gateResult) {
+  async validateCoverageThreshold(gate, _testResults, gateResult) {
     // Look for coverage data in test results
     let coverage = null;
     const coverageFiles = [];
@@ -337,7 +337,7 @@ class QualityGateValidator {
     return gateResult;
   }
 
-  async validateProcessSizeLimit(gate, testResults, gateResult) {
+  async validateProcessSizeLimit(gate, _testResults, gateResult) {
     const violations = [];
     const sizeLimit = gate.threshold || this.config.thresholds.processSizeLimit;
     const processesDir = path.join(process.cwd(), "processes");
@@ -384,7 +384,7 @@ class QualityGateValidator {
     return gateResult;
   }
 
-  async validateAOSandboxCompliance(gate, testResults, gateResult) {
+  async validateAOSandboxCompliance(_gate, _testResults, gateResult) {
     try {
       // Run AO sandbox compliance check
       execSync("npm run lint:ao-sandbox", {
@@ -394,7 +394,7 @@ class QualityGateValidator {
 
       gateResult.passed = true;
       gateResult.message = "All processes are AO sandbox compliant";
-    } catch (error) {
+    } catch (_error) {
       gateResult.passed = false;
       gateResult.message = "AO sandbox compliance check failed";
       gateResult.recommendation = "Fix AO sandbox violations (remove require(), io operations, etc.)";
@@ -469,12 +469,12 @@ class QualityGateValidator {
     return gateResult;
   }
 
-  async validateMemoryConstraints(gate, testResults, gateResult) {
+  async validateMemoryConstraints(_gate, testResults, gateResult) {
     // Check for memory usage data in test results
     let memoryViolations = 0;
     let totalMemoryChecks = 0;
 
-    for (const [stageName, stageData] of Object.entries(testResults.stages)) {
+    for (const [_stageName, stageData] of Object.entries(testResults.stages)) {
       for (const result of stageData) {
         if (result.memoryUsage) {
           totalMemoryChecks++;

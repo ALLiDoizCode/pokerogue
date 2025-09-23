@@ -162,7 +162,7 @@ class ServerSideBypassValidator {
         payload: decodedPayload,
         message: "Bypass token is valid",
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         valid: false,
         reason: "MALFORMED_TOKEN",
@@ -466,7 +466,7 @@ class ServerSideBypassValidator {
       }
       const data = await fs.promises.readFile(this.config.localCachePath, "utf8");
       return JSON.parse(data);
-    } catch (error) {
+    } catch (_error) {
       return {};
     }
   }

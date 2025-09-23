@@ -14,6 +14,8 @@ Before starting any story implementation, verify:
 - [ ] **Handler Pattern AC**: Story requires proper `Handlers.add()` usage with tag matching
 - [ ] **Error Handling AC**: Story mandates pcall wrapping for all operations
 - [ ] **Performance AC**: Story includes 5-second timeout for logic processes or sub-100ms for data processes
+- [ ] **No Module Returns AC**: Story prohibits module-level return statements (use ao.send() only)
+- [ ] **Optimal Messaging AC**: Story uses tags for simple parameters and Data field for complex structures/large blobs
 
 ### Required Story Acceptance Criteria Template
 Add these AO compliance criteria to every new story:
@@ -36,6 +38,10 @@ Add these AO compliance criteria to every new story:
 **AO-C7:** Process deployment shall validate AO compatibility using `npm run lint:ao-sandbox`
 
 **AO-C8:** Process file size shall remain under 500KB constraint verified by `npm run validate:size`
+
+**AO-C9:** Process shall NOT use module-level return statements (use ao.send() only for data exchange)
+
+**AO-C10:** Process shall use appropriate messaging patterns: tags for simple parameters, Data field for complex structures and large blobs
 ```
 
 ## Development Phase Checklist

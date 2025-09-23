@@ -132,6 +132,73 @@ graph TB
 
 - **Size-Constrained Optimization:** Aggressive inlining and data compression within 500KB limits - _Rationale:_ Maximizes functionality while respecting AO platform constraints
 
+- **Optimal Message Patterns:** Tags for simple parameters, Data field for complex structures and large blobs - _Rationale:_ Leverages AO's native tag system for efficiency while using Data field for payloads that benefit from centralized handling
+
+## Message Communication Patterns
+
+### Tag-Based Parameter Passing
+For simple identifiers, enums, and small values:
+
+```lua
+-- Process receives simple parameters via tags
+local speciesId = msg.SpeciesId or msg.Id
+local operation = msg.Operation
+local confirmed = msg.Confirmed == "true"
+
+-- Process responds with simple data via tags
+ao.send({
+    Target = msg.From,
+    Action = "SaveState",
+    SpeciesId = "123",
+    SpeciesName = "Pikachu",
+    Found = "true"
+})
+```
+
+### Data Field for Complex Payloads
+For complex objects, large content, and binary data:
+
+```lua
+-- Process receives complex data via Data field
+local gameState = nil
+if msg.Data and msg.Data ~= "" then
+    gameState = json.decode(msg.Data)
+end
+
+-- Process sends large/complex responses via Data field  
+ao.send({
+    Target = msg.From,
+    Action = "SaveState",
+    Data = json.encode({
+        gameState = updatedGameState,
+        battleResult = battleOutcome,
+        nextActions = availableActions
+    })
+})
+```
+
+### Hybrid Approach
+Combining both patterns for optimal efficiency:
+
+```lua
+-- Extract operation type from tag for routing
+local operation = msg.Operation
+-- Get complex parameters from Data field
+local parameters = json.decode(msg.Data or "{}")
+
+-- Process logic based on operation tag
+if operation == "BattleTurn" then
+    local result = processBattleTurn(parameters.gameState, parameters.actions)
+    ao.send({
+        Target = msg.From,
+        Action = "SaveState",
+        Operation = operation,
+        Success = "true",
+        Data = json.encode(result)
+    })
+end
+```
+
 ## Tech Stack
 
 ### Cloud Infrastructure

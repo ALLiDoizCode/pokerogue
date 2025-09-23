@@ -609,7 +609,7 @@ class CoverageVisualizer {
 }
 
 // Create global instance
-const coverageVisualizer = new CoverageVisualizer();
+const _coverageVisualizer = new CoverageVisualizer();
 
 // Auto-initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {

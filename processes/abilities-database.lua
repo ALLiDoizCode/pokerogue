@@ -86,21 +86,31 @@ local function checkRateLimit(address, msg)
     return true, nil
 end
 
-local function createSuccessResponse(data, processId)
-    return {
+local function createSuccessResponse(data, processId, responseType)
+    local response = {
         Action = "SaveState",
-        Data = data,
-        Timestamp = msg and msg.Timestamp or 0,
-        ProcessId = processId or ao.id
     }
+    
+    -- For single ability objects, use individual tags
+    if responseType == "single_ability" and data and type(data) == "table" and data.id then
+        response.Success = "true"
+        response.AbilityId = tostring(data.id)
+        response.AbilityName = data.n or ""
+        response.Description = data.desc or ""
+        response.TriggerType = data.trig and tostring(data.trig[1]) or ""
+        response.EffectType = tostring(data.eff or "")
+    else
+        -- For complex data (arrays, activation results, etc.), use Data field
+        response.Data = data
+    end
+    
+    return response
 end
 
 local function createErrorResponse(errorMessage, processId)
     return {
         Action = "SaveState",
         Error = errorMessage,
-        ProcessId = processId or ao.id,
-        Timestamp = msg and msg.Timestamp or 0
     }
 end
 
@@ -121,7 +131,12 @@ local function handleMessage(message, processId, queryHandler)
     end)
     
     if success then
-        return createSuccessResponse(result, processId)
+        -- Determine response type based on action
+        local responseType = nil
+        if message.Action == "GetAbility" then
+            responseType = "single_ability"
+        end
+        return createSuccessResponse(result, processId, responseType)
     else
         return createErrorResponse("Query processing failed: " .. tostring(result), processId)
     end
@@ -630,26 +645,31 @@ end
 -- Main query handler for abilities database
 local function handleAbilitiesQuery(message)
     local action = message.Action
-    local data = message.Data or {}
     
     if action == "GetAbility" then
-        if data.id then
-            return getAbilityById(data.id)
-        elseif data.name then
-            return getAbilityByName(data.name)
+        local abilityId = message.AbilityId or message.Id
+        local abilityName = message.AbilityName or message.Name
+        
+        if abilityId then
+            return getAbilityById(tonumber(abilityId))
+        elseif abilityName then
+            return getAbilityByName(abilityName)
         else
-            error("GetAbility requires either 'id' or 'name' in Data")
+            error("GetAbility requires either 'AbilityId'/'Id' or 'AbilityName'/'Name' tag")
         end
     elseif action == "GetAbilitiesByTrigger" then
-        if not data.trigger then
-            error("GetAbilitiesByTrigger requires 'trigger' in Data")
+        local trigger = message.Trigger
+        if not trigger then
+            error("GetAbilitiesByTrigger requires 'Trigger' tag")
         end
-        return getAbilitiesByTrigger(data.trigger)
+        return getAbilitiesByTrigger(trigger)
     elseif action == "GetAbilityActivation" then
-        if not data.id then
-            error("GetAbilityActivation requires 'id' in Data")
+        local abilityId = message.AbilityId or message.Id
+        local context = message.Context
+        if not abilityId then
+            error("GetAbilityActivation requires 'AbilityId' or 'Id' tag")
         end
-        return getAbilityActivation(data.id, data.context)
+        return getAbilityActivation(tonumber(abilityId), context)
     else
         error("Unknown action: " .. action)
     end

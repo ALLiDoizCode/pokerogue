@@ -833,10 +833,6 @@ Handlers.add("health-check",
     end
 )
 
--- Export for testing
-return {
-    CaptureEngine = CaptureEngine,
-    PROCESS_INFO = PROCESS_INFO,
-    POKEBALL_DATA = POKEBALL_DATA,
-    STATUS_EFFECT_MULTIPLIERS = STATUS_EFFECT_MULTIPLIERS
-}
+-- AO processes should not return module exports
+-- All data is handled through message passing via ao.send()
+print("Process initialization complete.")

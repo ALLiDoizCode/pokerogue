@@ -129,21 +129,33 @@ local function checkRateLimit(address, msg)
     return true, nil
 end
 
-local function createSuccessResponse(data, processId)
-    return { 
-        Action = "SaveState", 
-        Data = data, 
-        Timestamp = msg and msg.Timestamp or 0, 
-        ProcessId = processId or PROCESS_ID 
+local function createSuccessResponse(data, processId, responseType)
+    local response = {
+        Action = "SaveState",
     }
+    
+    -- For single item objects, use individual tags
+    if responseType == "single_item" and data and type(data) == "table" and data.id then
+        response.Success = "true"
+        response.ItemId = tostring(data.id)
+        response.ItemName = data.n or ""
+        response.Category = tostring(data.cat or "")
+        response.Effect = data.eff or ""
+        response.Value = tostring(data.val or 0)
+        response.StackSize = tostring(data.stack or 1)
+    else
+        -- For complex data (arrays, multiple items, etc.), use Data field
+        response.Data = data
+    end
+    
+    return response
 end
 
 local function createErrorResponse(errorMessage, processId)
     return { 
         Action = "SaveState", 
         Error = errorMessage, 
-        ProcessId = processId or PROCESS_ID, 
-        Timestamp = msg and msg.Timestamp or 0 
+ 
     }
 end
 
@@ -161,7 +173,12 @@ local function handleMessage(message, processId, queryHandler)
     
     local success, result = pcall(function() return queryHandler(message) end)
     if success then 
-        return createSuccessResponse(result, processId) 
+        -- Determine response type based on action
+        local responseType = nil
+        if message.Action == "GetItem" then
+            responseType = "single_item"
+        end
+        return createSuccessResponse(result, processId, responseType) 
     else 
         return createErrorResponse("Query processing failed: " .. tostring(result), processId) 
     end
@@ -604,31 +621,36 @@ end
 -- Main query handler for items database
 local function handleItemsQuery(message)
     local action = message.Action
-    local data = message.Data
     
     if action == "GetItem" then
-        if data.id then
-            return getItemById(data.id)
-        elseif data.name then
-            return getItemByName(data.name)
+        local itemId = message.ItemId or message.Id
+        local itemName = message.ItemName or message.Name
+        
+        if itemId then
+            return getItemById(tonumber(itemId))
+        elseif itemName then
+            return getItemByName(itemName)
         else
-            error("GetItem requires either 'id' or 'name' in Data")
+            error("GetItem requires either 'ItemId'/'Id' or 'ItemName'/'Name' tag")
         end
     elseif action == "GetItemsByCategory" then
-        if not data.category then
-            error("GetItemsByCategory requires 'category' in Data")
+        local category = message.Category
+        if not category then
+            error("GetItemsByCategory requires 'Category' tag")
         end
-        return getItemsByCategory(data.category)
+        return getItemsByCategory(category)
     elseif action == "GetBerryEffect" then
-        if not data.id then
-            error("GetBerryEffect requires 'id' in Data")
+        local itemId = message.ItemId or message.Id
+        if not itemId then
+            error("GetBerryEffect requires 'ItemId' or 'Id' tag")
         end
-        return getBerryEffect(data.id)
+        return getBerryEffect(tonumber(itemId))
     elseif action == "GetItemEffect" then
-        if not data.id then
-            error("GetItemEffect requires 'id' in Data")
+        local itemId = message.ItemId or message.Id
+        if not itemId then
+            error("GetItemEffect requires 'ItemId' or 'Id' tag")
         end
-        return getItemEffect(data.id)
+        return getItemEffect(tonumber(itemId))
     else
         error("Unknown action: " .. action)
     end
@@ -777,10 +799,6 @@ Handlers.add("info",
     end
 )
 
--- Return process for module compatibility
-return {
-    name = PROCESS_INFO.name,
-    version = PROCESS_INFO.version,
-    adpVersion = PROCESS_INFO.adpVersion,
-    capabilities = PROCESS_INFO.capabilities
-}
+-- AO processes should not return module exports
+-- All data is handled through message passing via ao.send()
+print("Items Database initialization complete.")

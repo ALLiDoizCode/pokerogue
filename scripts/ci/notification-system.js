@@ -224,7 +224,7 @@ This issue requires immediate attention as it has failed {failureCount} consecut
     if (testResults.frameworks.performance) {
       const perfResults = testResults.frameworks.performance.results || [];
       for (const result of perfResults) {
-        if (result.regression && result.regression.detected) {
+        if (result.regression?.detected) {
           failures.push({
             type: "performance-regression",
             process: this.extractProcessName(result),
@@ -382,7 +382,7 @@ This issue requires immediate attention as it has failed {failureCount} consecut
               });
             }
           }
-        } catch (error) {
+        } catch (_error) {
           // Ignore errors when collecting artifacts
         }
       }
@@ -654,11 +654,11 @@ This issue requires immediate attention as it has failed {failureCount} consecut
     ].join("\n");
   }
 
-  formatPerformanceAnalysis(details) {
+  formatPerformanceAnalysis(_details) {
     return "Performance regression detected. Review recent changes for optimization opportunities.";
   }
 
-  formatOptimizationRecommendations(failure) {
+  formatOptimizationRecommendations(_failure) {
     return [
       "1. Profile the affected process to identify bottlenecks",
       "2. Review recent code changes for performance impact",
@@ -921,7 +921,7 @@ Examples:
         try {
           testResults = JSON.parse(fs.readFileSync(defaultPath, "utf8"));
           break;
-        } catch (error) {
+        } catch (_error) {
           // Continue to next file
         }
       }

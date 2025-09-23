@@ -181,7 +181,7 @@ class TestResultAggregator {
     return "validation";
   }
 
-  determineStage(filename, directory) {
+  determineStage(filename, _directory) {
     if (filename.includes("stage1") || filename.includes("validation")) {
       return "stage1-validation";
     }
@@ -619,7 +619,7 @@ class TestResultAggregator {
   }
 
   calculateFrameworkMetrics() {
-    for (const [name, framework] of Object.entries(this.aggregatedResults.frameworks)) {
+    for (const [_name, framework] of Object.entries(this.aggregatedResults.frameworks)) {
       framework.successRate = framework.totalTests > 0 ? (framework.passedTests / framework.totalTests) * 100 : 0;
       framework.averageDuration = framework.totalTests > 0 ? framework.duration / framework.totalTests : 0;
     }
@@ -675,7 +675,7 @@ class TestResultAggregator {
 
   calculateStageMetrics() {
     // This would be enhanced based on actual stage data structure
-    for (const [stageName, stage] of Object.entries(this.aggregatedResults.stages)) {
+    for (const [_stageName, stage] of Object.entries(this.aggregatedResults.stages)) {
       stage.status = "completed"; // Simplified for now
     }
   }

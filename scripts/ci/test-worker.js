@@ -169,7 +169,7 @@ class TestWorker {
     }
   }
 
-  parseAoliteResults(stdout, stderr, results) {
+  parseAoliteResults(stdout, _stderr, results) {
     // Parse aolite-specific output
     const lines = stdout.split("\n");
 
@@ -214,7 +214,7 @@ class TestWorker {
     return results;
   }
 
-  parseIntegrationResults(stdout, stderr, results) {
+  parseIntegrationResults(stdout, _stderr, results) {
     // Parse integration test results
     const lines = stdout.split("\n");
 
@@ -232,7 +232,7 @@ class TestWorker {
     return results;
   }
 
-  parseParityResults(stdout, stderr, results) {
+  parseParityResults(stdout, _stderr, results) {
     // Parse parity validation results
     const parityMatch = stdout.match(/Parity:\s*(\d+)\/(\d+)\s*tests passed/);
     if (parityMatch) {
@@ -250,7 +250,7 @@ class TestWorker {
     return results;
   }
 
-  parseGenericResults(stdout, stderr, results) {
+  parseGenericResults(stdout, _stderr, results) {
     // Generic parser for unknown frameworks
     const lines = stdout.split("\n");
 
@@ -300,7 +300,7 @@ class TestWorker {
             }
           }
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore errors when collecting artifacts
       }
     }

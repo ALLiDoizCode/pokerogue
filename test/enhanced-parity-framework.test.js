@@ -22,7 +22,7 @@ const TEST_CONFIG = {
 
 describe("Enhanced Parity Test Framework", () => {
   let framework;
-  let testScenarios;
+  let _testScenarios;
 
   beforeEach(async () => {
     // Create test directories
@@ -40,14 +40,14 @@ describe("Enhanced Parity Test Framework", () => {
     });
 
     // Create test scenarios
-    testScenarios = await createTestScenarios();
+    _testScenarios = await createTestScenarios();
   });
 
   afterEach(async () => {
     // Clean up test directories
     try {
       await fs.rm(TEST_CONFIG.testDir, { recursive: true, force: true });
-    } catch (error) {
+    } catch (_error) {
       // Ignore cleanup errors
     }
   });

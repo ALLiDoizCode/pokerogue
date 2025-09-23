@@ -269,7 +269,7 @@ class TestResultsViewer {
     const ctx = canvas.getContext("2d");
     const trends = this.data.trends;
 
-    const chart = new Chart(ctx, {
+    const _chart = new Chart(ctx, {
       type: "line",
       data: {
         labels: trends.dates,
@@ -645,7 +645,7 @@ class TestResultsViewer {
       setTimeout(() => {
         this.showNotification("Test data refreshed", "success");
       }, 1000);
-    } catch (error) {
+    } catch (_error) {
       this.showNotification("Failed to refresh test data", "error");
     }
   }
@@ -667,7 +667,7 @@ class TestResultsViewer {
 }
 
 // Create global instance
-const testResultsViewer = new TestResultsViewer();
+const _testResultsViewer = new TestResultsViewer();
 
 // Auto-initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {

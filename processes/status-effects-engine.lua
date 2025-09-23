@@ -1025,9 +1025,15 @@ Handlers.add("process-logic",
             return
         end
         
-        local gameState = msg.Data.gameState
-        local operation = msg.Data.operation
-        local parameters = msg.Data.parameters or {}
+        -- Extract simple operation from tag, complex data from JSON
+        local operation = msg.Operation
+        local data = json.decode(msg.Data or "{}")
+        local gameState = data.gameState
+        local parameters = data.parameters or {}
+        
+        if not operation then
+            error("Operation tag is required")
+        end
         
         -- Initialize RNG with battle seed and turn number
         local turnNumber = (gameState.battle and gameState.battle.turnNumber) or 1
@@ -1129,12 +1135,6 @@ Handlers.add("info",
     end
 )
 
--- Export for testing (monolithic design)
-return {
-    StatusEffectsEngine = StatusEffectsEngine,
-    PROCESS_METADATA = PROCESS_METADATA,
-    STATUS_EFFECTS = STATUS_EFFECTS,
-    ENVIRONMENTAL_EFFECTS = ENVIRONMENTAL_EFFECTS,
-    TYPE_IMMUNITIES = TYPE_IMMUNITIES,
-    ABILITY_IMMUNITIES = ABILITY_IMMUNITIES
-}
+-- AO processes should not return module exports
+-- All data is handled through message passing via ao.send()
+print("Status Effects Engine initialization complete.")

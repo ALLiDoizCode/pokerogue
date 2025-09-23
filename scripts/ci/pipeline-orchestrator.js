@@ -545,7 +545,7 @@ Examples:
 
   orchestrator
     .orchestrate(options)
-    .then(results => {
+    .then(_results => {
       console.log("✅ Pipeline orchestration completed");
       process.exit(0);
     })

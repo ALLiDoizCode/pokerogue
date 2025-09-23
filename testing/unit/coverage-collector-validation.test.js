@@ -9,7 +9,7 @@ import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const TEST_DIR = join(process.cwd(), "test-temp-coverage-validation");
-const COVERAGE_COLLECTOR_PATH = join(process.cwd(), "scripts/coverage/lua-coverage-collector.lua");
+const _COVERAGE_COLLECTOR_PATH = join(process.cwd(), "scripts/coverage/lua-coverage-collector.lua");
 
 describe("Coverage Collector Accuracy Validation", () => {
   beforeEach(() => {

@@ -843,7 +843,7 @@ Handlers.add("health-check",
         ao.send({
             Target = msg.From,
             Action = "SaveState",
-            Data = {
+            Data = json.encode({
                 processId = PROCESS_METADATA.processId,
                 processType = PROCESS_METADATA.processType,
                 status = "healthy",
@@ -853,7 +853,7 @@ Handlers.add("health-check",
                     rateLimitMax = RATE_LIMIT_MAX,
                     timeoutLimit = LOGIC_OPERATION_TIMEOUT
                 }
-            },
+            }),
             ProcessId = PROCESS_METADATA.processId,
             Timestamp = tostring(msg and msg.Timestamp or 0)
         })
@@ -867,7 +867,7 @@ Handlers.add("info",
         ao.send({
             Target = msg.From,
             Action = "SaveState",
-            Data = {
+            Data = json.encode({
                 process = PROCESS_METADATA,
                 handlers = {
                     "ProcessLogic",
@@ -884,17 +884,13 @@ Handlers.add("info",
                     deterministicRNG = true,
                     productionReady = true
                 }
-            },
+            }),
             ProcessId = PROCESS_METADATA.processId,
             Timestamp = tostring(msg and msg.Timestamp or 0)
         })
     end
 )
 
--- Export for testing (AO compliant)
-return {
-    BattleEngine = BattleEngine,
-    PROCESS_METADATA = PROCESS_METADATA,
-    TYPE_EFFECTIVENESS = TYPE_EFFECTIVENESS,
-    STATUS_EFFECTS = STATUS_EFFECTS
-}
+-- AO processes should not return module exports
+-- All data is handled through message passing via ao.send()
+print("Process initialization complete.")

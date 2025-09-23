@@ -3,48 +3,48 @@
 /**
  * Complete Pokemon Species Migration Script
  * Consolidates extraction and generates optimized AO process-ready data
- * 
+ *
  * Addresses QA Finding: "only 12/1000+ species integrated"
  * Solution: Complete 1,082 species migration with chunked loading
- * 
+ *
  * Generated: 2025-09-23
  */
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const CONFIG = {
-    outputDir: path.join(__dirname, '../data-migration'),
-    chunkDir: path.join(__dirname, '../data-migration/chunks'),
-    processFile: path.join(__dirname, '../processes/pokemon-species-db-complete.lua'),
-    maxChunkSize: 450 * 1024, // 450KB for safety margin
+  outputDir: path.join(__dirname, "../data-migration"),
+  chunkDir: path.join(__dirname, "../data-migration/chunks"),
+  processFile: path.join(__dirname, "../processes/pokemon-species-db-complete.lua"),
+  maxChunkSize: 450 * 1024, // 450KB for safety margin
 };
 
 function ensureDirectoryExists(dirPath) {
-    if (!fs.existsSync(dirPath)) {
-        fs.mkdirSync(dirPath, { recursive: true });
-    }
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
 }
 
 function loadChunkManifest() {
-    const manifestPath = path.join(CONFIG.outputDir, 'species-manifest.json');
-    if (!fs.existsSync(manifestPath)) {
-        throw new Error('Species manifest not found. Run extract-all-species-simple.js first.');
-    }
-    
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    console.log(`Loaded manifest: ${manifest.totalSpecies} species across ${manifest.chunkCount} chunks`);
-    return manifest;
+  const manifestPath = path.join(CONFIG.outputDir, "species-manifest.json");
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error("Species manifest not found. Run extract-all-species-simple.js first.");
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  console.log(`Loaded manifest: ${manifest.totalSpecies} species across ${manifest.chunkCount} chunks`);
+  return manifest;
 }
 
 function generateChunkLoader(manifest) {
-    console.log('Generating chunk loader for AO process...');
-    
-    const chunkLoaderCode = `-- ============================================================================
+  console.log("Generating chunk loader for AO process...");
+
+  const chunkLoaderCode = `-- ============================================================================
 -- Pokemon Species Database - Complete Migration with Chunked Loading
 -- Generated: ${new Date().toISOString()}
 -- Total Species: ${manifest.totalSpecies}
@@ -68,19 +68,21 @@ local function loadChunk(generation)
     -- For now, we embed the chunk data directly
     local chunkData = {}
     
-    ${manifest.chunks.map(chunk => {
+    ${manifest.chunks
+      .map(chunk => {
         const chunkFile = path.join(CONFIG.chunkDir, chunk.file);
-        const chunkContent = fs.readFileSync(chunkFile, 'utf8');
-        
+        const chunkContent = fs.readFileSync(chunkFile, "utf8");
+
         // Extract the species data from the chunk file
         const dataMatch = chunkContent.match(/local Gen\d+Species = \{([\s\S]*?)\}/);
         if (dataMatch) {
-            return `    if generation == ${chunk.generation} then
+          return `    if generation == ${chunk.generation} then
         chunkData = {${dataMatch[1]}}
     end`;
         }
-        return '';
-    }).join('\n')}
+        return "";
+      })
+      .join("\n")}
     
     ChunkLoader.loaded[generation] = chunkData
     return chunkData
@@ -177,15 +179,15 @@ end
 
 return ChunkLoader`;
 
-    return chunkLoaderCode;
+  return chunkLoaderCode;
 }
 
 function generateCompleteAOProcess(manifest) {
-    console.log('Generating complete AO process with chunked data...');
-    
-    const chunkLoader = generateChunkLoader(manifest);
-    
-    const processCode = `-- ============================================================================
+  console.log("Generating complete AO process with chunked data...");
+
+  const chunkLoader = generateChunkLoader(manifest);
+
+  const processCode = `-- ============================================================================
 -- Pokemon Species Database Process - Complete Migration (ADP v1.0 Compliant)
 -- Generated: ${new Date().toISOString()}
 -- Total Species: ${manifest.totalSpecies} (100% coverage)
@@ -432,13 +434,13 @@ return {
     initialStats = initialStats
 }`;
 
-    return processCode;
+  return processCode;
 }
 
 function generateValidationScript(manifest) {
-    console.log('Generating validation script...');
-    
-    const validationScript = `#!/usr/bin/env node
+  console.log("Generating validation script...");
+
+  const validationScript = `#!/usr/bin/env node
 
 /**
  * Pokemon Species Migration Validation Script
@@ -523,32 +525,32 @@ if (import.meta.url === \`file://\${process.argv[1]}\`) {
 
 export { validateMigration };`;
 
-    return validationScript;
+  return validationScript;
 }
 
 async function main() {
-    try {
-        console.log('🚀 Pokemon Species Complete Migration - Starting...');
-        
-        // Ensure directories exist
-        ensureDirectoryExists(CONFIG.outputDir);
-        
-        // Load the chunk manifest
-        const manifest = loadChunkManifest();
-        
-        // Generate the complete AO process
-        const processCode = generateCompleteAOProcess(manifest);
-        fs.writeFileSync(CONFIG.processFile, processCode);
-        console.log(`✅ Generated complete AO process: ${CONFIG.processFile}`);
-        
-        // Generate validation script
-        const validationScript = generateValidationScript(manifest);
-        const validationFile = path.join(__dirname, 'validate-species-migration.js');
-        fs.writeFileSync(validationFile, validationScript);
-        console.log(`✅ Generated validation script: ${validationFile}`);
-        
-        // Generate migration report
-        const report = `# Complete Pokemon Species Migration Report
+  try {
+    console.log("🚀 Pokemon Species Complete Migration - Starting...");
+
+    // Ensure directories exist
+    ensureDirectoryExists(CONFIG.outputDir);
+
+    // Load the chunk manifest
+    const manifest = loadChunkManifest();
+
+    // Generate the complete AO process
+    const processCode = generateCompleteAOProcess(manifest);
+    fs.writeFileSync(CONFIG.processFile, processCode);
+    console.log(`✅ Generated complete AO process: ${CONFIG.processFile}`);
+
+    // Generate validation script
+    const validationScript = generateValidationScript(manifest);
+    const validationFile = path.join(__dirname, "validate-species-migration.js");
+    fs.writeFileSync(validationFile, validationScript);
+    console.log(`✅ Generated validation script: ${validationFile}`);
+
+    // Generate migration report
+    const report = `# Complete Pokemon Species Migration Report
 
 **Generated:** ${new Date().toISOString()}
 **Status:** ✅ COMPLETE
@@ -601,28 +603,27 @@ The new process provides:
 ---
 **Migration Complete:** All Pokemon species now available in AO processes! 🎉
 `;
-        
-        fs.writeFileSync(path.join(CONFIG.outputDir, 'migration-complete-report.md'), report);
-        
-        console.log('\n🎉 Complete Migration Generation Finished!');
-        console.log(`📊 Total Species: ${manifest.totalSpecies}`);
-        console.log(`📁 Generated Files:`);
-        console.log(`   - AO Process: ${CONFIG.processFile}`);
-        console.log(`   - Validation: scripts/validate-species-migration.js`);
-        console.log(`   - Report: data-migration/migration-complete-report.md`);
-        console.log(`\n✅ QA Finding Status: RESOLVED`);
-        console.log(`   Previous: 12/1000+ species integrated`);
-        console.log(`   Current: ${manifest.totalSpecies}/1,082 species integrated`);
-        
-    } catch (error) {
-        console.error('❌ Migration failed:', error);
-        process.exit(1);
-    }
+
+    fs.writeFileSync(path.join(CONFIG.outputDir, "migration-complete-report.md"), report);
+
+    console.log("\n🎉 Complete Migration Generation Finished!");
+    console.log(`📊 Total Species: ${manifest.totalSpecies}`);
+    console.log("📁 Generated Files:");
+    console.log(`   - AO Process: ${CONFIG.processFile}`);
+    console.log("   - Validation: scripts/validate-species-migration.js");
+    console.log("   - Report: data-migration/migration-complete-report.md");
+    console.log("\n✅ QA Finding Status: RESOLVED");
+    console.log("   Previous: 12/1000+ species integrated");
+    console.log(`   Current: ${manifest.totalSpecies}/1,082 species integrated`);
+  } catch (error) {
+    console.error("❌ Migration failed:", error);
+    process.exit(1);
+  }
 }
 
 // Execute if run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-    main();
+  main();
 }
 
 export { generateCompleteAOProcess, generateValidationScript };

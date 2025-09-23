@@ -249,7 +249,7 @@ describe("Server-Side Bypass Protection", () => {
       expect(response.conditions.requiresPostMortem).toBe(true);
 
       // Clean up
-      delete process.env.TDD_EMERGENCY_SECRET;
+      process.env.TDD_EMERGENCY_SECRET = undefined;
     });
 
     it("should reject emergency override with incorrect secret", () => {
@@ -274,7 +274,7 @@ describe("Server-Side Bypass Protection", () => {
       }
 
       // Clean up
-      delete process.env.TDD_EMERGENCY_SECRET;
+      process.env.TDD_EMERGENCY_SECRET = undefined;
     });
   });
 
@@ -436,7 +436,7 @@ describe("Server-Side Bypass Protection", () => {
       expect(response.valid).toBe(true);
       expect(response.reason).toBe("EMERGENCY_OVERRIDE");
 
-      delete process.env.TDD_EMERGENCY_SECRET;
+      process.env.TDD_EMERGENCY_SECRET = undefined;
     });
 
     it("should fail securely when unable to check quotas", () => {

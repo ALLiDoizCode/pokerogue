@@ -134,8 +134,8 @@ class ParallelExecutor extends EventEmitter {
   }
 
   async processJobQueue() {
-    return new Promise((resolve, reject) => {
-      const results = [];
+    return new Promise((resolve, _reject) => {
+      const _results = [];
 
       const checkCompletion = () => {
         if (this.completedJobs.size === this.metrics.totalJobs) {
@@ -263,7 +263,7 @@ class ParallelExecutor extends EventEmitter {
   }
 
   handleWorkerMessage(workerId, message) {
-    const workerInfo = this.workers.get(workerId);
+    const _workerInfo = this.workers.get(workerId);
 
     switch (message.type) {
       case "completed":
@@ -336,7 +336,7 @@ class ParallelExecutor extends EventEmitter {
     this.logger.warn(`Job ${jobId} timed out on worker ${workerId}`);
 
     const workerInfo = this.workers.get(workerId);
-    if (workerInfo && workerInfo.currentJob && workerInfo.currentJob.id === jobId) {
+    if (workerInfo?.currentJob && workerInfo.currentJob.id === jobId) {
       // Terminate the worker and restart it
       workerInfo.worker.terminate();
       this.restartWorker(workerId);
@@ -349,7 +349,7 @@ class ParallelExecutor extends EventEmitter {
     this.logger.error(`Worker ${workerId} error:`, error);
 
     const workerInfo = this.workers.get(workerId);
-    if (workerInfo && workerInfo.currentJob) {
+    if (workerInfo?.currentJob) {
       this.emit("jobFailed", workerInfo.currentJob.id, error);
     }
 

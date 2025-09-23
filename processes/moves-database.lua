@@ -61,21 +61,35 @@ local function checkRateLimit(address, msg)
     return true, nil
 end
 
-local function createSuccessResponse(data, processId)
-    return {
+local function createSuccessResponse(data, processId, responseType)
+    local response = {
         Action = "SaveState",
-        Data = data,
-        Timestamp = msg and msg.Timestamp or 0,
-        ProcessId = processId or ao.id
     }
+    
+    -- For single move objects, use individual tags
+    if responseType == "single_move" and data and type(data) == "table" and data.id then
+        response.Success = "true"
+        response.MoveId = tostring(data.id)
+        response.MoveName = data.name or ""
+        response.Type = tostring(data.type or "")
+        response.Category = tostring(data.category or "")
+        response.Power = tostring(data.power or 0)
+        response.Accuracy = tostring(data.accuracy or 0)
+        response.PP = tostring(data.pp or 0)
+        response.Priority = tostring(data.priority or 0)
+        response.Effects = data.effects or ""
+    else
+        -- For complex data (arrays, multiple moves, etc.), use Data field
+        response.Data = data
+    end
+    
+    return response
 end
 
 local function createErrorResponse(errorMessage, processId)
     return {
         Action = "SaveState",
         Error = errorMessage,
-        ProcessId = processId or ao.id,
-        Timestamp = msg and msg.Timestamp or 0
     }
 end
 
@@ -486,32 +500,38 @@ end
 
 local function handleMovesQuery(message)
     local action = message.Action
-    local data = message.Data
     
     if action == "GetMove" then
-        if data.id then
-            return getMoveById(data.id)
-        elseif data.name then
-            return getMoveByName(data.name)
+        local moveId = message.MoveId or message.Id
+        local moveName = message.MoveName or message.Name
+        
+        if moveId then
+            return getMoveById(tonumber(moveId))
+        elseif moveName then
+            return getMoveByName(moveName)
         else
-            error("GetMove requires either 'id' or 'name' in Data")
+            error("GetMove requires either 'MoveId'/'Id' or 'MoveName'/'Name' tag")
         end
     elseif action == "GetMovesByType" then
-        if not data.type then
-            error("GetMovesByType requires 'type' in Data")
+        local moveType = message.MoveType or message.Type
+        if not moveType then
+            error("GetMovesByType requires 'MoveType' or 'Type' tag")
         end
-        return getMovesByType(data.type)
+        return getMovesByType(moveType)
     elseif action == "GetTypeEffectiveness" then
-        if data.attackingType and data.defendingTypes then
+        local attackingType = message.AttackingType
+        local defendingTypes = message.DefendingTypes
+        
+        if attackingType and defendingTypes then
             return {
-                effectiveness = calculateTypeEffectiveness(data.attackingType, data.defendingTypes)
+                effectiveness = calculateTypeEffectiveness(attackingType, defendingTypes)
             }
-        elseif data.attackingType then
+        elseif attackingType then
             return {
-                chart = getMoveEffectivenessChart(data.attackingType)
+                chart = getMoveEffectivenessChart(attackingType)
             }
         else
-            error("GetTypeEffectiveness requires 'attackingType' in Data")
+            error("GetTypeEffectiveness requires 'AttackingType' tag")
         end
     else
         error("Unknown action: " .. action)
@@ -535,7 +555,12 @@ local function handleMessage(message, processId, queryHandler)
     end)
     
     if success then
-        return createSuccessResponse(result, processId)
+        -- Determine response type based on action
+        local responseType = nil
+        if message.Action == "GetMove" then
+            responseType = "single_move"
+        end
+        return createSuccessResponse(result, processId, responseType)
     else
         return createErrorResponse("Query processing failed: " .. tostring(result), processId)
     end
@@ -661,12 +686,6 @@ Handlers.add("health-check",
     end
 )
 
--- Return module for testing
-return {
-    MovesDB = MovesDB,
-    TypeEffectiveness = TypeEffectiveness,
-    POKEMON_TYPE = POKEMON_TYPE,
-    MOVE_CATEGORY = MOVE_CATEGORY,
-    handleMovesQuery = handleMovesQuery,
-    getTypeEffectiveness = getTypeEffectiveness
-}
+-- AO processes should not return module exports
+-- All data is handled through message passing via ao.send()
+print("Moves Database initialization complete.")

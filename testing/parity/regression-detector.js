@@ -454,7 +454,7 @@ export class RegressionDetector {
    * Helper methods
    */
 
-  async compareWithBaseline(baseline, current, testResult) {
+  async compareWithBaseline(baseline, current, _testResult) {
     const differences = [];
 
     // Deep comparison logic (simplified)
@@ -562,7 +562,7 @@ export class RegressionDetector {
     return similarPatterns.length === 0;
   }
 
-  async isConsistentPerformanceDegradation(scenarioId, performanceRatio) {
+  async isConsistentPerformanceDegradation(scenarioId, _performanceRatio) {
     const baseline = this.performanceBaselines.get(scenarioId);
     if (!baseline || baseline.samples.length < 5) {
       return false;
@@ -780,7 +780,7 @@ export class RegressionDetector {
       const historyPath = path.join(this.reportsDir, "regression-history.json");
       const historyData = await fs.readFile(historyPath, "utf8");
       this.regressionHistory = JSON.parse(historyData);
-    } catch (error) {
+    } catch (_error) {
       // No existing history, start fresh
       this.regressionHistory = [];
     }
@@ -796,7 +796,7 @@ export class RegressionDetector {
       for (const [scenarioId, baseline] of Object.entries(baselines)) {
         this.performanceBaselines.set(scenarioId, baseline);
       }
-    } catch (error) {
+    } catch (_error) {
       // No existing baselines, start fresh
       this.performanceBaselines = new Map();
     }

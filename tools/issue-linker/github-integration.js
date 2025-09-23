@@ -7,7 +7,7 @@
 
 const { Octokit } = require("@octokit/rest");
 const fs = require("fs");
-const path = require("path");
+const _path = require("path");
 
 class GitHubIntegration {
   constructor(config = {}) {

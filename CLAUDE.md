@@ -280,7 +280,68 @@ Handlers.add("action-two",
 )
 ```
 
-#### 3. Timestamp Handling (REQUIRED)
+#### 3. Error Handling Pattern (REQUIRED)
+Use pcall only when operations might actually fail, not for simple data lookups:
+
+```lua
+-- ❌ FORBIDDEN: Unnecessary pcall for simple data access
+local success, result = pcall(function()
+    return getSpeciesById(id)  -- Simple table lookup never fails
+end)
+
+-- ✅ REQUIRED: Direct access for embedded data
+local speciesId = msg.SpeciesId or msg.Id
+if not speciesId then
+    ao.send({
+        Target = msg.From,
+        Action = "SaveState",
+        Error = "SpeciesId required",
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+    })
+    return
+end
+
+local result = getSpeciesById(tonumber(speciesId))
+if result then
+    ao.send({
+        Target = msg.From,
+        Action = "SaveState",
+        Data = json.encode(result),
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+    })
+else
+    ao.send({
+        Target = msg.From,
+        Action = "SaveState",
+        Error = "Species not found",
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+    })
+end
+
+-- ✅ REQUIRED: Use pcall for operations that might fail
+local success, result = pcall(function()
+    return externalApiCall(params)  -- External calls can fail
+end)
+
+local success, gameState = pcall(json.decode, msg.Data)  -- JSON parsing can fail
+```
+
+**When to use pcall:**
+- External API calls or network operations
+- JSON parsing of untrusted input
+- Complex calculations that might error
+- Calling user-provided functions or external modules
+
+**When NOT to use pcall:**
+- Simple table lookups from embedded data
+- Basic parameter validation
+- Simple arithmetic operations
+- Accessing msg tags or known data structures
+
+#### 4. Timestamp Handling (REQUIRED)
 ```lua
 -- ❌ FORBIDDEN: os.time() in AO processes
 local timestamp = os.time()
@@ -292,7 +353,7 @@ local timestamp = msg.Timestamp or 0
 local mockTimestamp = 1234567890
 ```
 
-#### 4. Error Handling (REQUIRED)
+#### 5. Error Handling (REQUIRED)
 ```lua
 -- ✅ REQUIRED: Wrap all operations in pcall
 local success, response = pcall(processLogic, msg)
@@ -307,21 +368,135 @@ else
 end
 ```
 
-#### 5. Available AO Globals
+#### 6. Available AO Globals
 - `ao.send()` - Send messages to other processes
 - `ao.id` - Current process ID
 - `Handlers` - Message handler registry
 - `json` - JSON encode/decode utilities
 - Standard Lua: string, table, math, os (limited subset)
 
-#### 6. Forbidden Operations
+#### 7. Forbidden Operations
 - `require()` - No external module loading
 - `io` - No file system access
 - `debug` - Debug library unavailable
 - `os.time()` - Use `msg.Timestamp` instead
 - Network operations (only through ao.send)
 
-#### 7. ADP v1.0 Compliance (REQUIRED)
+#### 8. CRITICAL: No Module-Level Returns (REQUIRED)
+AO processes MUST NOT use module-level return statements. All data exchange happens through message passing:
+
+```lua
+-- ❌ FORBIDDEN: Module-level returns
+return {
+    handler = someHandler,
+    data = someData
+}
+
+-- ✅ REQUIRED: Use ao.send() only
+-- AO processes should not return module exports
+-- All data is handled through message passing via ao.send()
+print("Process initialization complete.")
+```
+
+**Why this matters:**
+- AO runtime doesn't support module returns
+- Breaks AO process isolation model
+- Prevents proper message-based communication
+- Causes deployment failures in AO environment
+
+#### 9. CRITICAL: Tags vs Data Field Usage (REQUIRED)
+Use the right approach for the right data: tags for simple parameters, Data field for complex structures and large blobs:
+
+```lua
+-- ✅ REQUIRED: Use tags for simple parameters
+local speciesId = msg.SpeciesId or msg.Id
+local operation = msg.Operation
+if speciesId then
+    processSpecies(tonumber(speciesId))
+end
+
+-- ✅ REQUIRED: Use Data field for complex structures
+local gameState = nil
+if msg.Data and msg.Data ~= "" then
+    gameState = json.decode(msg.Data)
+end
+
+-- ✅ REQUIRED: Use Data field for large blobs (images, files, etc.)
+local imageData = msg.Data  -- Raw binary or base64 data
+local documentContent = msg.Data  -- Large text content
+
+-- ❌ FORBIDDEN: Simple parameters in Data
+local data = json.decode(msg.Data or "{}")
+local id = data.id  -- Should be msg.Id tag instead
+```
+
+**When to use Tags:**
+- Simple identifiers: `SpeciesId`, `PlayerId`, `BattleId`
+- Enum-like values: `Operation`, `Type`, `Category`
+- Small strings/numbers: `Name`, `Level`, `Generation`
+- Flags: `Confirmed`, `Force`, `Override`
+
+**When to use Data field:**
+- Complex objects: `gameState`, `pokemonData`, `battleResult`
+- Large text content: documentation, descriptions, logs
+- Binary data: images, files, encrypted payloads
+- Arrays/lists: multiple items, batch operations
+- Nested structures: configuration objects, schemas
+
+**Response patterns:**
+```lua
+-- ✅ CORRECT: Simple response with individual tags (all values as strings)
+ao.send({
+    Target = msg.From,
+    Action = "SaveState",
+    Success = "true",
+    SpeciesId = tostring(result.id),
+    SpeciesName = result.name,
+    HP = tostring(result.baseStats.hp),
+    Attack = tostring(result.baseStats.attack),
+    Type1 = tostring(result.types[1]),
+    Type2 = result.types[2] and tostring(result.types[2]) or "",
+    Generation = tostring(result.generation)
+})
+
+-- ✅ CORRECT: Complex response using Data field for nested structures
+ao.send({
+    Target = msg.From,
+    Action = "SaveState",
+    Data = json.encode({
+        species = speciesData,
+        stats = baseStats,
+        moves = availableMoves
+    })
+})
+
+-- ❌ FORBIDDEN: Don't send simple data as JSON in Data field
+ao.send({
+    Target = msg.From,
+    Action = "SaveState",
+    Data = json.encode({
+        speciesId = 123,
+        name = "Pikachu",
+        found = true
+    })
+})
+```
+
+**Tag naming conventions:**
+- Use PascalCase: `SpeciesId`, `PlayerName`, `BattleId`
+- Provide alternatives: `msg.SpeciesId or msg.Id`
+- Convert strings to numbers: `tonumber(msg.SpeciesId)`
+- Boolean flags: `msg.Confirmed == "true"`
+- **CRITICAL**: All tag values MUST be strings: `tostring(number)`, `"true"/"false"` for booleans
+- Empty optional values: use `""` instead of `nil` for optional tags
+
+**Why this matters:**
+- Tags are native to AO message system
+- Data field optimized for large payloads
+- Better performance and readability
+- Follows AO architectural patterns
+
+#### 10. ADP v1.0 Compliance (REQUIRED)
 ```lua
 -- ✅ REQUIRED: Info handler for self-documentation
 Handlers.add("info",
@@ -353,7 +528,7 @@ Handlers.add("info",
 )
 ```
 
-#### 8. Testing Pattern for AO Processes
+#### 11. Testing Pattern for AO Processes
 ```lua
 -- Mock AO environment for testing
 local function setupTestEnvironment()

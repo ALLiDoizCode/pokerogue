@@ -497,7 +497,7 @@ local function handleValidateProcess(msg)
         return createResponse("ValidationError", nil, error, msg)
     end
     
-    local processName = msg.ProcessName or msg.Data.processName
+    local processName = msg.ProcessName
     if not processName then
         return createResponse("ValidationError", nil, "ProcessName required", msg)
     end
@@ -516,7 +516,7 @@ local function handleGetProcessMetadata(msg)
         return createResponse("MetadataError", nil, error, msg)
     end
     
-    local processName = msg.ProcessName or msg.Data.processName
+    local processName = msg.ProcessName
     if not processName then
         return createResponse("MetadataError", nil, "ProcessName required", msg)
     end
@@ -546,7 +546,12 @@ local function handleDiscoverProcesses(msg)
         return createResponse("DiscoveryError", nil, error, msg)
     end
     
-    local filters = msg.Filters or msg.Data.filters or {}
+    -- Note: Filters would be complex, so keeping as optional JSON for now
+    local filters = {}
+    if msg.Data and msg.Data ~= "" then
+        local data = json.decode(msg.Data)
+        filters = data.filters or {}
+    end
     local allProcesses = getAllProcesses()
     local discovered = {}
     

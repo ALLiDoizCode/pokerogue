@@ -317,7 +317,7 @@ export class RNGConsistencyTester {
   /**
    * Get tolerance for specific RNG values
    */
-  getRNGTolerance(key, scenario) {
+  getRNGTolerance(key, _scenario) {
     // Most RNG values should be exact
     const exactKeys = ["damage", "critical", "accuracy", "captureSuccess"];
     if (exactKeys.some(exactKey => key.includes(exactKey))) {
@@ -348,7 +348,7 @@ export class RNGConsistencyTester {
   /**
    * Perform statistical analysis on RNG results
    */
-  async performStatisticalAnalysis(seedTests, scenario) {
+  async performStatisticalAnalysis(seedTests, _scenario) {
     const analysis = {
       sampleSize: seedTests.length,
       distributions: {},
@@ -487,7 +487,7 @@ export class RNGConsistencyTester {
   /**
    * Analyze RNG patterns for predictability issues
    */
-  async analyzeRNGPatterns(seedTests, scenario) {
+  async analyzeRNGPatterns(seedTests, _scenario) {
     const analysis = {
       patternDetected: false,
       patterns: [],
@@ -620,7 +620,7 @@ export class RNGConsistencyTester {
 
       for (let i = 2; i < sequence.length; i++) {
         // Try to predict current value based on previous two values
-        const pattern = `${sequence[i - 2]},${sequence[i - 1]}`;
+        const _pattern = `${sequence[i - 2]},${sequence[i - 1]}`;
         const currentValue = sequence[i];
 
         // Look for this pattern earlier in the sequence
@@ -850,7 +850,7 @@ export class RNGConsistencyTester {
   }
 
   // Additional helper methods for statistical analysis
-  analyzeImplementationConsistency(results, implementation) {
+  analyzeImplementationConsistency(_results, implementation) {
     // Placeholder for implementation-specific consistency analysis
     return {
       implementation: implementation,
@@ -860,7 +860,7 @@ export class RNGConsistencyTester {
     };
   }
 
-  analyzeCrossImplementationCorrelation(seedTests) {
+  analyzeCrossImplementationCorrelation(_seedTests) {
     // Placeholder for cross-implementation correlation analysis
     return {
       correlation: 1.0,
@@ -869,7 +869,7 @@ export class RNGConsistencyTester {
     };
   }
 
-  async performRandomnessTests(seedTests) {
+  async performRandomnessTests(_seedTests) {
     // Placeholder for randomness quality tests (e.g., chi-square, runs test)
     return {
       chiSquareTest: { passed: true, pValue: 0.5 },

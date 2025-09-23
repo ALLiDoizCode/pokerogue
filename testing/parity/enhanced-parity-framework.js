@@ -932,7 +932,7 @@ export class EnhancedParityTestFramework extends ParityTestFramework {
       }
     }
 
-    for (const [path, type] of Object.entries(struct2)) {
+    for (const [path, _type] of Object.entries(struct2)) {
       if (!(path in struct1)) {
         differences.push({
           type: "new_path",

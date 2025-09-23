@@ -621,7 +621,7 @@ export class GoldenMasterExtractor {
     const { wildPokemon, pokeballs, attempts } = inputGameState;
 
     const baseCatchRate = wildPokemon.catchRate;
-    const hpFactor = wildPokemon.currentHp / wildPokemon.maxHp;
+    const _hpFactor = wildPokemon.currentHp / wildPokemon.maxHp;
     const statusBonus = wildPokemon.status === "none" ? 1.0 : 1.5; // Simplified
 
     const captureRates: { [key: string]: number } = {};

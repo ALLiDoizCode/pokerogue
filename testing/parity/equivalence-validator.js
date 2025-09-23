@@ -29,7 +29,7 @@ export class EquivalenceValidator {
    */
   initializePokemonValidationRules() {
     // Nature modifier rules
-    this.addValidationRule("nature_modifiers", (tsValue, aoValue, context) => {
+    this.addValidationRule("nature_modifiers", (tsValue, aoValue, _context) => {
       const validModifiers = [0.9, 1.0, 1.1];
 
       if (!validModifiers.includes(tsValue) || !validModifiers.includes(aoValue)) {
@@ -43,7 +43,7 @@ export class EquivalenceValidator {
     });
 
     // Stat calculation rules
-    this.addValidationRule("stat_calculation", (tsValue, aoValue, context) => {
+    this.addValidationRule("stat_calculation", (tsValue, aoValue, _context) => {
       // Pokemon stats must be positive integers
       if (!Number.isInteger(tsValue) || !Number.isInteger(aoValue) || tsValue < 1 || aoValue < 1) {
         return {
@@ -56,7 +56,7 @@ export class EquivalenceValidator {
     });
 
     // Damage calculation rules
-    this.addValidationRule("damage_calculation", (tsValue, aoValue, context) => {
+    this.addValidationRule("damage_calculation", (tsValue, aoValue, _context) => {
       // Damage must be non-negative integer
       if (!Number.isInteger(tsValue) || !Number.isInteger(aoValue) || tsValue < 0 || aoValue < 0) {
         return {
@@ -69,7 +69,7 @@ export class EquivalenceValidator {
     });
 
     // Type effectiveness rules
-    this.addValidationRule("type_effectiveness", (tsValue, aoValue, context) => {
+    this.addValidationRule("type_effectiveness", (tsValue, aoValue, _context) => {
       const validEffectiveness = [0.0, 0.25, 0.5, 1.0, 2.0, 4.0];
 
       if (!validEffectiveness.includes(tsValue) || !validEffectiveness.includes(aoValue)) {
@@ -318,7 +318,7 @@ export class EquivalenceValidator {
   /**
    * Compare non-numeric values
    */
-  compareValues(tsValue, aoValue, path, scenario, result) {
+  compareValues(tsValue, aoValue, path, _scenario, result) {
     if (tsValue === aoValue) {
       result.details.exactMatches++;
     } else {
@@ -659,7 +659,7 @@ export class EquivalenceValidator {
     );
   }
 
-  getApplicableRules(path, scenario) {
+  getApplicableRules(path, _scenario) {
     const applicableRules = [];
 
     // Apply rules based on path patterns
@@ -686,7 +686,7 @@ export class EquivalenceValidator {
     return applicableRules.filter(([_, rule]) => rule !== undefined);
   }
 
-  assessNumericSeverity(absoluteDifference, relativeDifference, tolerance) {
+  assessNumericSeverity(absoluteDifference, _relativeDifference, tolerance) {
     if (tolerance === 0) {
       // Exact match required
       return absoluteDifference === 0 ? "none" : "high";

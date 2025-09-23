@@ -1,0 +1,190 @@
+{
+  "timestamp": "2025-09-23T16:05:32.562Z",
+  "summary": {
+    "total": 2,
+    "passed": 1,
+    "failed": 1,
+    "errors": 0,
+    "successRate": 50
+  },
+  "results": [
+    {
+      "scenarioId": "damage-calculation-basic",
+      "scenarioName": "Basic Damage Calculation",
+      "timestamp": "2025-09-23T16:05:32.561Z",
+      "typescriptResult": {
+        "implementation": "typescript",
+        "scenario": "damage-calculation-basic",
+        "result": {
+          "damage": 85,
+          "effectiveness": "super_effective",
+          "critical": false
+        },
+        "gameState": {
+          "attacker": {
+            "level": 50,
+            "attack": 100,
+            "species": "Pikachu"
+          },
+          "defender": {
+            "level": 50,
+            "defense": 80,
+            "species": "Geodude"
+          },
+          "move": {
+            "name": "Thunderbolt",
+            "power": 90,
+            "type": "Electric"
+          }
+        },
+        "metadata": {
+          "version": "1.10.4",
+          "executionTime": 97.9994803352142
+        }
+      },
+      "aoResult": {
+        "implementation": "ao_lua",
+        "scenario": "damage-calculation-basic",
+        "result": {
+          "damage": 85,
+          "effectiveness": "super_effective",
+          "critical": false
+        },
+        "gameState": {
+          "attacker": {
+            "level": 50,
+            "attack": 100,
+            "species": "Pikachu"
+          },
+          "defender": {
+            "level": 50,
+            "defense": 80,
+            "species": "Geodude"
+          },
+          "move": {
+            "name": "Thunderbolt",
+            "power": 90,
+            "type": "Electric"
+          }
+        },
+        "metadata": {
+          "version": "1.0.0",
+          "executionTime": 38.42128674230476
+        }
+      },
+      "comparisonStatus": "pass",
+      "differences": [],
+      "executionTimes": {
+        "typescript": 0,
+        "ao": 0
+      },
+      "statisticalAnalysis": null
+    },
+    {
+      "scenarioId": "stat-calculation-nature",
+      "scenarioName": "Stat Calculation with Nature",
+      "timestamp": "2025-09-23T16:05:32.562Z",
+      "typescriptResult": {
+        "implementation": "typescript",
+        "scenario": "stat-calculation-nature",
+        "result": {
+          "hp": 153,
+          "attack": 156,
+          "defense": 98
+        },
+        "gameState": {
+          "pokemon": {
+            "species": "Charizard",
+            "level": 50,
+            "nature": "Adamant",
+            "ivs": {
+              "attack": 31,
+              "hp": 31,
+              "defense": 20
+            },
+            "evs": {
+              "attack": 252,
+              "hp": 252
+            }
+          }
+        },
+        "metadata": {
+          "version": "1.10.4",
+          "executionTime": 76.4988838459296
+        }
+      },
+      "aoResult": {
+        "implementation": "ao_lua",
+        "scenario": "stat-calculation-nature",
+        "result": {
+          "damage": 86,
+          "effectiveness": "super_effective",
+          "critical": false
+        },
+        "gameState": {
+          "pokemon": {
+            "species": "Charizard",
+            "level": 50,
+            "nature": "Adamant",
+            "ivs": {
+              "attack": 31,
+              "hp": 31,
+              "defense": 20
+            },
+            "evs": {
+              "attack": 252,
+              "hp": 252
+            }
+          }
+        },
+        "metadata": {
+          "version": "1.0.0",
+          "executionTime": 56.70308171135103
+        }
+      },
+      "comparisonStatus": "fail",
+      "differences": [
+        {
+          "type": "missing_key",
+          "key": "hp",
+          "description": "Key 'hp' present in TypeScript but missing in AO"
+        },
+        {
+          "type": "missing_key",
+          "key": "attack",
+          "description": "Key 'attack' present in TypeScript but missing in AO"
+        },
+        {
+          "type": "missing_key",
+          "key": "defense",
+          "description": "Key 'defense' present in TypeScript but missing in AO"
+        },
+        {
+          "type": "extra_key",
+          "key": "damage",
+          "description": "Key 'damage' present in AO but missing in TypeScript"
+        },
+        {
+          "type": "extra_key",
+          "key": "effectiveness",
+          "description": "Key 'effectiveness' present in AO but missing in TypeScript"
+        },
+        {
+          "type": "extra_key",
+          "key": "critical",
+          "description": "Key 'critical' present in AO but missing in TypeScript"
+        }
+      ],
+      "executionTimes": {
+        "typescript": 0,
+        "ao": 0
+      },
+      "statisticalAnalysis": null
+    }
+  ],
+  "environment": {
+    "typescriptDir": "./typescript-reference",
+    "aoProcessesDir": "./processes",
+    "nodeVersion": "v22.13.1"
+  }
+}
