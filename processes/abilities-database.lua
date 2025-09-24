@@ -749,18 +749,110 @@ Handlers.add("info",
     end
 )
 
--- AO Message Handlers
-Handlers.add("abilities-query", 
-    Handlers.utils.hasMatchingTag("Action", {"GetAbility", "GetAbilitiesByTrigger", "GetAbilityActivation"}),
+-- AO Message Handlers - Individual handlers for each action
+
+-- GetAbility handler - Retrieve ability data by ID or name
+Handlers.add("get-ability",
+    Handlers.utils.hasMatchingTag("Action", "GetAbility"),
     function(msg)
-        local response = handleMessage(msg, PROCESS_ID, handleAbilitiesQuery)
+        local abilityId = msg.AbilityId or msg.Id
+        local abilityName = msg.AbilityName or msg.Name
+        
+        if not abilityId and not abilityName then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "GetAbility requires either 'AbilityId'/'Id' or 'AbilityName'/'Name' tag",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        local result = nil
+        if abilityName then
+            result = getAbilityByName(abilityName)
+        elseif abilityId then
+            result = getAbilityById(tonumber(abilityId))
+        end
+        
+        if result then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Success = "true",
+                AbilityId = tostring(result.id),
+                AbilityName = result.n or "",
+                Description = result.desc or "",
+                Mechanics = result.mech or "",
+                EffectType = tostring(result.eff or ""),
+                Condition = result.cond or "",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+        else
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "Ability not found",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+        end
+    end
+)
+
+-- GetAbilitiesByTrigger handler - Get all abilities with specific trigger
+Handlers.add("get-abilities-by-trigger",
+    Handlers.utils.hasMatchingTag("Action", "GetAbilitiesByTrigger"),
+    function(msg)
+        local trigger = msg.Trigger
+        if not trigger then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "GetAbilitiesByTrigger requires 'Trigger' tag",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        local result = getAbilitiesByTrigger(tonumber(trigger))
         ao.send({
             Target = msg.From,
-            Action = response.Action,
-            Data = response.Data,
-            Error = response.Error,
-            ProcessId = response.ProcessId,
-            Timestamp = tostring(response.Timestamp)
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
+    end
+)
+
+-- GetAbilityActivation handler - Check if ability activates in context
+Handlers.add("get-ability-activation",
+    Handlers.utils.hasMatchingTag("Action", "GetAbilityActivation"),
+    function(msg)
+        local abilityId = msg.AbilityId or msg.Id
+        if not abilityId then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "GetAbilityActivation requires 'AbilityId' or 'Id' tag",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        local context = msg.Context
+        local result = getAbilityActivation(tonumber(abilityId), context)
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
         })
     end
 )

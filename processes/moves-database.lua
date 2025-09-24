@@ -639,18 +639,117 @@ Handlers.add("info",
     end
 )
 
--- Main moves query handler
-Handlers.add("moves-query", 
-    Handlers.utils.hasMatchingTag("Action", {"GetMove", "GetMovesByType", "GetTypeEffectiveness"}),
+-- GetMove handler - Retrieve move data by ID or name
+Handlers.add("get-move",
+    Handlers.utils.hasMatchingTag("Action", "GetMove"),
     function(msg)
-        local response = handleMessage(msg, ao.id, handleMovesQuery)
+        local moveId = msg.MoveId or msg.Id
+        local moveName = msg.MoveName or msg.Name
+        if not moveId and not moveName then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "GetMove requires either 'MoveId'/'Id' or 'MoveName'/'Name' tag",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        local result = nil
+        if moveName then
+            result = getMoveByName(moveName)
+        elseif moveId then
+            result = getMoveById(tonumber(moveId))
+        end
+        
+        if result then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Success = "true",
+                MoveId = tostring(result.id),
+                MoveName = result.name or "",
+                Type = tostring(result.type or ""),
+                Category = tostring(result.category or ""),
+                Power = tostring(result.power or 0),
+                Accuracy = tostring(result.accuracy or 0),
+                PP = tostring(result.pp or 0),
+                Priority = tostring(result.priority or 0),
+                Effects = result.effects or "",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+        else
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "Move not found",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+        end
+    end
+)
+
+-- GetMovesByType handler - Get all moves of a specific type
+Handlers.add("get-moves-by-type",
+    Handlers.utils.hasMatchingTag("Action", "GetMovesByType"),
+    function(msg)
+        local moveType = msg.MoveType or msg.Type
+        if not moveType then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "GetMovesByType requires 'MoveType' or 'Type' tag",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        local result = getMovesByType(tonumber(moveType))
         ao.send({
             Target = msg.From,
-            Action = response.Action,
-            Data = response.Data,
-            Error = response.Error,
-            ProcessId = response.ProcessId,
-            Timestamp = tostring(response.Timestamp)
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
+    end
+)
+
+-- GetTypeEffectiveness handler - Calculate type effectiveness or get effectiveness chart
+Handlers.add("get-type-effectiveness",
+    Handlers.utils.hasMatchingTag("Action", "GetTypeEffectiveness"),
+    function(msg)
+        local attackingType = msg.AttackingType
+        if not attackingType then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "GetTypeEffectiveness requires 'AttackingType' tag",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        local defendingTypes = msg.DefendingTypes
+        local result = nil
+        
+        if defendingTypes then
+            -- Calculate effectiveness against specific defending types
+            local effectiveness = calculateTypeEffectiveness(tonumber(attackingType), defendingTypes)
+            result = { effectiveness = effectiveness }
+        else
+            -- Return full effectiveness chart
+            local chart = getMoveEffectivenessChart(tonumber(attackingType))
+            result = { chart = chart }
+        end
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
         })
     end
 )
@@ -663,7 +762,6 @@ Handlers.add("health-check",
         for _ in pairs(MovesDB) do
             moveCount = moveCount + 1
         end
-        
         ao.send({
             Target = msg.From,
             Action = "SaveState",

@@ -658,32 +658,136 @@ end
 
 -- AO Message Handlers with ADP v1.0 compliance
 
--- Items query handler
-Handlers.add("items-query", 
-    Handlers.utils.hasMatchingTag("Action", {"GetItem", "GetItemsByCategory", "GetBerryEffect", "GetItemEffect"}),
+-- Individual handlers for each action
+
+-- GetItem handler - Retrieve item data by ID or name
+Handlers.add("get-item",
+    Handlers.utils.hasMatchingTag("Action", "GetItem"),
     function(msg)
-        local success, response = pcall(function()
-            return handleMessage(msg, PROCESS_ID, handleItemsQuery)
-        end)
+        local itemId = msg.ItemId or msg.Id
+        local itemName = msg.ItemName or msg.Name
         
-        if success then
+        if not itemId and not itemName then
             ao.send({
                 Target = msg.From,
-                Action = response.Action,
-                Data = response.Data,
-                Error = response.Error,
-                ProcessId = response.ProcessId,
-                Timestamp = tostring(response.Timestamp)
+                Action = "SaveState",
+                Error = "GetItem requires either 'ItemId'/'Id' or 'ItemName'/'Name' tag",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        local result = nil
+        if itemName then
+            result = getItemByName(itemName)
+        elseif itemId then
+            result = getItemById(tonumber(itemId))
+        end
+        
+        if result then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Success = "true",
+                ItemId = tostring(result.id),
+                ItemName = result.name or "",
+                Category = tostring(result.category or ""),
+                Description = result.description or "",
+                Effect = result.effect or "",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
             })
         else
             ao.send({
                 Target = msg.From,
                 Action = "SaveState",
-                Error = "Handler execution failed: " .. tostring(response),
-                ProcessId = PROCESS_ID,
-                Timestamp = tostring(msg and msg.Timestamp or 0)
+                Error = "Item not found",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
             })
         end
+    end
+)
+
+-- GetItemsByCategory handler - Get all items in a specific category
+Handlers.add("get-items-by-category",
+    Handlers.utils.hasMatchingTag("Action", "GetItemsByCategory"),
+    function(msg)
+        local category = msg.Category
+        if not category then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "GetItemsByCategory requires 'Category' tag",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        local result = getItemsByCategory(tonumber(category))
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
+    end
+)
+
+-- GetBerryEffect handler - Get berry-specific effects
+Handlers.add("get-berry-effect",
+    Handlers.utils.hasMatchingTag("Action", "GetBerryEffect"),
+    function(msg)
+        local itemId = msg.ItemId or msg.Id
+        if not itemId then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "GetBerryEffect requires 'ItemId' or 'Id' tag",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        local result = getBerryEffect(tonumber(itemId))
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
+    end
+)
+
+-- GetItemEffect handler - Get general item effects
+Handlers.add("get-item-effect",
+    Handlers.utils.hasMatchingTag("Action", "GetItemEffect"),
+    function(msg)
+        local itemId = msg.ItemId or msg.Id
+        if not itemId then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "GetItemEffect requires 'ItemId' or 'Id' tag",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        local result = getItemEffect(tonumber(itemId))
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
