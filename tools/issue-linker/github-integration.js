@@ -5,9 +5,8 @@
  * Automatically creates and manages GitHub issues for test failures
  */
 
-const { Octokit } = require("@octokit/rest");
-const fs = require("fs");
-const _path = require("path");
+import fs from "fs";
+import { Octokit } from "@octokit/rest";
 
 class GitHubIntegration {
   constructor(config = {}) {
@@ -507,4 +506,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = GitHubIntegration;
+export default GitHubIntegration;
