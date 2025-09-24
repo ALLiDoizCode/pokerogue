@@ -207,7 +207,7 @@ jobs:
       run: |
         echo "🔄 Running multi-process integration tests"
         npm run test:aos-local
-        npm run test:all
+        npm run test:aolite
       env:
         TEST_TIMEOUT: ${{ env.TIMEOUT_INTEGRATION }}
     

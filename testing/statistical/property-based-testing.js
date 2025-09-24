@@ -689,5 +689,3 @@ export class PropertyBasedTestingFramework {
     return scenarios;
   }
 }
-
-export { PropertyBasedTestingFramework };

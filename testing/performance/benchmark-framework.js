@@ -380,5 +380,3 @@ export class PerformanceBenchmarkFramework {
     };
   }
 }
-
-export { PerformanceBenchmarkFramework };
