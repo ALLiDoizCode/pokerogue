@@ -40,14 +40,14 @@ describe("aos-local Integration Testing Framework", () => {
 
       expect(frameworkContent).toContain("initializeEnvironment");
       expect(frameworkContent).toContain("aos-local environment");
-      expect(frameworkContent).toContain("which aos-local");
+      expect(frameworkContent).toContain("which lua");
     });
 
     it("should validate aos-local availability", async () => {
       const frameworkContent = await fs.readFile(INTEGRATION_FRAMEWORK_PATH, "utf8");
 
-      expect(frameworkContent).toContain("aos-local not found");
-      expect(frameworkContent).toContain("install aos-local");
+      expect(frameworkContent).toContain("aolite framework not found");
+      expect(frameworkContent).toContain("Lua is installed");
     });
 
     it("should setup test directories", async () => {
