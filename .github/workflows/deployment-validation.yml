@@ -62,6 +62,11 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
 
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: ${{ env.LUA_VERSION }}
+
     - name: Install dependencies
       run: npm ci
 
@@ -149,15 +154,15 @@ jobs:
     - name: Run deployment validation tests
       run: |
         if [[ "${{ matrix.test-suite }}" == "deployment-validation" ]]; then
-          npx jest testing/integration/deployment-validation.test.js --verbose --testTimeout=120000
+          npx vitest run testing/integration/deployment-validation.test.js --reporter=verbose --testTimeout=120000
         elif [[ "${{ matrix.test-suite }}" == "end-to-end-scenarios" ]]; then
-          npx jest testing/integration/end-to-end-scenarios.test.js --verbose --testTimeout=180000
+          npx vitest run testing/integration/end-to-end-scenarios.test.js --reporter=verbose --testTimeout=180000
         elif [[ "${{ matrix.test-suite }}" == "performance-benchmarks" ]]; then
-          npx jest testing/integration/performance-benchmarks.test.js --verbose --testTimeout=300000
+          npx vitest run testing/integration/performance-benchmarks.test.js --reporter=verbose --testTimeout=300000
         elif [[ "${{ matrix.test-suite }}" == "external-data-access" ]]; then
-          npx jest testing/integration/external-data-access.test.js --verbose --testTimeout=120000
+          npx vitest run testing/integration/external-data-access.test.js --reporter=verbose --testTimeout=120000
         elif [[ "${{ matrix.test-suite }}" == "recovery-scenarios" ]]; then
-          npx jest testing/integration/recovery-scenarios.test.js --verbose --testTimeout=240000
+          npx vitest run testing/integration/recovery-scenarios.test.js --reporter=verbose --testTimeout=240000
         fi
       env:
         JEST_JUNIT_OUTPUT_DIR: testing/reports
@@ -239,7 +244,7 @@ jobs:
     - name: Run performance benchmarks
       run: |
         # Run performance-focused tests
-        npx jest testing/integration/performance-benchmarks.test.js --verbose --testTimeout=600000
+        npx vitest run testing/integration/performance-benchmarks.test.js --reporter=verbose --testTimeout=600000
       continue-on-error: true
 
     - name: Generate performance report
