@@ -33,12 +33,19 @@ export class AosLocalIntegrationFramework {
     await fs.mkdir(this.reportsDir, { recursive: true });
     await fs.mkdir(this.tempDir, { recursive: true });
 
-    // Validate aos-local availability
+    // Validate aolite availability (using local Lua-based testing)
     try {
-      await execAsync("which aos-local || which aos");
-      console.log(chalk.green("✅ aos-local environment available"));
+      // Check if lua is available (required for aolite)
+      await execAsync("which lua");
+      // Check if aolite files exist
+      await fs.access("development-tools/aolite");
+      await fs.access("scripts/run-aolite-tests.lua");
+      this.aosCommand = "lua scripts/run-aolite-tests.lua";
+      console.log(chalk.green("✅ aos-local environment available (using aolite framework)"));
     } catch (_error) {
-      throw new Error("aos-local not found. Please install aos-local for integration testing.");
+      throw new Error(
+        "aolite framework not found. Please ensure Lua is installed and aolite submodule is initialized.",
+      );
     }
 
     // Load test scenarios
