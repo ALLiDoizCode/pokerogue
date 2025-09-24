@@ -334,16 +334,41 @@ jobs:
         PASSED_STAGES=0
         FAILED_TESTS=""
         
-        # Check each stage
-        for stage in stage1-validation stage2-parallel stage3-integration stage4-parity; do
-          if find test-results -name "$stage*" -type d | grep -q .; then
-            echo "✅ $stage: Results found"
-            PASSED_STAGES=$((PASSED_STAGES + 1))
-          else
-            echo "❌ $stage: Missing results"
-            FAILED_TESTS="$FAILED_TESTS $stage"
-          fi
-        done
+        # Check Stage 1 - Validation
+        if find test-results -name "stage1-validation*" -type d | grep -q .; then
+          echo "✅ stage1-validation: Results found"
+          PASSED_STAGES=$((PASSED_STAGES + 1))
+        else
+          echo "❌ stage1-validation: Missing results"
+          FAILED_TESTS="$FAILED_TESTS stage1-validation"
+        fi
+        
+        # Check Stage 2 - Parallel Testing (check for any stage2-* directories)
+        if find test-results -name "stage2-*-results" -type d | grep -q .; then
+          echo "✅ stage2-parallel: Results found"
+          PASSED_STAGES=$((PASSED_STAGES + 1))
+        else
+          echo "❌ stage2-parallel: Missing results"
+          FAILED_TESTS="$FAILED_TESTS stage2-parallel"
+        fi
+        
+        # Check Stage 3 - Integration
+        if find test-results -name "stage3-integration*" -type d | grep -q .; then
+          echo "✅ stage3-integration: Results found"
+          PASSED_STAGES=$((PASSED_STAGES + 1))
+        else
+          echo "❌ stage3-integration: Missing results"
+          FAILED_TESTS="$FAILED_TESTS stage3-integration"
+        fi
+        
+        # Check Stage 4 - Parity Validation
+        if find test-results -name "stage4-parity*" -type d | grep -q .; then
+          echo "✅ stage4-parity: Results found"
+          PASSED_STAGES=$((PASSED_STAGES + 1))
+        else
+          echo "❌ stage4-parity: Missing results"
+          FAILED_TESTS="$FAILED_TESTS stage4-parity"
+        fi
         
         SUCCESS_RATE=$((PASSED_STAGES * 100 / TOTAL_STAGES))
         echo "Overall success rate: $SUCCESS_RATE% ($PASSED_STAGES/$TOTAL_STAGES)"
