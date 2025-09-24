@@ -224,7 +224,7 @@ export class PropertyBasedTestingFramework {
 
     const baseDamage = parameters.baseDamage || 100;
     const varianceMin = 0.85;
-    const varianceMax = 1.00;
+    const varianceMax = 1.0;
 
     // Damage variance is 85-100% of base damage
     const variance = varianceMin + rng() * (varianceMax - varianceMin);

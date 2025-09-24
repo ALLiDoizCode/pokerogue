@@ -82,7 +82,7 @@ describe("Property-Based Testing & Statistical Validation", () => {
       expect(frameworkContent).toContain("baseDamage");
       expect(frameworkContent).toContain("variance");
       expect(frameworkContent).toContain("0.85");
-      expect(frameworkContent).toContain("1.00");
+      expect(frameworkContent).toContain("1.0");
     });
 
     it("should simulate capture probability mechanics", async () => {
