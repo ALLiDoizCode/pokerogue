@@ -5,7 +5,7 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { afterAll, beforeAll, describe, expect, test } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { IntegrationEnvironmentConfig } from "../../development-tools/integration-testing/environment-config.js";
 import { AoliteFramework } from "../aolite/aolite-framework.js";
 import { ProcessDeployer } from "../aos-local/process-deployer.js";

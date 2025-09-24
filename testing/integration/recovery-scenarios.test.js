@@ -5,7 +5,7 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "@jest/globals";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { IntegrationEnvironmentConfig } from "../../development-tools/integration-testing/environment-config.js";
 import { ProcessDeployer } from "../aos-local/process-deployer.js";
 import { RecoveryTester } from "../aos-local/recovery-tester.js";

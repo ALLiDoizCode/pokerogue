@@ -5,7 +5,7 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { EnhancedParityTestFramework } from "../testing/parity/enhanced-parity-framework.js";
 import { EquivalenceValidator } from "../testing/parity/equivalence-validator.js";
 import { GoldenMasterStorage } from "../testing/parity/golden-master-storage.js";
