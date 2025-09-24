@@ -627,5 +627,4 @@ function createLogicProcess() {
   `;
 }
 
-// Export for use in other test files
-export { PerformanceMonitor, performanceBaselines };
+// Shared utilities moved to testing/utils/test-helpers.js

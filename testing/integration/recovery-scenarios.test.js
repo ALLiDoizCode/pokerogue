@@ -9,7 +9,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "@jest/g
 import { IntegrationEnvironmentConfig } from "../../development-tools/integration-testing/environment-config.js";
 import { ProcessDeployer } from "../aos-local/process-deployer.js";
 import { RecoveryTester } from "../aos-local/recovery-tester.js";
-import { recoveryBaselines, recoveryConfigs, recoveryScenarios } from "../fixtures/recovery-scenarios.js";
+import { recoveryBaselines, recoveryConfigs } from "../fixtures/recovery-scenarios.js";
 
 describe("Recovery Scenarios Tests", () => {
   let recoveryTester;
@@ -673,5 +673,4 @@ function createRecoveryLogicProcess() {
   `;
 }
 
-// Export for use in other test files
-export { RecoveryTester, recoveryScenarios };
+// Shared utilities moved to testing/utils/test-helpers.js

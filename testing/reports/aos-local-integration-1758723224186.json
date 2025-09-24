@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-09-23T23:11:00.251Z",
+  "timestamp": "2025-09-24T14:13:44.186Z",
   "framework": "aos-local Integration Testing",
   "summary": {
     "total": 2,
@@ -7,13 +7,13 @@
     "failed": 0,
     "errors": 0,
     "successRate": 100,
-    "totalDuration": 2614
+    "totalDuration": 2632
   },
   "testResults": [
     {
       "scenarioId": "coordinator-data-flow",
       "scenarioName": "Coordinator to Data Process Flow",
-      "timestamp": "2025-09-23T23:10:57.635Z",
+      "timestamp": "2025-09-24T14:13:41.553Z",
       "status": "passed",
       "messages": [],
       "processInteractions": [
@@ -30,8 +30,8 @@
             "Tags": {},
             "From": "test-harness"
           },
-          "messageId": "msg-1758669057637",
-          "duration": 44.432027399750595
+          "messageId": "msg-1758723221571",
+          "duration": 36.20007320850701
         },
         {
           "step": "Wait for species data",
@@ -64,10 +64,10 @@
             },
             "isValid": true
           },
-          "duration": 111.74137593081525
+          "duration": 123.60638178955456
         }
       ],
-      "duration": 2004,
+      "duration": 2019,
       "errors": [],
       "validationResult": {
         "allPassed": true,
@@ -75,12 +75,12 @@
           {
             "check": "Process coordinator-process.lua responsive",
             "status": "pass",
-            "details": "Process process-1758669057637-kuii3m0v9 healthy"
+            "details": "Process process-1758723221564-csyyqmjcx healthy"
           },
           {
             "check": "Process pokemon-species-db.lua responsive",
             "status": "pass",
-            "details": "Process process-1758669057637-pxcxmk4ky healthy"
+            "details": "Process process-1758723221571-0f6ncrqkm healthy"
           },
           {
             "check": "All processes responsive",
@@ -94,7 +94,7 @@
     {
       "scenarioId": "end-to-end-battle",
       "scenarioName": "End-to-End Battle Workflow",
-      "timestamp": "2025-09-23T23:10:59.640Z",
+      "timestamp": "2025-09-24T14:13:43.573Z",
       "status": "passed",
       "messages": [],
       "processInteractions": [
@@ -126,8 +126,8 @@
             "Tags": {},
             "From": "test-harness"
           },
-          "messageId": "msg-1758669059642",
-          "duration": 54.365927564224286
+          "messageId": "msg-1758723223579",
+          "duration": 44.64398103718462
         },
         {
           "step": "Simulate battle turns",
@@ -137,32 +137,32 @@
             {
               "step": "Initialize battle state",
               "status": "success",
-              "timestamp": 1758669059743
+              "timestamp": 1758723223680
             },
             {
               "step": "Process turn 1",
               "status": "success",
-              "timestamp": 1758669059844
+              "timestamp": 1758723223782
             },
             {
               "step": "Calculate damage",
               "status": "success",
-              "timestamp": 1758669059945
+              "timestamp": 1758723223883
             },
             {
               "step": "Update Pokemon state",
               "status": "success",
-              "timestamp": 1758669060047
+              "timestamp": 1758723223985
             },
             {
               "step": "Check battle end conditions",
               "status": "success",
-              "timestamp": 1758669060149
+              "timestamp": 1758723224085
             },
             {
               "step": "Finalize battle result",
               "status": "success",
-              "timestamp": 1758669060250
+              "timestamp": 1758723224186
             }
           ],
           "finalResult": {
@@ -175,7 +175,7 @@
         {
           "step": "Validate battle result",
           "type": "validate_state",
-          "status": "success",
+          "status": "failed",
           "validation": {
             "expected": {
               "status": "completed",
@@ -185,12 +185,12 @@
               "status": "completed",
               "winner": "player1"
             },
-            "isValid": true
+            "isValid": false
           },
-          "duration": 139.32201260540822
+          "duration": 58.795436518454714
         }
       ],
-      "duration": 610,
+      "duration": 613,
       "errors": [],
       "validationResult": {
         "allPassed": true,
@@ -198,17 +198,17 @@
           {
             "check": "Process coordinator-process.lua responsive",
             "status": "pass",
-            "details": "Process process-1758669059641-2njehh5nd healthy"
+            "details": "Process process-1758723223574-hc5qf0dge healthy"
           },
           {
             "check": "Process pokemon-species-db.lua responsive",
             "status": "pass",
-            "details": "Process process-1758669057637-pxcxmk4ky healthy"
+            "details": "Process process-1758723221571-0f6ncrqkm healthy"
           },
           {
             "check": "Process battle-engine.lua responsive",
             "status": "pass",
-            "details": "Process process-1758669059642-k1mqoay57 healthy"
+            "details": "Process process-1758723223579-axkyu56jb healthy"
           }
         ],
         "summary": "3/3 validations passed"
@@ -217,22 +217,22 @@
   ],
   "processDeployments": [
     {
-      "id": "process-1758669059641-2njehh5nd",
+      "id": "process-1758723223574-hc5qf0dge",
       "file": "coordinator-process.lua",
       "status": "deployed",
-      "deployTime": 1758669059641
+      "deployTime": 1758723223574
     },
     {
-      "id": "process-1758669057637-pxcxmk4ky",
+      "id": "process-1758723221571-0f6ncrqkm",
       "file": "pokemon-species-db.lua",
       "status": "deployed",
-      "deployTime": 1758669057637
+      "deployTime": 1758723221571
     },
     {
-      "id": "process-1758669059642-k1mqoay57",
+      "id": "process-1758723223579-axkyu56jb",
       "file": "battle-engine.lua",
       "status": "deployed",
-      "deployTime": 1758669059642
+      "deployTime": 1758723223579
     }
   ],
   "environment": {

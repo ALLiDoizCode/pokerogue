@@ -4,7 +4,7 @@
  */
 
 const { parentPort } = require("worker_threads");
-const { execSync, spawn } = require("child_process");
+const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 

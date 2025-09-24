@@ -246,7 +246,7 @@ class ParallelExecutor extends EventEmitter {
   }
 
   generateTestCommand(job) {
-    const { process, framework, type } = job;
+    const { process, framework } = job;
 
     switch (framework) {
       case "aolite":

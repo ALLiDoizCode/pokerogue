@@ -3,8 +3,8 @@
  * Executes test scenarios on TypeScript codebase and extracts reference outputs
  */
 
-import * as fs from "fs/promises";
-import * as path from "path";
+import { mkdir, writeFile } from "fs/promises";
+import { join } from "path";
 
 // Type definitions for test scenarios and results
 interface TestScenario {
@@ -86,7 +86,7 @@ export class GoldenMasterExtractor {
   ) {
     this.version = options.version || "1.10.4";
     this.baseDir = options.baseDir || process.cwd();
-    this.outputDir = options.outputDir || path.join(process.cwd(), "testing/parity/scenarios/golden-masters");
+    this.outputDir = options.outputDir || join(process.cwd(), "testing/parity/scenarios/golden-masters");
   }
 
   /**
@@ -500,7 +500,7 @@ export class GoldenMasterExtractor {
    * Calculate critical hits (statistical)
    */
   private calculateCriticalHits(inputGameState: any): any {
-    const { pokemon, move, testIterations } = inputGameState;
+    const { pokemon, testIterations } = inputGameState;
 
     // Simplified critical hit calculation
     const criticalStage = pokemon.criticalStage || 0;
@@ -567,7 +567,7 @@ export class GoldenMasterExtractor {
    * Check level-based evolution
    */
   private checkLevelEvolution(inputGameState: any): any {
-    const { pokemon, expGain } = inputGameState;
+    const { pokemon } = inputGameState;
 
     // Simplified evolution check
     const newLevel = pokemon.level + 1; // Simplified level calculation
@@ -648,11 +648,11 @@ export class GoldenMasterExtractor {
    * Save extracted golden master
    */
   async saveGoldenMaster(scenario: TestScenario, goldenMaster: GoldenMasterResult): Promise<string> {
-    const versionDir = path.join(this.outputDir, `typescript-v${this.version}`);
-    await fs.mkdir(versionDir, { recursive: true });
+    const versionDir = join(this.outputDir, `typescript-v${this.version}`);
+    await mkdir(versionDir, { recursive: true });
 
-    const filePath = path.join(versionDir, `${scenario.id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(goldenMaster, null, 2));
+    const filePath = join(versionDir, `${scenario.id}.json`);
+    await writeFile(filePath, JSON.stringify(goldenMaster, null, 2));
 
     console.log(`💾 Golden master saved: ${filePath}`);
     return filePath;

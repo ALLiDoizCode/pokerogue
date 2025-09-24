@@ -526,5 +526,4 @@ describe("Deployment Validation Tests", () => {
   });
 });
 
-// Export for use in other test files
-export { DeploymentTestRunner, ProcessDeployer, ValidationFramework, IntegrationEnvironmentConfig };
+// Shared utilities moved to testing/utils/test-helpers.js

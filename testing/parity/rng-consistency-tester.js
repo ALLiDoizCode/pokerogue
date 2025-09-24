@@ -503,7 +503,7 @@ export class RNGConsistencyTester {
       }
 
       // Extract sequences for pattern analysis
-      const sequences = this.extractRNGSequences(successfulTests);
+      const sequences = this.extractRNGSequencesForAnalysis(successfulTests);
 
       // Detect repeating patterns
       analysis.patterns = this.detectRepeatingPatterns(sequences);
@@ -524,7 +524,7 @@ export class RNGConsistencyTester {
   /**
    * Extract RNG sequences for pattern analysis
    */
-  extractRNGSequences(seedTests) {
+  extractRNGSequencesForAnalysis(seedTests) {
     const sequences = {
       typescript: [],
       aoLua: [],

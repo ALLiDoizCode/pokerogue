@@ -568,5 +568,4 @@ async function createTestProcessFiles(_tempDir) {
   }
 }
 
-// Export for use in other test files
-export { ScenarioExecutor, testScenarios, scenarioConfigs };
+// Shared utilities moved to testing/utils/test-helpers.js

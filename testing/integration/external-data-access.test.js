@@ -1129,5 +1129,4 @@ function createMonitoringProcessor() {
   `;
 }
 
-// Export for use in other test files
-export { createMockDataSources };
+// Shared utilities moved to testing/utils/test-helpers.js

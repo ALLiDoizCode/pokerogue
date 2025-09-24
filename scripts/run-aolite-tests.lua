@@ -65,6 +65,7 @@ local function main()
     "testing/unit/coordinator-process.test.lua",
     "testing/unit/data-process-template.test.lua", 
     "testing/unit/pokemon-species-db.test.lua",
+    "testing/unit/pokemon-instance-manager.test.lua",
     "testing/unit/moves-database.test.lua",
     "testing/unit/items-database.test.lua",
     "testing/unit/abilities-database.test.lua"

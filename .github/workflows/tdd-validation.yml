@@ -39,6 +39,8 @@ jobs:
           files: |
             **/*.lua
           separator: " "
+          # Only get files changed in the last commit to avoid processing entire branch history
+          since_last_remote_commit: true
           
       - name: Check for bypass attempts
         id: check-bypass

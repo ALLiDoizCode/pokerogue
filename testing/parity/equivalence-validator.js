@@ -725,7 +725,7 @@ export class EquivalenceValidator {
 
   determineEquivalence(comparisonResult, scenario) {
     // High-level equivalence determination
-    const { details, differences, ruleViolations } = comparisonResult;
+    const { differences, ruleViolations } = comparisonResult;
 
     // No rule violations allowed
     if (ruleViolations.length > 0) {
