@@ -301,34 +301,32 @@ Handlers.add("set-weather",
 Handlers.add("process-weather-turn",
     Handlers.utils.hasMatchingTag("Action", "ProcessWeatherTurn"),
     function(msg)
-        local success, response = pcall(function()
-            local data = json.decode(msg.Data or "{}")
-            local gameState = data.gameState or {}
-            local battle = gameState.battle or {}
-            local playerParty = battle.playerParty or {}
-            local enemyParty = battle.enemyParty or {}
-            
-            local messages = {}
-            local damageResults = {}
-            
-            if not WeatherState.isActive then
-                return {
-                    Target = msg.From,
-                    Action = "SaveState",
-                    Data = json.encode({
-                        success = true,
-                        weather = {
-                            weatherType = "NONE",
-                            turnsLeft = 0,
-                            isActive = false
-                        },
-                        effects = {},
-                        messages = {}
-                    }),
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
+        local data = json.decode(msg.Data or "{}")
+        local gameState = data.gameState or {}
+        local battle = gameState.battle or {}
+        local playerParty = battle.playerParty or {}
+        local enemyParty = battle.enemyParty or {}
+        
+        local messages = {}
+        local damageResults = {}
+        
+        if not WeatherState.isActive then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Data = json.encode({
+                    success = true,
+                    weather = {
+                        weatherType = "NONE",
+                        turnsLeft = 0,
+                        isActive = false
+                    },
+                    effects = {},
+                    messages = {}
+                })
+            })
+            return
+        end
             
             -- Generate lapse message
             local lapseMessage = getWeatherMessage(WeatherState.currentWeather, "lapse")
@@ -415,37 +413,22 @@ Handlers.add("process-weather-turn",
                 end
             end
             
-            return {
-                Target = msg.From,
-                Action = "SaveState",
-                Data = json.encode({
-                    success = true,
-                    weather = {
-                        weatherType = weatherTypeName,
-                        turnsLeft = WeatherState.turnsLeft,
-                        isActive = WeatherState.isActive
-                    },
-                    effects = {
-                        damageDealt = damageResults
-                    },
-                    messages = messages
-                }),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
-        
-        if success then
-            ao.send(response)
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                success = true,
+                weather = {
+                    weatherType = weatherTypeName,
+                    turnsLeft = WeatherState.turnsLeft,
+                    isActive = WeatherState.isActive
+                },
+                effects = {
+                    damageDealt = damageResults
+                },
+                messages = messages
             })
-        end
+        })
     end
 )
 
