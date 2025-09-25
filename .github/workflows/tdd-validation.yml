@@ -92,7 +92,7 @@ jobs:
             echo "Checking TDD compliance for: $FILE"
             
             # Use test mapper to determine expected test file
-            TEST_FILE=$(lua scripts/tdd/test-mapper.lua map "$FILE" 2>/dev/null | grep -E '\.test\.lua' | head -1 | sed 's/.*- //')
+            TEST_FILE=$(lua scripts/tdd/test-mapper.lua map "$FILE" 2>/dev/null | grep -E '\.test\.lua' | head -1 | sed 's/.*- //' | sed 's/ (.*)//')
             
             if [ -z "$TEST_FILE" ]; then
               echo "File excluded from TDD requirements: $FILE"
