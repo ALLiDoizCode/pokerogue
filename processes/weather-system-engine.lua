@@ -227,7 +227,8 @@ Handlers.add("set-weather",
             local data = json.decode(msg.Data or "{}")
             local weatherType = data.parameters and data.parameters.weatherType
             local duration = data.parameters and data.parameters.duration or 5
-            local overwrite = data.parameters and data.parameters.overwrite or true
+            local overwrite = data.parameters and data.parameters.overwrite
+            if overwrite == nil then overwrite = true end
             
             -- Validate weather type
             local weatherTypeNum = WeatherType[weatherType]

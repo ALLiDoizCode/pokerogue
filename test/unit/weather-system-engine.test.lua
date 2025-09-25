@@ -26,6 +26,12 @@ local json = {
                 result = result .. '"' .. v .. '"'
             elseif type(v) == "table" then
                 result = result .. json.encode(v)
+            elseif type(v) == "boolean" then
+                result = result .. (v and "true" or "false")
+            elseif type(v) == "number" then
+                result = result .. tostring(v)
+            elseif v == nil then
+                result = result .. "null"
             else
                 result = result .. tostring(v)
             end
@@ -41,7 +47,22 @@ local json = {
         end
         
         -- Handle complex JSON structures for test cases
-        if str:find('"success":true') then
+        if str:find('"success":false') then
+            -- Parse false success responses
+            local result = {}
+            result.success = false
+            
+            -- Extract weather data
+            if str:find('"weather"') then
+                result.weather = {}
+                local weatherType = str:match('"weatherType":"([^"]+)"')
+                if weatherType then
+                    result.weather.weatherType = weatherType
+                end
+            end
+            
+            return result
+        elseif str:find('"success":true') then
             -- Parse actual response data
             local result = {}
             
@@ -64,12 +85,39 @@ local json = {
                 result.effects = {}
                 if str:find('"damageDealt"') then
                     result.effects.damageDealt = {}
+                    -- Parse damage dealt - handle both array and object formats
+                    local damagePattern = '"damageDealt":([^}]*}+})'
+                    local damageStr = str:match(damagePattern)
+                    if not damageStr then
+                        -- Try array pattern
+                        damagePattern = '"damageDealt":%[([^%]]*)%]'
+                        damageStr = str:match(damagePattern)
+                    end
+                    
+                    if damageStr and damageStr ~= "" then
+                        -- Parse each damage object - handle both formats
+                        for dmgObj in damageStr:gmatch('{[^}]+}') do
+                            local dmg = {}
+                            local id = dmgObj:match('"pokemonId":"([^"]+)"')
+                            local damage = dmgObj:match('"damage":(%d+)')
+                            local weatherType = dmgObj:match('"weatherType":(%d+)')
+                            if id then
+                                dmg.pokemonId = id
+                                dmg.damage = tonumber(damage) or 0
+                                dmg.weatherType = tonumber(weatherType) or 0
+                                table.insert(result.effects.damageDealt, dmg)
+                            end
+                        end
+                    end
                 end
                 if str:find('"typeMultiplier":([%d%.]+)') then
                     result.effects.typeMultiplier = tonumber(str:match('"typeMultiplier":([%d%.]+)'))
                 end
                 if str:find('"moveBlocked":([^,}]+)') then
                     result.effects.moveBlocked = str:match('"moveBlocked":([^,}]+)') == "true"
+                end
+                if str:find('"blockMessage":"([^"]*)"') then
+                    result.effects.blockMessage = str:match('"blockMessage":"([^"]*)"')
                 end
             end
             
@@ -86,7 +134,13 @@ local json = {
                 end
             end
             
-            result.success = true
+            -- Parse success field if present
+            if str:find('"success":([^,}]+)') then
+                local successStr = str:match('"success":([^,}]+)')
+                result.success = successStr == "true"
+            else
+                result.success = true
+            end
             return result
         end
         
@@ -154,6 +208,35 @@ local json = {
                 gameState = {
                     battle = {
                         playerParty = {},
+                        enemyParty = {}
+                    }
+                }
+            }
+        elseif str:find('pokemon_1') and str:find('pokemon_2') and str:find('Overcoat') then
+            -- Ability immunity test case - two pokemon with abilities
+            return {
+                gameState = {
+                    battle = {
+                        playerParty = {
+                            {
+                                id = "pokemon_1",
+                                name = "Garchomp",
+                                types = {4, 15}, -- Ground/Dragon
+                                maxHP = 200,
+                                currentHP = 200,
+                                isActive = true,
+                                abilities = {{name = "Overcoat"}}
+                            },
+                            {
+                                id = "pokemon_2",
+                                name = "Pikachu", 
+                                types = {12}, -- Electric
+                                maxHP = 200,
+                                currentHP = 200,
+                                isActive = true,
+                                abilities = {}
+                            }
+                        },
                         enemyParty = {}
                     }
                 }

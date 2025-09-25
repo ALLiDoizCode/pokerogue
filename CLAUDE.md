@@ -281,7 +281,7 @@ Handlers.add("action-two",
 ```
 
 #### 3. Error Handling Pattern (REQUIRED)
-Use pcall only when operations might actually fail, not for simple data lookups:
+**CRITICAL: Avoid unnecessary pcall usage** - pcall should ONLY be used for operations that genuinely might fail:
 
 ```lua
 -- ❌ FORBIDDEN: Unnecessary pcall for simple data access
@@ -289,15 +289,29 @@ local success, result = pcall(function()
     return getSpeciesById(id)  -- Simple table lookup never fails
 end)
 
--- ✅ REQUIRED: Direct access for embedded data
+-- ❌ FORBIDDEN: Wrapping entire handler logic in pcall
+Handlers.add("process-logic",
+    Handlers.utils.hasMatchingTag("Action", "ProcessLogic"),
+    function(msg)
+        local success, response = pcall(function()
+            -- ... handler logic ...
+            return processLogic(msg)
+        end)
+        if success then
+            ao.send(response)
+        else
+            ao.send({Target = msg.From, Action = "Error", Error = response})
+        end
+    end
+)
+
+-- ✅ REQUIRED: Direct access with proper validation
 local speciesId = msg.SpeciesId or msg.Id
 if not speciesId then
     ao.send({
         Target = msg.From,
-        Action = "SaveState",
-        Error = "SpeciesId required",
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
+        Action = "Error", 
+        Error = "SpeciesId required"
     })
     return
 end
@@ -307,39 +321,39 @@ if result then
     ao.send({
         Target = msg.From,
         Action = "SaveState",
-        Data = json.encode(result),
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
+        Data = json.encode(result)
     })
 else
     ao.send({
         Target = msg.From,
-        Action = "SaveState",
-        Error = "Species not found",
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
+        Action = "Error",
+        Error = "Species not found"
     })
 end
 
--- ✅ REQUIRED: Use pcall for operations that might fail
-local success, result = pcall(function()
-    return externalApiCall(params)  -- External calls can fail
-end)
-
+-- ✅ ACCEPTABLE: Use pcall ONLY for operations that genuinely might fail
 local success, gameState = pcall(json.decode, msg.Data)  -- JSON parsing can fail
+if not success then
+    ao.send({Target = msg.From, Action = "Error", Error = "Invalid JSON"})
+    return
+end
 ```
 
-**When to use pcall:**
-- External API calls or network operations
-- JSON parsing of untrusted input
-- Complex calculations that might error
-- Calling user-provided functions or external modules
+**When to use pcall (VERY LIMITED):**
+- JSON parsing of untrusted input (`json.decode`)
+- File I/O operations (if available)
+- Mathematical operations that might overflow/underflow
+- Calling external modules that might not exist
 
-**When NOT to use pcall:**
+**When NOT to use pcall (MOST CASES):**
 - Simple table lookups from embedded data
-- Basic parameter validation
+- Basic parameter validation  
 - Simple arithmetic operations
 - Accessing msg tags or known data structures
+- Handler logic that should fail fast
+- Any operation where you control the inputs
+
+**AO Best Practice**: Let processes fail fast with clear error messages rather than masking issues with pcall.
 
 #### 4. Timestamp Handling (REQUIRED)
 ```lua
@@ -353,29 +367,14 @@ local timestamp = msg.Timestamp or 0
 local mockTimestamp = 1234567890
 ```
 
-#### 5. Error Handling (REQUIRED)
-```lua
--- ✅ REQUIRED: Wrap all operations in pcall
-local success, response = pcall(processLogic, msg)
-if success then
-    ao.send(response)
-else
-    ao.send({
-        Target = msg.From,
-        Action = "Error",
-        Error = response
-    })
-end
-```
-
-#### 6. Available AO Globals
+#### 5. Available AO Globals
 - `ao.send()` - Send messages to other processes
 - `ao.id` - Current process ID
 - `Handlers` - Message handler registry
 - `json` - JSON encode/decode utilities
 - Standard Lua: string, table, math, os (limited subset)
 
-#### 7. Forbidden Operations
+#### 6. Forbidden Operations
 - `require()` - No external module loading
 - `io` - No file system access
 - `debug` - Debug library unavailable
