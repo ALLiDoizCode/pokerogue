@@ -464,7 +464,7 @@ This test is now passing. Automatically closing issue.
 }
 
 // Command-line interface
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const command = args[0];
 
@@ -474,6 +474,14 @@ if (require.main === module) {
     console.log("  node github-integration.js close <resolved-tests.json>");
     console.log("  node github-integration.js process <test-results.json>");
     process.exit(1);
+  }
+
+  // Check if GitHub token is available
+  if (!process.env.GITHUB_TOKEN) {
+    console.log("⚠️  GitHub integration disabled: No GITHUB_TOKEN found");
+    console.log("   This is normal for CI environments without issue tracking permissions");
+    console.log("   Test failures will be reported in logs only");
+    process.exit(0); // Exit successfully without processing
   }
 
   const github = new GitHubIntegration({

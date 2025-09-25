@@ -223,77 +223,67 @@ end
 Handlers.add("set-weather",
     Handlers.utils.hasMatchingTag("Action", "SetWeather"),
     function(msg)
-        local success, response = pcall(function()
-            local data = json.decode(msg.Data or "{}")
-            local weatherType = data.parameters and data.parameters.weatherType
-            local duration = data.parameters and data.parameters.duration or 5
-            local overwrite = data.parameters and data.parameters.overwrite
-            if overwrite == nil then overwrite = true end
-            
-            -- Validate weather type
-            local weatherTypeNum = WeatherType[weatherType]
-            if not weatherTypeNum then
-                return {
-                    Target = msg.From,
-                    Action = "Error",
-                    Error = "Invalid weather type: " .. tostring(weatherType)
-                }
-            end
-            
-            -- Handle weather overwrite logic
-            if WeatherState.isActive and not overwrite then
-                return {
-                    Target = msg.From,
-                    Action = "SaveState",
-                    Data = json.encode({
-                        success = false,
-                        message = "Weather already active and overwrite disabled",
-                        weather = {
-                            weatherType = weatherType,
-                            turnsLeft = WeatherState.turnsLeft,
-                            isActive = WeatherState.isActive
-                        }
-                    }),
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-            
-            -- Set new weather
-            WeatherState.currentWeather = weatherTypeNum
-            WeatherState.turnsLeft = isImmutableWeather(weatherTypeNum) and 0 or duration
-            WeatherState.isActive = (weatherTypeNum ~= WeatherType.NONE)
-            
-            local message = getWeatherMessage(weatherTypeNum, "start")
-            
-            return {
+        local data = json.decode(msg.Data or "{}")
+        local weatherType = data.parameters and data.parameters.weatherType
+        local duration = data.parameters and data.parameters.duration or 5
+        local overwrite = data.parameters and data.parameters.overwrite
+        if overwrite == nil then overwrite = true end
+        
+        -- Validate weather type
+        local weatherTypeNum = WeatherType[weatherType]
+        if not weatherTypeNum then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "Invalid weather type: " .. tostring(weatherType),
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        -- Handle weather overwrite logic
+        if WeatherState.isActive and not overwrite then
+            ao.send({
                 Target = msg.From,
                 Action = "SaveState",
                 Data = json.encode({
-                    success = true,
+                    success = false,
+                    message = "Weather already active and overwrite disabled",
                     weather = {
                         weatherType = weatherType,
                         turnsLeft = WeatherState.turnsLeft,
                         isActive = WeatherState.isActive
-                    },
-                    messages = {message}
+                    }
                 }),
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
-        
-        if success then
-            ao.send(response)
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+        
+        -- Set new weather
+        WeatherState.currentWeather = weatherTypeNum
+        WeatherState.turnsLeft = isImmutableWeather(weatherTypeNum) and 0 or duration
+        WeatherState.isActive = (weatherTypeNum ~= WeatherType.NONE)
+        
+        local message = getWeatherMessage(weatherTypeNum, "start")
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                success = true,
+                weather = {
+                    weatherType = weatherType,
+                    turnsLeft = WeatherState.turnsLeft,
+                    isActive = WeatherState.isActive
+                },
+                messages = {message}
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -436,48 +426,34 @@ Handlers.add("process-weather-turn",
 Handlers.add("clear-weather",
     Handlers.utils.hasMatchingTag("Action", "ClearWeather"),
     function(msg)
-        local success, response = pcall(function()
-            local messages = {}
-            
-            if WeatherState.isActive then
-                local clearMessage = getWeatherMessage(WeatherState.currentWeather, "clear")
-                if clearMessage ~= "" then
-                    table.insert(messages, clearMessage)
-                end
-            end
-            
-            WeatherState.currentWeather = WeatherType.NONE
-            WeatherState.turnsLeft = 0
-            WeatherState.isActive = false
-            
-            return {
-                Target = msg.From,
-                Action = "SaveState",
-                Data = json.encode({
-                    success = true,
-                    weather = {
-                        weatherType = "NONE",
-                        turnsLeft = 0,
-                        isActive = false
-                    },
-                    messages = messages
-                }),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
+        local messages = {}
         
-        if success then
-            ao.send(response)
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+        if WeatherState.isActive then
+            local clearMessage = getWeatherMessage(WeatherState.currentWeather, "clear")
+            if clearMessage ~= "" then
+                table.insert(messages, clearMessage)
+            end
         end
+        
+        WeatherState.currentWeather = WeatherType.NONE
+        WeatherState.turnsLeft = 0
+        WeatherState.isActive = false
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                success = true,
+                weather = {
+                    weatherType = "NONE",
+                    turnsLeft = 0,
+                    isActive = false
+                },
+                messages = messages
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -485,81 +461,67 @@ Handlers.add("clear-weather",
 Handlers.add("get-weather-info",
     Handlers.utils.hasMatchingTag("Action", "GetWeatherInfo"),
     function(msg)
-        local success, response = pcall(function()
-            local data = json.decode(msg.Data or "{}")
-            local parameters = data.parameters or {}
-            local moveType = parameters.moveType
-            local moveCategory = parameters.moveCategory
-            local pokemon = parameters.pokemon -- For ability checking
-            
-            -- Determine weather type name
-            local weatherTypeName = "NONE"
-            for name, value in pairs(WeatherType) do
-                if value == WeatherState.currentWeather then
-                    weatherTypeName = name
-                    break
-                end
-            end
-            
-            local effects = {}
-            local weatherSuppressed = false
-            
-            -- Check if weather effects are suppressed by abilities
-            if pokemon and hasWeatherSuppressionAbility(pokemon) then
-                weatherSuppressed = true
-                effects.weatherSuppressed = true
-                effects.suppressionMessage = pokemon.name .. "'s ability nullifies weather effects!"
-            end
-            
-            -- Calculate move effects if move info provided and weather not suppressed
-            if moveType and WeatherState.isActive and not weatherSuppressed then
-                local moveTypeNum = Type[moveType]
-                local moveCategoryNum = MoveCategory[moveCategory or "PHYSICAL"]
-                
-                if moveTypeNum then
-                    effects.typeMultiplier = getMoveTypeMultiplier(moveTypeNum, WeatherState.currentWeather)
-                    effects.moveBlocked = isMoveBlocked(moveTypeNum, moveCategoryNum, WeatherState.currentWeather)
-                    
-                    if effects.moveBlocked then
-                        effects.blockMessage = getWeatherMessage(WeatherState.currentWeather, "block")
-                    end
-                end
-            elseif weatherSuppressed then
-                -- Weather suppressed, so no effects apply
-                effects.typeMultiplier = 1.0
-                effects.moveBlocked = false
-            end
-            
-            return {
-                Target = msg.From,
-                Action = "SaveState",
-                Data = json.encode({
-                    success = true,
-                    weather = {
-                        weatherType = weatherTypeName,
-                        turnsLeft = WeatherState.turnsLeft,
-                        isActive = WeatherState.isActive,
-                        isImmutable = isImmutableWeather(WeatherState.currentWeather),
-                        isDamaging = isDamagingWeather(WeatherState.currentWeather)
-                    },
-                    effects = effects
-                }),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
+        local data = json.decode(msg.Data or "{}")
+        local parameters = data.parameters or {}
+        local moveType = parameters.moveType
+        local moveCategory = parameters.moveCategory
+        local pokemon = parameters.pokemon -- For ability checking
         
-        if success then
-            ao.send(response)
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+        -- Determine weather type name
+        local weatherTypeName = "NONE"
+        for name, value in pairs(WeatherType) do
+            if value == WeatherState.currentWeather then
+                weatherTypeName = name
+                break
+            end
         end
+        
+        local effects = {}
+        local weatherSuppressed = false
+        
+        -- Check if weather effects are suppressed by abilities
+        if pokemon and hasWeatherSuppressionAbility(pokemon) then
+            weatherSuppressed = true
+            effects.weatherSuppressed = true
+            effects.suppressionMessage = pokemon.name .. "'s ability nullifies weather effects!"
+        end
+        
+        -- Calculate move effects if move info provided and weather not suppressed
+        if moveType and WeatherState.isActive and not weatherSuppressed then
+            local moveTypeNum = Type[moveType]
+            local moveCategoryNum = MoveCategory[moveCategory or "PHYSICAL"]
+            
+            if moveTypeNum then
+                effects.typeMultiplier = getMoveTypeMultiplier(moveTypeNum, WeatherState.currentWeather)
+                effects.moveBlocked = isMoveBlocked(moveTypeNum, moveCategoryNum, WeatherState.currentWeather)
+                
+                if effects.moveBlocked then
+                    effects.blockMessage = getWeatherMessage(WeatherState.currentWeather, "block")
+                end
+            end
+        elseif weatherSuppressed then
+            -- Weather suppressed, so no effects apply
+            effects.typeMultiplier = 1.0
+            effects.moveBlocked = false
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                success = true,
+                weather = {
+                    weatherType = weatherTypeName,
+                    turnsLeft = WeatherState.turnsLeft,
+                    isActive = WeatherState.isActive,
+                    isImmutable = isImmutableWeather(WeatherState.currentWeather),
+                    isDamaging = isDamagingWeather(WeatherState.currentWeather)
+                },
+                effects = effects
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 

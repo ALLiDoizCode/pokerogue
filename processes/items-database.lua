@@ -171,17 +171,13 @@ local function handleMessage(message, processId, queryHandler)
         return createErrorResponse(rateLimitError, processId) 
     end
     
-    local success, result = pcall(function() return queryHandler(message) end)
-    if success then 
-        -- Determine response type based on action
-        local responseType = nil
-        if message.Action == "GetItem" then
-            responseType = "single_item"
-        end
-        return createSuccessResponse(result, processId, responseType) 
-    else 
-        return createErrorResponse("Query processing failed: " .. tostring(result), processId) 
+    local result = queryHandler(message)
+    -- Determine response type based on action
+    local responseType = nil
+    if message.Action == "GetItem" then
+        responseType = "single_item"
     end
+    return createSuccessResponse(result, processId, responseType)
 end
 
 -- Item Constants and Categories
@@ -795,47 +791,35 @@ Handlers.add("get-item-effect",
 Handlers.add("health-check",
     Handlers.utils.hasMatchingTag("Action", "HealthCheck"),
     function(msg)
-        local success, result = pcall(function()
-            local itemCount = 0
-            local berryCount = 0
-            
-            for _, item in pairs(ItemsDB) do
-                itemCount = itemCount + 1
-                if item.berry then
-                    berryCount = berryCount + 1
-                end
-            end
-            
-            return {
-                status = "healthy",
-                processId = PROCESS_ID,
-                itemCount = itemCount,
-                berryCount = berryCount,
-                categoriesLoaded = true,
-                version = "1.0",
-                adpVersion = "1.0",
-                performanceTarget = "sub-100ms",
-                rateLimitStatus = "100 queries per minute per address"
-            }
-        end)
+        local itemCount = 0
+        local berryCount = 0
         
-        if success then
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Data = result,
-                ProcessId = PROCESS_ID,
-                Timestamp = tostring(msg and msg.Timestamp or 0)
-            })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Error = "Health check failed: " .. tostring(result),
-                ProcessId = PROCESS_ID,
-                Timestamp = tostring(msg and msg.Timestamp or 0)
-            })
+        for _, item in pairs(ItemsDB) do
+            itemCount = itemCount + 1
+            if item.berry then
+                berryCount = berryCount + 1
+            end
         end
+        
+        local result = {
+            status = "healthy",
+            processId = PROCESS_ID,
+            itemCount = itemCount,
+            berryCount = berryCount,
+            categoriesLoaded = true,
+            version = "1.0",
+            adpVersion = "1.0",
+            performanceTarget = "sub-100ms",
+            rateLimitStatus = "100 queries per minute per address"
+        }
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = result,
+            ProcessId = PROCESS_ID,
+            Timestamp = tostring(msg and msg.Timestamp or 0)
+        })
     end
 )
 
@@ -843,63 +827,51 @@ Handlers.add("health-check",
 Handlers.add("info",
     Handlers.utils.hasMatchingTag("Action", "Info"),
     function(msg)
-        local success, result = pcall(function()
-            return {
-                process = PROCESS_INFO,
-                handlers = {"GetItem", "GetItemsByCategory", "GetBerryEffect", "GetItemEffect", "HealthCheck", "Info"},
-                documentation = {
-                    adpCompliance = "v1.0",
-                    selfDocumenting = true,
-                    lastUpdated = os.date("%Y-%m-%d"),
-                    repository = "PokéRogue Stateless AO Processes",
-                    processType = "Items Database",
-                    dataEmbedded = true,
-                    optimizedFor = "sub-100ms queries with rate limiting"
-                },
-                usage = {
-                    examples = {
-                        getItem = {
-                            action = "GetItem",
-                            data = { id = 1 },
-                            description = "Get Master Ball by ID"
-                        },
-                        getItemsByCategory = {
-                            action = "GetItemsByCategory",
-                            data = { category = 6 },
-                            description = "Get all berry items"
-                        },
-                        getBerryEffect = {
-                            action = "GetBerryEffect",
-                            data = { id = 149 },
-                            description = "Get Cheri Berry effect details"
-                        },
-                        getItemEffect = {
-                            action = "GetItemEffect",
-                            data = { id = 17 },
-                            description = "Get Potion effect details"
-                        }
+        local result = {
+            process = PROCESS_INFO,
+            handlers = {"GetItem", "GetItemsByCategory", "GetBerryEffect", "GetItemEffect", "HealthCheck", "Info"},
+            documentation = {
+                adpCompliance = "v1.0",
+                selfDocumenting = true,
+                lastUpdated = os.date("%Y-%m-%d"),
+                repository = "PokéRogue Stateless AO Processes",
+                processType = "Items Database",
+                dataEmbedded = true,
+                optimizedFor = "sub-100ms queries with rate limiting"
+            },
+            usage = {
+                examples = {
+                    getItem = {
+                        action = "GetItem",
+                        data = { id = 1 },
+                        description = "Get Master Ball by ID"
+                    },
+                    getItemsByCategory = {
+                        action = "GetItemsByCategory",
+                        data = { category = 6 },
+                        description = "Get all berry items"
+                    },
+                    getBerryEffect = {
+                        action = "GetBerryEffect",
+                        data = { id = 149 },
+                        description = "Get Cheri Berry effect details"
+                    },
+                    getItemEffect = {
+                        action = "GetItemEffect",
+                        data = { id = 17 },
+                        description = "Get Potion effect details"
                     }
                 }
             }
-        end)
+        }
         
-        if success then
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Data = result,
-                ProcessId = PROCESS_ID,
-                Timestamp = tostring(msg and msg.Timestamp or 0)
-            })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Error = "Info handler failed: " .. tostring(result),
-                ProcessId = PROCESS_ID,
-                Timestamp = tostring(msg and msg.Timestamp or 0)
-            })
-        end
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = result,
+            ProcessId = PROCESS_ID,
+            Timestamp = tostring(msg and msg.Timestamp or 0)
+        })
     end
 )
 

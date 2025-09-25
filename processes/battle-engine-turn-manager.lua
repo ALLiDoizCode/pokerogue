@@ -356,72 +356,60 @@ end
 Handlers.add("calculate-turn-order",
     Handlers.utils.hasMatchingTag("Action", "CalculateTurnOrder"),
     function(msg)
-        local success, response = pcall(function()
-            local battleId = msg.BattleId or msg.Tags.BattleId
-            local participantsJson = msg.Participants or msg.Data
-            local priorityMovesJson = msg.PriorityMoves or msg.Tags.PriorityMoves
-            local turn = tonumber(msg.Tags.Turn or msg.Timestamp or "0")
+        local battleId = msg.BattleId or msg.Tags.BattleId
+        local participantsJson = msg.Participants or msg.Data
+        local priorityMovesJson = msg.PriorityMoves or msg.Tags.PriorityMoves
+        local turn = tonumber(msg.Tags.Turn or msg.Timestamp or "0")
 
-            if not battleId then
-                return {
-                    Target = msg.From,
-                    Action = "Error",
-                    Error = "BattleId required",
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-
-            if not participantsJson then
-                return {
-                    Target = msg.From,
-                    Action = "Error",
-                    Error = "Participants data required",
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-
-            local participants = json.decode(participantsJson)
-            local priorityMoves = priorityMovesJson and json.decode(priorityMovesJson) or {}
-
-            local turnOrder = calculateTurnOrder(participants, battleId, turn, priorityMoves)
-
-            -- Extract data for response
-            local turnOrderIds = {}
-            local priorities = {}
-            local speedValues = {}
-
-            for _, participant in ipairs(turnOrder) do
-                table.insert(turnOrderIds, participant.id)
-                priorities[participant.id] = priorityMoves[participant.id] and priorityMoves[participant.id].priority or 0
-                speedValues[participant.id] = participant.stats.speed or 0
-            end
-
-            return {
-                Target = msg.From,
-                Action = "SaveState",
-                Data = json.encode({
-                    turnOrder = turnOrderIds,
-                    priorities = priorities,
-                    speedValues = speedValues
-                }),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
-
-        if success then
-            ao.send(response)
-        else
+        if not battleId then
             ao.send({
                 Target = msg.From,
                 Action = "Error",
-                Error = response,
+                Error = "BattleId required",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+
+        if not participantsJson then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "Participants data required",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+
+        local participants = json.decode(participantsJson)
+        local priorityMoves = priorityMovesJson and json.decode(priorityMovesJson) or {}
+
+        local turnOrder = calculateTurnOrder(participants, battleId, turn, priorityMoves)
+
+        -- Extract data for response
+        local turnOrderIds = {}
+        local priorities = {}
+        local speedValues = {}
+
+        for _, participant in ipairs(turnOrder) do
+            table.insert(turnOrderIds, participant.id)
+            priorities[participant.id] = priorityMoves[participant.id] and priorityMoves[participant.id].priority or 0
+            speedValues[participant.id] = participant.stats.speed or 0
+        end
+
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                turnOrder = turnOrderIds,
+                priorities = priorities,
+                speedValues = speedValues
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -429,77 +417,66 @@ Handlers.add("calculate-turn-order",
 Handlers.add("validate-action",
     Handlers.utils.hasMatchingTag("Action", "ValidateAction"),
     function(msg)
-        local success, response = pcall(function()
-            local battleId = msg.BattleId or msg.Tags.BattleId
-            local pokemonId = msg.PokemonId or msg.Tags.PokemonId
-            local actionType = msg.ActionType or msg.Tags.ActionType
-            local actionDataJson = msg.ActionData or msg.Data
+        local battleId = msg.BattleId or msg.Tags.BattleId
+        local pokemonId = msg.PokemonId or msg.Tags.PokemonId
+        local actionType = msg.ActionType or msg.Tags.ActionType
+        local actionDataJson = msg.ActionData or msg.Data
 
-            if not battleId then
-                return {
-                    Target = msg.From,
-                    Action = "Error",
-                    Error = "BattleId required",
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-
-            if not pokemonId then
-                return {
-                    Target = msg.From,
-                    Action = "Error",
-                    Error = "PokemonId required",
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-
-            if not actionType then
-                return {
-                    Target = msg.From,
-                    Action = "Error",
-                    Error = "ActionType required",
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-
-            local actionData = actionDataJson and json.decode(actionDataJson) or {}
-
-            -- Get battle state (would integrate with existing battle state management)
-            local battleState = BattleState.activeBattles[battleId] or {
-                participants = {},
-                battleType = "wild"
-            }
-
-            local valid, availableActions, constraints, errors = validateAction(pokemonId, actionType, actionData, battleState)
-
-            return {
-                Target = msg.From,
-                Action = "SaveState",
-                Data = json.encode({
-                    valid = valid,
-                    availableActions = availableActions,
-                    constraints = constraints,
-                    errors = errors
-                }),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
-
-        if success then
-            ao.send(response)
-        else
+        if not battleId then
             ao.send({
                 Target = msg.From,
                 Action = "Error",
-                Error = response,
+                Error = "BattleId required",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+
+        if not pokemonId then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "PokemonId required",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+
+        if not actionType then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "ActionType required",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+
+        local actionData = actionDataJson and json.decode(actionDataJson) or {}
+
+        -- Get battle state (would integrate with existing battle state management)
+        local battleState = BattleState.activeBattles[battleId] or {
+            participants = {},
+            battleType = "wild"
+        }
+
+        local valid, availableActions, constraints, errors = validateAction(pokemonId, actionType, actionData, battleState)
+
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                valid = valid,
+                availableActions = availableActions,
+                constraints = constraints,
+                errors = errors
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -507,59 +484,47 @@ Handlers.add("validate-action",
 Handlers.add("execute-turn",
     Handlers.utils.hasMatchingTag("Action", "ExecuteTurn"),
     function(msg)
-        local success, response = pcall(function()
-            local battleId = msg.BattleId or msg.Tags.BattleId
-            local turnDataJson = msg.TurnData or msg.Data
-            local battleStateJson = msg.BattleState or msg.Tags.BattleState
+        local battleId = msg.BattleId or msg.Tags.BattleId
+        local turnDataJson = msg.TurnData or msg.Data
+        local battleStateJson = msg.BattleState or msg.Tags.BattleState
 
-            if not battleId then
-                return {
-                    Target = msg.From,
-                    Action = "Error",
-                    Error = "BattleId required",
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-
-            if not turnDataJson then
-                return {
-                    Target = msg.From,
-                    Action = "Error",
-                    Error = "TurnData required",
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-
-            local turnData = json.decode(turnDataJson)
-            local battleState = battleStateJson and json.decode(battleStateJson) or BattleState.activeBattles[battleId] or {}
-
-            local executionResult = executeTurn(battleId, turnData, battleState)
-
-            -- Update stored battle state
-            BattleState.activeBattles[battleId] = executionResult.battleState
-
-            return {
-                Target = msg.From,
-                Action = "SaveState",
-                Data = json.encode(executionResult),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
-
-        if success then
-            ao.send(response)
-        else
+        if not battleId then
             ao.send({
                 Target = msg.From,
                 Action = "Error",
-                Error = response,
+                Error = "BattleId required",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+
+        if not turnDataJson then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "TurnData required",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+
+        local turnData = json.decode(turnDataJson)
+        local battleState = battleStateJson and json.decode(battleStateJson) or BattleState.activeBattles[battleId] or {}
+
+        local executionResult = executeTurn(battleId, turnData, battleState)
+
+        -- Update stored battle state
+        BattleState.activeBattles[battleId] = executionResult.battleState
+
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(executionResult),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -567,50 +532,37 @@ Handlers.add("execute-turn",
 Handlers.add("process-switch",
     Handlers.utils.hasMatchingTag("Action", "ProcessSwitch"),
     function(msg)
-        local success, response = pcall(function()
-            local battleId = msg.BattleId or msg.Tags.BattleId
-            local pokemonId = msg.PokemonId or msg.Tags.PokemonId
-            local targetPokemonId = msg.TargetPokemonId or msg.Tags.TargetPokemonId
+        local battleId = msg.BattleId or msg.Tags.BattleId
+        local pokemonId = msg.PokemonId or msg.Tags.PokemonId
+        local targetPokemonId = msg.TargetPokemonId or msg.Tags.TargetPokemonId
 
-            if not battleId or not pokemonId or not targetPokemonId then
-                return {
-                    Target = msg.From,
-                    Action = "Error",
-                    Error = "BattleId, PokemonId, and TargetPokemonId required",
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-
-            -- Process switch with proper timing and validation
-            local switchResult = {
-                switched = true,
-                from = pokemonId,
-                to = targetPokemonId,
-                timing = "before_moves",
-                entryHazards = {} -- Would be populated with actual hazard data
-            }
-
-            return {
-                Target = msg.From,
-                Action = "SaveState",
-                Data = json.encode(switchResult),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
-
-        if success then
-            ao.send(response)
-        else
+        if not battleId or not pokemonId or not targetPokemonId then
             ao.send({
                 Target = msg.From,
                 Action = "Error",
-                Error = response,
+                Error = "BattleId, PokemonId, and TargetPokemonId required",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+
+        -- Process switch with proper timing and validation
+        local switchResult = {
+            switched = true,
+            from = pokemonId,
+            to = targetPokemonId,
+            timing = "before_moves",
+            entryHazards = {} -- Would be populated with actual hazard data
+        }
+
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(switchResult),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 

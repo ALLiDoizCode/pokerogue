@@ -469,21 +469,15 @@ local function executeWorkflowStep(workflowId)
     end
     
     -- Send message to target process
-    local success, err = pcall(function()
-        ao.send({
-            Target = targetProcess,
-            Action = step.action,
-            WorkflowId = workflowId,
-            StepNumber = workflow.currentStep,
-            Data = json.encode(step.data),
-            Timestamp = getCurrentTimestamp(),
-            Requester = workflow.requester
-        })
-    end)
-    
-    if not success then
-        return false, "Failed to send message: " .. tostring(err)
-    end
+    ao.send({
+        Target = targetProcess,
+        Action = step.action,
+        WorkflowId = workflowId,
+        StepNumber = workflow.currentStep,
+        Data = json.encode(step.data),
+        Timestamp = getCurrentTimestamp(),
+        Requester = workflow.requester
+    })
     
     -- Set timeout for this step using workflow-specific timeout
     workflow.timeouts[workflow.currentStep] = getCurrentTimestamp() + workflow.timeout
@@ -619,27 +613,20 @@ local function routeMessage(msg)
         return false, routingError or "Target process not available: " .. targetProcess
     end
     
-    local success, err = pcall(function()
-        ao.send({
-            Target = processId,
-            Action = msg.Action or "ProcessMessage",
-            Data = msg.Data,
-            Priority = msg.Priority,
-            OrderingKey = msg.OrderingKey,
-            OriginalSender = msg.From,
-            RoutedBy = ao.id,
-            RouteTime = getCurrentTimestamp(),
-            Timestamp = getCurrentTimestamp()
-        })
-    end)
+    ao.send({
+        Target = processId,
+        Action = msg.Action or "ProcessMessage",
+        Data = msg.Data,
+        Priority = msg.Priority,
+        OrderingKey = msg.OrderingKey,
+        OriginalSender = msg.From,
+        RoutedBy = ao.id,
+        RouteTime = getCurrentTimestamp(),
+        Timestamp = getCurrentTimestamp()
+    })
     
     local endTime = getCurrentTimestamp()
     local routeTime = endTime - startTime
-    
-    if not success then
-        updateProcessMetrics(targetProcess, routeTime, false)
-        return false, "Failed to route message: " .. tostring(err)
-    end
     
     updateProcessMetrics(targetProcess, routeTime, true)
     return true, "Message routed successfully to " .. processId .. " (" .. routeTime .. "ms)"
@@ -656,23 +643,15 @@ local function checkProcessHealth(processName)
     
     local healthCheckStart = getCurrentTimestamp()
     
-    local success, err = pcall(function()
-        ao.send({
-            Target = process.id,
-            Action = "HealthCheck",
-            RequestId = string.format("health_%d_%s", getCurrentTimestamp(), processName),
-            Timestamp = getCurrentTimestamp(),
-            Requester = ao.id,
-            HealthCheckType = "performance",
-            ExpectedResponseTime = RoutingConfig.latencyTarget
-        })
-    end)
-    
-    if not success then
-        -- Update metrics for failed health check
-        updateProcessMetrics(processName, nil, false)
-        return false, "Failed to send health check: " .. tostring(err)
-    end
+    ao.send({
+        Target = process.id,
+        Action = "HealthCheck",
+        RequestId = string.format("health_%d_%s", getCurrentTimestamp(), processName),
+        Timestamp = getCurrentTimestamp(),
+        Requester = ao.id,
+        HealthCheckType = "performance",
+        ExpectedResponseTime = RoutingConfig.latencyTarget
+    })
     
     -- Store health check start time for response time calculation
     process.lastHealthCheckStart = healthCheckStart
@@ -1204,29 +1183,23 @@ end
 Handlers.add("process-discovery",
     Handlers.utils.hasMatchingTag("Action", "RegisterProcess"),
     function(msg)
-        local success, err = pcall(function()
-            local valid, validationError = validateMessage(msg, {"ProcessName", "ProcessId"})
-            if not valid then
-                sendErrorResponse(msg.From, nil, validationError, "RegisterProcess")
-                return
-            end
-            
-            local discovered = discoverProcess(msg.ProcessName, msg.ProcessId)
-            if discovered then
-                ao.send({
-                    Target = msg.From,
-                    Action = "ProcessRegistered",
-                    ProcessName = msg.ProcessName,
-                    Status = "success",
-                    Timestamp = getCurrentTimestamp()
-                })
-            else
-                sendErrorResponse(msg.From, nil, "Unknown process name: " .. msg.ProcessName, "RegisterProcess")
-            end
-        end)
+        local valid, validationError = validateMessage(msg, {"ProcessName", "ProcessId"})
+        if not valid then
+            sendErrorResponse(msg.From, nil, validationError, "RegisterProcess")
+            return
+        end
         
-        if not success then
-            sendErrorResponse(msg.From, nil, "Registration failed: " .. tostring(err), "RegisterProcess")
+        local discovered = discoverProcess(msg.ProcessName, msg.ProcessId)
+        if discovered then
+            ao.send({
+                Target = msg.From,
+                Action = "ProcessRegistered",
+                ProcessName = msg.ProcessName,
+                Status = "success",
+                Timestamp = getCurrentTimestamp()
+            })
+        else
+            sendErrorResponse(msg.From, nil, "Unknown process name: " .. msg.ProcessName, "RegisterProcess")
         end
     end
 )
@@ -1235,69 +1208,63 @@ Handlers.add("process-discovery",
 Handlers.add("coordinate-workflow",
     Handlers.utils.hasMatchingTag("Action", "CoordinateWorkflow"),
     function(msg)
-        local success, err = pcall(function()
-            local valid, validationError = validateMessage(msg, {"WorkflowType", "Steps"})
-            if not valid then
-                sendErrorResponse(msg.From, nil, validationError, "CoordinateWorkflow")
-                return
-            end
-            
-            local steps = json.decode(msg.Steps)
-            local data = msg.Data and json.decode(msg.Data) or {}
-            local priority = msg.Priority or "normal"
-            local customTimeout = msg.Timeout and tonumber(msg.Timeout)
-            
-            local workflowId, createErr = createWorkflow(msg.WorkflowType, steps, msg.From, data, priority, customTimeout)
-            if not workflowId then
-                sendErrorResponse(msg.From, nil, createErr, "CoordinateWorkflow")
-                return
-            end
-            
-            -- Execute first step with circuit breaker and retry logic
-            local operation = function()
-                return executeWorkflowStep(workflowId)
-            end
-            
-            local stepSuccess, stepErr = executeWithRetry(operation, steps[1].process, RetryConfig.maxRetries)
-            if not stepSuccess then
-                ActiveWorkflows[workflowId].status = "failed"
-                ActiveWorkflows[workflowId].recovery.lastError = stepErr
-                
-                -- Check for graceful degradation
-                if shouldTriggerDegradation(steps[1].process) then
-                    local fallbackProcess = findFallbackProcess(steps[1].process)
-                    if fallbackProcess then
-                        ActiveWorkflows[workflowId].recovery.degradationMode = true
-                        steps[1].process = fallbackProcess
-                        stepSuccess, stepErr = executeWorkflowStep(workflowId)
-                    end
-                end
-                
-                if not stepSuccess then
-                    updateWorkflowMetrics("failed", ActiveWorkflows[workflowId])
-                    addToDeadLetterQueue({
-                        workflowType = msg.WorkflowType,
-                        steps = steps,
-                        requester = msg.From,
-                        data = data
-                    }, stepErr)
-                    sendErrorResponse(msg.From, workflowId, stepErr, "CoordinateWorkflow")
-                    return
-                end
-            end
-            
-            ao.send({
-                Target = msg.From,
-                Action = "WorkflowStarted",
-                WorkflowId = workflowId,
-                Status = "active",
-                Timestamp = getCurrentTimestamp()
-            })
-        end)
-        
-        if not success then
-            sendErrorResponse(msg.From, nil, "Workflow creation failed: " .. tostring(err), "CoordinateWorkflow")
+        local valid, validationError = validateMessage(msg, {"WorkflowType", "Steps"})
+        if not valid then
+            sendErrorResponse(msg.From, nil, validationError, "CoordinateWorkflow")
+            return
         end
+        
+        local steps = json.decode(msg.Steps)
+        local data = msg.Data and json.decode(msg.Data) or {}
+        local priority = msg.Priority or "normal"
+        local customTimeout = msg.Timeout and tonumber(msg.Timeout)
+        
+        local workflowId, createErr = createWorkflow(msg.WorkflowType, steps, msg.From, data, priority, customTimeout)
+        if not workflowId then
+            sendErrorResponse(msg.From, nil, createErr, "CoordinateWorkflow")
+            return
+        end
+        
+        -- Execute first step with circuit breaker and retry logic
+        local operation = function()
+            return executeWorkflowStep(workflowId)
+        end
+        
+        local stepSuccess, stepErr = executeWithRetry(operation, steps[1].process, RetryConfig.maxRetries)
+        if not stepSuccess then
+            ActiveWorkflows[workflowId].status = "failed"
+            ActiveWorkflows[workflowId].recovery.lastError = stepErr
+            
+            -- Check for graceful degradation
+            if shouldTriggerDegradation(steps[1].process) then
+                local fallbackProcess = findFallbackProcess(steps[1].process)
+                if fallbackProcess then
+                    ActiveWorkflows[workflowId].recovery.degradationMode = true
+                    steps[1].process = fallbackProcess
+                    stepSuccess, stepErr = executeWorkflowStep(workflowId)
+                end
+            end
+            
+            if not stepSuccess then
+                updateWorkflowMetrics("failed", ActiveWorkflows[workflowId])
+                addToDeadLetterQueue({
+                    workflowType = msg.WorkflowType,
+                    steps = steps,
+                    requester = msg.From,
+                    data = data
+                }, stepErr)
+                sendErrorResponse(msg.From, workflowId, stepErr, "CoordinateWorkflow")
+                return
+            end
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "WorkflowStarted",
+            WorkflowId = workflowId,
+            Status = "active",
+            Timestamp = getCurrentTimestamp()
+        })
     end
 )
 
@@ -1305,47 +1272,41 @@ Handlers.add("coordinate-workflow",
 Handlers.add("workflow-response",
     Handlers.utils.hasMatchingTag("Action", "WorkflowResponse"),
     function(msg)
-        local success, err = pcall(function()
-            local valid, validationError = validateMessage(msg, {"WorkflowId", "StepNumber"})
-            if not valid then
-                sendErrorResponse(msg.From, msg.WorkflowId, validationError, "WorkflowResponse")
-                return
-            end
-            
-            local stepComplete, updateErr = updateWorkflowStep(msg.WorkflowId, {
-                stepNumber = tonumber(msg.StepNumber),
-                response = msg.Data,
-                processId = msg.From,
-                timestamp = getCurrentTimestamp()
-            })
-            
-            if not stepComplete then
-                sendErrorResponse(msg.From, msg.WorkflowId, updateErr, "WorkflowResponse")
-                return
-            end
-            
-            local workflow = ActiveWorkflows[msg.WorkflowId]
-            if workflow.status == "completed" then
-                -- Send final response to requester
-                ao.send({
-                    Target = workflow.requester,
-                    Action = "WorkflowCompleted",
-                    WorkflowId = msg.WorkflowId,
-                    Results = json.encode(workflow.responses),
-                    Timestamp = getCurrentTimestamp()
-                })
-            else
-                -- Execute next step
-                local nextSuccess, nextErr = executeWorkflowStep(msg.WorkflowId)
-                if not nextSuccess then
-                    workflow.status = "failed"
-                    sendErrorResponse(workflow.requester, msg.WorkflowId, nextErr, "CoordinateWorkflow")
-                end
-            end
-        end)
+        local valid, validationError = validateMessage(msg, {"WorkflowId", "StepNumber"})
+        if not valid then
+            sendErrorResponse(msg.From, msg.WorkflowId, validationError, "WorkflowResponse")
+            return
+        end
         
-        if not success then
-            sendErrorResponse(msg.From, msg.WorkflowId, "Response processing failed: " .. tostring(err), "WorkflowResponse")
+        local stepComplete, updateErr = updateWorkflowStep(msg.WorkflowId, {
+            stepNumber = tonumber(msg.StepNumber),
+            response = msg.Data,
+            processId = msg.From,
+            timestamp = getCurrentTimestamp()
+        })
+        
+        if not stepComplete then
+            sendErrorResponse(msg.From, msg.WorkflowId, updateErr, "WorkflowResponse")
+            return
+        end
+        
+        local workflow = ActiveWorkflows[msg.WorkflowId]
+        if workflow.status == "completed" then
+            -- Send final response to requester
+            ao.send({
+                Target = workflow.requester,
+                Action = "WorkflowCompleted",
+                WorkflowId = msg.WorkflowId,
+                Results = json.encode(workflow.responses),
+                Timestamp = getCurrentTimestamp()
+            })
+        else
+            -- Execute next step
+            local nextSuccess, nextErr = executeWorkflowStep(msg.WorkflowId)
+            if not nextSuccess then
+                workflow.status = "failed"
+                sendErrorResponse(workflow.requester, msg.WorkflowId, nextErr, "CoordinateWorkflow")
+            end
         end
     end
 )
@@ -1354,31 +1315,25 @@ Handlers.add("workflow-response",
 Handlers.add("route-message",
     Handlers.utils.hasMatchingTag("Action", "RouteMessage"),
     function(msg)
-        local success, err = pcall(function()
-            local valid, validationError = validateMessage(msg, {"TargetProcess"})
-            if not valid then
-                sendErrorResponse(msg.From, nil, validationError, "RouteMessage")
-                return
-            end
-            
-            local routeSuccess, routeErr = routeMessage(msg)
-            if not routeSuccess then
-                sendErrorResponse(msg.From, nil, routeErr, "RouteMessage")
-                return
-            end
-            
-            ao.send({
-                Target = msg.From,
-                Action = "MessageRouted",
-                TargetProcess = msg.TargetProcess,
-                Status = "success",
-                Timestamp = getCurrentTimestamp()
-            })
-        end)
-        
-        if not success then
-            sendErrorResponse(msg.From, nil, "Message routing failed: " .. tostring(err), "RouteMessage")
+        local valid, validationError = validateMessage(msg, {"TargetProcess"})
+        if not valid then
+            sendErrorResponse(msg.From, nil, validationError, "RouteMessage")
+            return
         end
+        
+        local routeSuccess, routeErr = routeMessage(msg)
+        if not routeSuccess then
+            sendErrorResponse(msg.From, nil, routeErr, "RouteMessage")
+            return
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "MessageRouted",
+            TargetProcess = msg.TargetProcess,
+            Status = "success",
+            Timestamp = getCurrentTimestamp()
+        })
     end
 )
 
@@ -1386,40 +1341,34 @@ Handlers.add("route-message",
 Handlers.add("check-process-health",
     Handlers.utils.hasMatchingTag("Action", "CheckProcessHealth"),
     function(msg)
-        local success, err = pcall(function()
-            local healthReport
-            
-            if msg.ProcessName then
-                -- Check specific process
-                local valid, validationError = validateMessage(msg, {"ProcessName"})
-                if not valid then
-                    sendErrorResponse(msg.From, nil, validationError, "CheckProcessHealth")
-                    return
-                end
-                
-                local healthSuccess, healthErr = checkProcessHealth(msg.ProcessName)
-                healthReport = {
-                    process = msg.ProcessName,
-                    success = healthSuccess,
-                    error = healthErr,
-                    timestamp = getCurrentTimestamp()
-                }
-            else
-                -- Check all processes
-                healthReport = checkAllProcessesHealth()
+        local healthReport
+        
+        if msg.ProcessName then
+            -- Check specific process
+            local valid, validationError = validateMessage(msg, {"ProcessName"})
+            if not valid then
+                sendErrorResponse(msg.From, nil, validationError, "CheckProcessHealth")
+                return
             end
             
-            ao.send({
-                Target = msg.From,
-                Action = "HealthReport",
-                Data = json.encode(healthReport),
-                Timestamp = getCurrentTimestamp()
-            })
-        end)
-        
-        if not success then
-            sendErrorResponse(msg.From, nil, "Health check failed: " .. tostring(err), "CheckProcessHealth")
+            local healthSuccess, healthErr = checkProcessHealth(msg.ProcessName)
+            healthReport = {
+                process = msg.ProcessName,
+                success = healthSuccess,
+                error = healthErr,
+                timestamp = getCurrentTimestamp()
+            }
+        else
+            -- Check all processes
+            healthReport = checkAllProcessesHealth()
         end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "HealthReport",
+            Data = json.encode(healthReport),
+            Timestamp = getCurrentTimestamp()
+        })
     end
 )
 
@@ -1427,49 +1376,42 @@ Handlers.add("check-process-health",
 Handlers.add("health-response",
     Handlers.utils.hasMatchingTag("Action", "HealthResponse"),
     function(msg)
-        local success, err = pcall(function()
-            local processName = msg.ProcessName
-            if not processName then
-                return -- Ignore malformed health responses
+        local processName = msg.ProcessName
+        if not processName then
+            return -- Ignore malformed health responses
+        end
+        
+        local allProcesses = getAllProcesses()
+        local process = allProcesses[processName]
+        if process then
+            process.status = msg.Status or "healthy"
+            process.lastHealth = getCurrentTimestamp()
+            
+            -- Calculate response time if health check start time is available
+            if process.lastHealthCheckStart then
+                local responseTime = process.lastHealth - process.lastHealthCheckStart
+                updateProcessMetrics(processName, responseTime, true)
+                process.lastHealthCheckStart = nil
             end
             
-            local allProcesses = getAllProcesses()
-            local process = allProcesses[processName]
-            if process then
-                process.status = msg.Status or "healthy"
-                process.lastHealth = getCurrentTimestamp()
-                
-                -- Calculate response time if health check start time is available
-                if process.lastHealthCheckStart then
-                    local responseTime = process.lastHealth - process.lastHealthCheckStart
-                    updateProcessMetrics(processName, responseTime, true)
-                    process.lastHealthCheckStart = nil
-                end
-                
-                -- Update load information if provided
-                if msg.Load then
-                    process.load = tonumber(msg.Load) or 0
-                end
-                
-                -- Update process metrics from health response
-                if msg.Metrics then
-                    local metrics = json.decode(msg.Metrics)
-                    if metrics.responseTime then
-                        process.responseTime = tonumber(metrics.responseTime)
-                    end
-                    if metrics.errorRate then
-                        process.errorRate = tonumber(metrics.errorRate)
-                    end
-                end
-                
-                -- Recalculate health score
-                process.healthScore = calculateHealthScore(process)
+            -- Update load information if provided
+            if msg.Load then
+                process.load = tonumber(msg.Load) or 0
             end
-        end)
-        
-        if not success then
-            -- Log error but don't send response to avoid loops
-            print("Health response processing error: " .. tostring(err))
+            
+            -- Update process metrics from health response
+            if msg.Metrics then
+                local metrics = json.decode(msg.Metrics)
+                if metrics.responseTime then
+                    process.responseTime = tonumber(metrics.responseTime)
+                end
+                if metrics.errorRate then
+                    process.errorRate = tonumber(metrics.errorRate)
+                end
+            end
+            
+            -- Recalculate health score
+            process.healthScore = calculateHealthScore(process)
         end
     end
 )
@@ -1478,69 +1420,63 @@ Handlers.add("health-response",
 Handlers.add("process-performance",
     Handlers.utils.hasMatchingTag("Action", "GetProcessPerformance"),
     function(msg)
-        local success, err = pcall(function()
-            local performanceData = {
-                timestamp = getCurrentTimestamp(),
-                routingStats = {
-                    cacheHitRate = 0,
-                    totalCacheHits = RoutingCache.hitCount,
-                    totalCacheMisses = RoutingCache.missCount,
-                    averageRouteTime = 0
-                },
-                processHealth = {},
-                loadBalancing = {
-                    algorithm = RoutingConfig.defaultAlgorithm,
-                    failoverEnabled = RoutingConfig.failoverEnabled,
-                    latencyTarget = RoutingConfig.latencyTarget
-                }
+        local performanceData = {
+            timestamp = getCurrentTimestamp(),
+            routingStats = {
+                cacheHitRate = 0,
+                totalCacheHits = RoutingCache.hitCount,
+                totalCacheMisses = RoutingCache.missCount,
+                averageRouteTime = 0
+            },
+            processHealth = {},
+            loadBalancing = {
+                algorithm = RoutingConfig.defaultAlgorithm,
+                failoverEnabled = RoutingConfig.failoverEnabled,
+                latencyTarget = RoutingConfig.latencyTarget
+            }
+        }
+        
+        -- Calculate cache hit rate
+        local totalCacheRequests = RoutingCache.hitCount + RoutingCache.missCount
+        if totalCacheRequests > 0 then
+            performanceData.routingStats.cacheHitRate = (RoutingCache.hitCount / totalCacheRequests) * 100
+        end
+        
+        -- Collect process health and performance data
+        local allProcesses = getAllProcesses()
+        local totalResponseTime = 0
+        local responseTimeCount = 0
+        
+        for name, process in pairs(allProcesses) do
+            performanceData.processHealth[name] = {
+                healthScore = process.healthScore,
+                status = process.status,
+                responseTime = process.responseTime,
+                errorRate = math.floor(process.errorRate * 100),
+                availability = math.floor(process.availability),
+                load = process.load,
+                maxLoad = process.maxLoad,
+                instanceCount = #process.instances + (process.id and 1 or 0),
+                metrics = process.metrics
             }
             
-            -- Calculate cache hit rate
-            local totalCacheRequests = RoutingCache.hitCount + RoutingCache.missCount
-            if totalCacheRequests > 0 then
-                performanceData.routingStats.cacheHitRate = (RoutingCache.hitCount / totalCacheRequests) * 100
+            if process.responseTime > 0 then
+                totalResponseTime = totalResponseTime + process.responseTime
+                responseTimeCount = responseTimeCount + 1
             end
-            
-            -- Collect process health and performance data
-            local allProcesses = getAllProcesses()
-            local totalResponseTime = 0
-            local responseTimeCount = 0
-            
-            for name, process in pairs(allProcesses) do
-                performanceData.processHealth[name] = {
-                    healthScore = process.healthScore,
-                    status = process.status,
-                    responseTime = process.responseTime,
-                    errorRate = math.floor(process.errorRate * 100),
-                    availability = math.floor(process.availability),
-                    load = process.load,
-                    maxLoad = process.maxLoad,
-                    instanceCount = #process.instances + (process.id and 1 or 0),
-                    metrics = process.metrics
-                }
-                
-                if process.responseTime > 0 then
-                    totalResponseTime = totalResponseTime + process.responseTime
-                    responseTimeCount = responseTimeCount + 1
-                end
-            end
-            
-            -- Calculate average route time
-            if responseTimeCount > 0 then
-                performanceData.routingStats.averageRouteTime = totalResponseTime / responseTimeCount
-            end
-            
-            ao.send({
-                Target = msg.From,
-                Action = "ProcessPerformanceResponse",
-                Data = json.encode(performanceData),
-                Timestamp = getCurrentTimestamp()
-            })
-        end)
-        
-        if not success then
-            sendErrorResponse(msg.From, nil, "Process performance query failed: " .. tostring(err), "GetProcessPerformance")
         end
+        
+        -- Calculate average route time
+        if responseTimeCount > 0 then
+            performanceData.routingStats.averageRouteTime = totalResponseTime / responseTimeCount
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "ProcessPerformanceResponse",
+            Data = json.encode(performanceData),
+            Timestamp = getCurrentTimestamp()
+        })
     end
 )
 
@@ -1548,56 +1484,50 @@ Handlers.add("process-performance",
 Handlers.add("configure-load-balancing",
     Handlers.utils.hasMatchingTag("Action", "ConfigureLoadBalancing"),
     function(msg)
-        local success, err = pcall(function()
-            local valid, validationError = validateMessage(msg, {"Algorithm"})
-            if not valid then
-                sendErrorResponse(msg.From, nil, validationError, "ConfigureLoadBalancing")
-                return
-            end
-            
-            -- Validate algorithm
-            local validAlgorithms = {"round_robin", "least_connections", "health_score", "response_time"}
-            local algorithmValid = false
-            for _, alg in ipairs(validAlgorithms) do
-                if alg == msg.Algorithm then
-                    algorithmValid = true
-                    break
-                end
-            end
-            
-            if not algorithmValid then
-                sendErrorResponse(msg.From, nil, "Invalid load balancing algorithm: " .. msg.Algorithm, "ConfigureLoadBalancing")
-                return
-            end
-            
-            -- Update configuration
-            RoutingConfig.defaultAlgorithm = msg.Algorithm
-            if msg.FailoverEnabled then
-                RoutingConfig.failoverEnabled = msg.FailoverEnabled == "true"
-            end
-            if msg.LatencyTarget then
-                RoutingConfig.latencyTarget = tonumber(msg.LatencyTarget) or RoutingConfig.latencyTarget
-            end
-            if msg.CacheEnabled then
-                RoutingConfig.cacheEnabled = msg.CacheEnabled == "true"
-            end
-            
-            -- Clear routing cache after configuration change
-            RoutingCache.cache = {}
-            RoutingCache.hitCount = 0
-            RoutingCache.missCount = 0
-            
-            ao.send({
-                Target = msg.From,
-                Action = "LoadBalancingConfigured",
-                Configuration = json.encode(RoutingConfig),
-                Timestamp = getCurrentTimestamp()
-            })
-        end)
-        
-        if not success then
-            sendErrorResponse(msg.From, nil, "Load balancing configuration failed: " .. tostring(err), "ConfigureLoadBalancing")
+        local valid, validationError = validateMessage(msg, {"Algorithm"})
+        if not valid then
+            sendErrorResponse(msg.From, nil, validationError, "ConfigureLoadBalancing")
+            return
         end
+        
+        -- Validate algorithm
+        local validAlgorithms = {"round_robin", "least_connections", "health_score", "response_time"}
+        local algorithmValid = false
+        for _, alg in ipairs(validAlgorithms) do
+            if alg == msg.Algorithm then
+                algorithmValid = true
+                break
+            end
+        end
+        
+        if not algorithmValid then
+            sendErrorResponse(msg.From, nil, "Invalid load balancing algorithm: " .. msg.Algorithm, "ConfigureLoadBalancing")
+            return
+        end
+        
+        -- Update configuration
+        RoutingConfig.defaultAlgorithm = msg.Algorithm
+        if msg.FailoverEnabled then
+            RoutingConfig.failoverEnabled = msg.FailoverEnabled == "true"
+        end
+        if msg.LatencyTarget then
+            RoutingConfig.latencyTarget = tonumber(msg.LatencyTarget) or RoutingConfig.latencyTarget
+        end
+        if msg.CacheEnabled then
+            RoutingConfig.cacheEnabled = msg.CacheEnabled == "true"
+        end
+        
+        -- Clear routing cache after configuration change
+        RoutingCache.cache = {}
+        RoutingCache.hitCount = 0
+        RoutingCache.missCount = 0
+        
+        ao.send({
+            Target = msg.From,
+            Action = "LoadBalancingConfigured",
+            Configuration = json.encode(RoutingConfig),
+            Timestamp = getCurrentTimestamp()
+        })
     end
 )
 
@@ -1605,78 +1535,72 @@ Handlers.add("configure-load-balancing",
 Handlers.add("circuit-breaker-management",
     Handlers.utils.hasMatchingTag("Action", "ManageCircuitBreaker"),
     function(msg)
-        local success, err = pcall(function()
-            local valid, validationError = validateMessage(msg, {"Operation"})
-            if not valid then
-                sendErrorResponse(msg.From, nil, validationError, "ManageCircuitBreaker")
-                return
+        local valid, validationError = validateMessage(msg, {"Operation"})
+        if not valid then
+            sendErrorResponse(msg.From, nil, validationError, "ManageCircuitBreaker")
+            return
+        end
+        
+        local operation = msg.Operation
+        local processName = msg.ProcessName
+        
+        if operation == "GetStatus" then
+            local status = {}
+            for name, breaker in pairs(CircuitBreakers) do
+                if not processName or name == processName then
+                    status[name] = {
+                        state = breaker.state,
+                        failureCount = breaker.failureCount,
+                        successCount = breaker.successCount,
+                        lastFailureTime = breaker.lastFailureTime,
+                        lastStateChange = breaker.lastStateChange
+                    }
+                end
             end
             
-            local operation = msg.Operation
-            local processName = msg.ProcessName
-            
-            if operation == "GetStatus" then
-                local status = {}
-                for name, breaker in pairs(CircuitBreakers) do
-                    if not processName or name == processName then
-                        status[name] = {
-                            state = breaker.state,
-                            failureCount = breaker.failureCount,
-                            successCount = breaker.successCount,
-                            lastFailureTime = breaker.lastFailureTime,
-                            lastStateChange = breaker.lastStateChange
-                        }
-                    end
-                end
+            ao.send({
+                Target = msg.From,
+                Action = "CircuitBreakerStatus",
+                Data = json.encode(status),
+                Timestamp = getCurrentTimestamp()
+            })
+        elseif operation == "Reset" and processName then
+            if CircuitBreakers[processName] then
+                CircuitBreakers[processName] = {
+                    state = "closed",
+                    failureCount = 0,
+                    successCount = 0,
+                    lastFailureTime = 0,
+                    lastStateChange = getCurrentTimestamp(),
+                    halfOpenCalls = 0
+                }
                 
                 ao.send({
                     Target = msg.From,
-                    Action = "CircuitBreakerStatus",
-                    Data = json.encode(status),
-                    Timestamp = getCurrentTimestamp()
-                })
-            elseif operation == "Reset" and processName then
-                if CircuitBreakers[processName] then
-                    CircuitBreakers[processName] = {
-                        state = "closed",
-                        failureCount = 0,
-                        successCount = 0,
-                        lastFailureTime = 0,
-                        lastStateChange = getCurrentTimestamp(),
-                        halfOpenCalls = 0
-                    }
-                    
-                    ao.send({
-                        Target = msg.From,
-                        Action = "CircuitBreakerReset",
-                        ProcessName = processName,
-                        Status = "success",
-                        Timestamp = getCurrentTimestamp()
-                    })
-                else
-                    sendErrorResponse(msg.From, nil, "Circuit breaker not found for process: " .. processName, "ManageCircuitBreaker")
-                end
-            elseif operation == "Configure" then
-                if msg.FailureThreshold then
-                    CircuitBreakerConfig.failureThreshold = tonumber(msg.FailureThreshold)
-                end
-                if msg.RecoveryTimeout then
-                    CircuitBreakerConfig.recoveryTimeout = tonumber(msg.RecoveryTimeout)
-                end
-                
-                ao.send({
-                    Target = msg.From,
-                    Action = "CircuitBreakerConfigured",
-                    Configuration = json.encode(CircuitBreakerConfig),
+                    Action = "CircuitBreakerReset",
+                    ProcessName = processName,
+                    Status = "success",
                     Timestamp = getCurrentTimestamp()
                 })
             else
-                sendErrorResponse(msg.From, nil, "Unknown circuit breaker operation: " .. operation, "ManageCircuitBreaker")
+                sendErrorResponse(msg.From, nil, "Circuit breaker not found for process: " .. processName, "ManageCircuitBreaker")
             end
-        end)
-        
-        if not success then
-            sendErrorResponse(msg.From, nil, "Circuit breaker management failed: " .. tostring(err), "ManageCircuitBreaker")
+        elseif operation == "Configure" then
+            if msg.FailureThreshold then
+                CircuitBreakerConfig.failureThreshold = tonumber(msg.FailureThreshold)
+            end
+            if msg.RecoveryTimeout then
+                CircuitBreakerConfig.recoveryTimeout = tonumber(msg.RecoveryTimeout)
+            end
+            
+            ao.send({
+                Target = msg.From,
+                Action = "CircuitBreakerConfigured",
+                Configuration = json.encode(CircuitBreakerConfig),
+                Timestamp = getCurrentTimestamp()
+            })
+        else
+            sendErrorResponse(msg.From, nil, "Unknown circuit breaker operation: " .. operation, "ManageCircuitBreaker")
         end
     end
 )
@@ -1685,83 +1609,77 @@ Handlers.add("circuit-breaker-management",
 Handlers.add("dead-letter-queue",
     Handlers.utils.hasMatchingTag("Action", "ManageDeadLetterQueue"),
     function(msg)
-        local success, err = pcall(function()
-            local valid, validationError = validateMessage(msg, {"Operation"})
-            if not valid then
-                sendErrorResponse(msg.From, nil, validationError, "ManageDeadLetterQueue")
-                return
-            end
+        local valid, validationError = validateMessage(msg, {"Operation"})
+        if not valid then
+            sendErrorResponse(msg.From, nil, validationError, "ManageDeadLetterQueue")
+            return
+        end
+        
+        local operation = msg.Operation
+        
+        if operation == "GetMessages" then
+            local responseData = {
+                messages = DeadLetterQueue.messages,
+                count = #DeadLetterQueue.messages,
+                maxSize = DeadLetterQueue.maxSize,
+                retentionTime = DeadLetterQueue.retentionTime
+            }
             
-            local operation = msg.Operation
-            
-            if operation == "GetMessages" then
-                local responseData = {
-                    messages = DeadLetterQueue.messages,
-                    count = #DeadLetterQueue.messages,
-                    maxSize = DeadLetterQueue.maxSize,
-                    retentionTime = DeadLetterQueue.retentionTime
-                }
+            ao.send({
+                Target = msg.From,
+                Action = "DeadLetterQueueMessages",
+                Data = json.encode(responseData),
+                Timestamp = getCurrentTimestamp()
+            })
+        elseif operation == "RetryMessage" and msg.MessageIndex then
+            local messageIndex = tonumber(msg.MessageIndex)
+            if messageIndex and DeadLetterQueue.messages[messageIndex] then
+                local dlqMessage = DeadLetterQueue.messages[messageIndex]
+                dlqMessage.retryCount = dlqMessage.retryCount + 1
                 
-                ao.send({
-                    Target = msg.From,
-                    Action = "DeadLetterQueueMessages",
-                    Data = json.encode(responseData),
-                    Timestamp = getCurrentTimestamp()
-                })
-            elseif operation == "RetryMessage" and msg.MessageIndex then
-                local messageIndex = tonumber(msg.MessageIndex)
-                if messageIndex and DeadLetterQueue.messages[messageIndex] then
-                    local dlqMessage = DeadLetterQueue.messages[messageIndex]
-                    dlqMessage.retryCount = dlqMessage.retryCount + 1
+                -- Re-submit the original message for processing
+                local originalMsg = dlqMessage.originalMessage
+                if originalMsg.workflowType then
+                    -- This is a workflow message, recreate the workflow
+                    local workflowId, createErr = createWorkflow(
+                        originalMsg.workflowType,
+                        originalMsg.steps,
+                        originalMsg.requester,
+                        originalMsg.data
+                    )
                     
-                    -- Re-submit the original message for processing
-                    local originalMsg = dlqMessage.originalMessage
-                    if originalMsg.workflowType then
-                        -- This is a workflow message, recreate the workflow
-                        local workflowId, createErr = createWorkflow(
-                            originalMsg.workflowType,
-                            originalMsg.steps,
-                            originalMsg.requester,
-                            originalMsg.data
-                        )
+                    if workflowId then
+                        -- Remove from dead letter queue
+                        table.remove(DeadLetterQueue.messages, messageIndex)
                         
-                        if workflowId then
-                            -- Remove from dead letter queue
-                            table.remove(DeadLetterQueue.messages, messageIndex)
-                            
-                            ao.send({
-                                Target = msg.From,
-                                Action = "DeadLetterMessageRetried",
-                                WorkflowId = workflowId,
-                                Status = "success",
-                                Timestamp = getCurrentTimestamp()
-                            })
-                        else
-                            sendErrorResponse(msg.From, nil, "Failed to retry message: " .. (createErr or "unknown error"), "ManageDeadLetterQueue")
-                        end
+                        ao.send({
+                            Target = msg.From,
+                            Action = "DeadLetterMessageRetried",
+                            WorkflowId = workflowId,
+                            Status = "success",
+                            Timestamp = getCurrentTimestamp()
+                        })
                     else
-                        sendErrorResponse(msg.From, nil, "Unsupported message type for retry", "ManageDeadLetterQueue")
+                        sendErrorResponse(msg.From, nil, "Failed to retry message: " .. (createErr or "unknown error"), "ManageDeadLetterQueue")
                     end
                 else
-                    sendErrorResponse(msg.From, nil, "Invalid message index: " .. tostring(messageIndex), "ManageDeadLetterQueue")
+                    sendErrorResponse(msg.From, nil, "Unsupported message type for retry", "ManageDeadLetterQueue")
                 end
-            elseif operation == "Clear" then
-                local clearedCount = #DeadLetterQueue.messages
-                DeadLetterQueue.messages = {}
-                
-                ao.send({
-                    Target = msg.From,
-                    Action = "DeadLetterQueueCleared",
-                    ClearedCount = clearedCount,
-                    Timestamp = getCurrentTimestamp()
-                })
             else
-                sendErrorResponse(msg.From, nil, "Unknown dead letter queue operation: " .. operation, "ManageDeadLetterQueue")
+                sendErrorResponse(msg.From, nil, "Invalid message index: " .. tostring(messageIndex), "ManageDeadLetterQueue")
             end
-        end)
-        
-        if not success then
-            sendErrorResponse(msg.From, nil, "Dead letter queue management failed: " .. tostring(err), "ManageDeadLetterQueue")
+        elseif operation == "Clear" then
+            local clearedCount = #DeadLetterQueue.messages
+            DeadLetterQueue.messages = {}
+            
+            ao.send({
+                Target = msg.From,
+                Action = "DeadLetterQueueCleared",
+                ClearedCount = clearedCount,
+                Timestamp = getCurrentTimestamp()
+            })
+        else
+            sendErrorResponse(msg.From, nil, "Unknown dead letter queue operation: " .. operation, "ManageDeadLetterQueue")
         end
     end
 )
@@ -1770,72 +1688,66 @@ Handlers.add("dead-letter-queue",
 Handlers.add("failure-recovery",
     Handlers.utils.hasMatchingTag("Action", "TriggerFailureRecovery"),
     function(msg)
-        local success, err = pcall(function()
-            local recoveryActions = {
-                circuitBreakerResets = 0,
-                workflowRetries = 0,
-                deadLetterProcessed = 0,
-                processHealthChecks = 0
-            }
-            
-            -- Reset circuit breakers for processes that have been healthy for a while
-            local currentTime = getCurrentTimestamp()
-            for processName, breaker in pairs(CircuitBreakers) do
-                if breaker.state == "open" and 
-                   currentTime - breaker.lastStateChange > CircuitBreakerConfig.recoveryTimeout * 2 then
-                    local allProcesses = getAllProcesses()
-                    local process = allProcesses[processName]
-                    if process and process.healthScore > 70 then
-                        breaker.state = "closed"
-                        breaker.failureCount = 0
-                        breaker.lastStateChange = currentTime
-                        recoveryActions.circuitBreakerResets = recoveryActions.circuitBreakerResets + 1
-                    end
-                end
-            end
-            
-            -- Retry failed workflows that might now succeed
-            for workflowId, workflow in pairs(ActiveWorkflows) do
-                if workflow.status == "failed" and 
-                   workflow.recovery.retryCount < workflow.recovery.maxRetries and
-                   currentTime - workflow.lastActivity > 60000 then -- Wait 1 minute before retry
-                    workflow.status = "retrying"
-                    workflow.recovery.nextRetryTime = currentTime
-                    recoveryActions.workflowRetries = recoveryActions.workflowRetries + 1
-                end
-            end
-            
-            -- Process some dead letter queue messages
-            local dlqProcessed = math.min(5, #DeadLetterQueue.messages) -- Process up to 5 messages
-            for i = 1, dlqProcessed do
-                local dlqMessage = DeadLetterQueue.messages[1]
-                if dlqMessage.retryCount < 3 then -- Max 3 retries for DLQ messages
-                    -- Attempt to reprocess
-                    table.remove(DeadLetterQueue.messages, 1)
-                    recoveryActions.deadLetterProcessed = recoveryActions.deadLetterProcessed + 1
-                end
-            end
-            
-            -- Trigger health checks for all processes
-            local allProcesses = getAllProcesses()
-            for name, process in pairs(allProcesses) do
-                if process.id then
-                    checkProcessHealth(name)
-                    recoveryActions.processHealthChecks = recoveryActions.processHealthChecks + 1
-                end
-            end
-            
-            ao.send({
-                Target = msg.From,
-                Action = "FailureRecoveryComplete",
-                RecoveryActions = json.encode(recoveryActions),
-                Timestamp = getCurrentTimestamp()
-            })
-        end)
+        local recoveryActions = {
+            circuitBreakerResets = 0,
+            workflowRetries = 0,
+            deadLetterProcessed = 0,
+            processHealthChecks = 0
+        }
         
-        if not success then
-            sendErrorResponse(msg.From, nil, "Failure recovery failed: " .. tostring(err), "TriggerFailureRecovery")
+        -- Reset circuit breakers for processes that have been healthy for a while
+        local currentTime = getCurrentTimestamp()
+        for processName, breaker in pairs(CircuitBreakers) do
+            if breaker.state == "open" and 
+               currentTime - breaker.lastStateChange > CircuitBreakerConfig.recoveryTimeout * 2 then
+                local allProcesses = getAllProcesses()
+                local process = allProcesses[processName]
+                if process and process.healthScore > 70 then
+                    breaker.state = "closed"
+                    breaker.failureCount = 0
+                    breaker.lastStateChange = currentTime
+                    recoveryActions.circuitBreakerResets = recoveryActions.circuitBreakerResets + 1
+                end
+            end
         end
+        
+        -- Retry failed workflows that might now succeed
+        for workflowId, workflow in pairs(ActiveWorkflows) do
+            if workflow.status == "failed" and 
+               workflow.recovery.retryCount < workflow.recovery.maxRetries and
+               currentTime - workflow.lastActivity > 60000 then -- Wait 1 minute before retry
+                workflow.status = "retrying"
+                workflow.recovery.nextRetryTime = currentTime
+                recoveryActions.workflowRetries = recoveryActions.workflowRetries + 1
+            end
+        end
+        
+        -- Process some dead letter queue messages
+        local dlqProcessed = math.min(5, #DeadLetterQueue.messages) -- Process up to 5 messages
+        for i = 1, dlqProcessed do
+            local dlqMessage = DeadLetterQueue.messages[1]
+            if dlqMessage.retryCount < 3 then -- Max 3 retries for DLQ messages
+                -- Attempt to reprocess
+                table.remove(DeadLetterQueue.messages, 1)
+                recoveryActions.deadLetterProcessed = recoveryActions.deadLetterProcessed + 1
+            end
+        end
+        
+        -- Trigger health checks for all processes
+        local allProcesses = getAllProcesses()
+        for name, process in pairs(allProcesses) do
+            if process.id then
+                checkProcessHealth(name)
+                recoveryActions.processHealthChecks = recoveryActions.processHealthChecks + 1
+            end
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "FailureRecoveryComplete",
+            RecoveryActions = json.encode(recoveryActions),
+            Timestamp = getCurrentTimestamp()
+        })
     end
 )
 
@@ -1843,44 +1755,38 @@ Handlers.add("failure-recovery",
 Handlers.add("manage-game-state",
     Handlers.utils.hasMatchingTag("Action", "ManageGameState"),
     function(msg)
-        local success, err = pcall(function()
-            local valid, validationError = validateMessage(msg, {"Operation"})
-            if not valid then
-                sendErrorResponse(msg.From, nil, validationError, "ManageGameState")
-                return
-            end
-            
-            local data = msg.Data and json.decode(msg.Data) or {}
-            local steps, stateErr = coordinateGameState(msg.Operation, data)
-            
-            if not steps then
-                sendErrorResponse(msg.From, nil, stateErr, "ManageGameState")
-                return
-            end
-            
-            local workflowId = createWorkflow("GameState", steps, msg.From, data)
-            
-            -- Execute first step
-            local stepSuccess, stepErr = executeWorkflowStep(workflowId)
-            if not stepSuccess then
-                ActiveWorkflows[workflowId].status = "failed"
-                sendErrorResponse(msg.From, workflowId, stepErr, "ManageGameState")
-                return
-            end
-            
-            ao.send({
-                Target = msg.From,
-                Action = "GameStateWorkflowStarted",
-                WorkflowId = workflowId,
-                Operation = msg.Operation,
-                Status = "active",
-                Timestamp = getCurrentTimestamp()
-            })
-        end)
-        
-        if not success then
-            sendErrorResponse(msg.From, nil, "Game state management failed: " .. tostring(err), "ManageGameState")
+        local valid, validationError = validateMessage(msg, {"Operation"})
+        if not valid then
+            sendErrorResponse(msg.From, nil, validationError, "ManageGameState")
+            return
         end
+        
+        local data = msg.Data and json.decode(msg.Data) or {}
+        local steps, stateErr = coordinateGameState(msg.Operation, data)
+        
+        if not steps then
+            sendErrorResponse(msg.From, nil, stateErr, "ManageGameState")
+            return
+        end
+        
+        local workflowId = createWorkflow("GameState", steps, msg.From, data)
+        
+        -- Execute first step
+        local stepSuccess, stepErr = executeWorkflowStep(workflowId)
+        if not stepSuccess then
+            ActiveWorkflows[workflowId].status = "failed"
+            sendErrorResponse(msg.From, workflowId, stepErr, "ManageGameState")
+            return
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "GameStateWorkflowStarted",
+            WorkflowId = workflowId,
+            Operation = msg.Operation,
+            Status = "active",
+            Timestamp = getCurrentTimestamp()
+        })
     end
 )
 
@@ -1888,58 +1794,52 @@ Handlers.add("manage-game-state",
 Handlers.add("maintenance",
     Handlers.utils.hasMatchingTag("Action", "Maintenance"),
     function(msg)
-        local success, err = pcall(function()
-            local timedOutWorkflows, retriedWorkflows, dlqCleaned = checkWorkflowTimeouts()
-            local currentTime = getCurrentTimestamp()
-            local cleaned = performWorkflowCleanup()
-            
-            -- Count workflows by status
-            local statusCounts = { active = 0, pending = 0, completed = 0, failed = 0, timeout = 0 }
-            local totalMemoryUsage = 0
-            local totalProcessingTime = 0
-            
-            for _, workflow in pairs(ActiveWorkflows) do
-                statusCounts[workflow.status] = (statusCounts[workflow.status] or 0) + 1
-                if workflow.resourceConsumption then
-                    totalMemoryUsage = totalMemoryUsage + workflow.resourceConsumption.memoryUsage
-                    totalProcessingTime = totalProcessingTime + workflow.resourceConsumption.processingTime
-                end
-            end
-            
-            -- Calculate capacity utilization
-            local totalActive = statusCounts.active + statusCounts.pending
-            local capacityUtilization = math.floor((totalActive / WorkflowConfig.maxConcurrentWorkflows) * 100)
-            
-            -- Generate priority queue status
-            local queueStatus = {}
-            for priority, queue in pairs(WorkflowPriorityQueue) do
-                queueStatus[priority] = #queue
-            end
-            
-            ao.send({
-                Target = msg.From,
-                Action = "MaintenanceComplete",
-                Data = json.encode({
-                    timedOutWorkflows = #timedOutWorkflows,
-                    cleanedWorkflows = cleaned,
-                    workflowCounts = statusCounts,
-                    capacityUtilization = capacityUtilization,
-                    maxCapacity = WorkflowConfig.maxConcurrentWorkflows,
-                    metrics = WorkflowMetrics,
-                    queueStatus = queueStatus,
-                    resourceUsage = {
-                        totalMemoryUsage = totalMemoryUsage,
-                        averageProcessingTime = totalActive > 0 and (totalProcessingTime / totalActive) or 0
-                    },
-                    configuration = WorkflowConfig
-                }),
-                Timestamp = currentTime
-            })
-        end)
+        local timedOutWorkflows, retriedWorkflows, dlqCleaned = checkWorkflowTimeouts()
+        local currentTime = getCurrentTimestamp()
+        local cleaned = performWorkflowCleanup()
         
-        if not success then
-            sendErrorResponse(msg.From, nil, "Maintenance failed: " .. tostring(err), "Maintenance")
+        -- Count workflows by status
+        local statusCounts = { active = 0, pending = 0, completed = 0, failed = 0, timeout = 0 }
+        local totalMemoryUsage = 0
+        local totalProcessingTime = 0
+        
+        for _, workflow in pairs(ActiveWorkflows) do
+            statusCounts[workflow.status] = (statusCounts[workflow.status] or 0) + 1
+            if workflow.resourceConsumption then
+                totalMemoryUsage = totalMemoryUsage + workflow.resourceConsumption.memoryUsage
+                totalProcessingTime = totalProcessingTime + workflow.resourceConsumption.processingTime
+            end
         end
+        
+        -- Calculate capacity utilization
+        local totalActive = statusCounts.active + statusCounts.pending
+        local capacityUtilization = math.floor((totalActive / WorkflowConfig.maxConcurrentWorkflows) * 100)
+        
+        -- Generate priority queue status
+        local queueStatus = {}
+        for priority, queue in pairs(WorkflowPriorityQueue) do
+            queueStatus[priority] = #queue
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "MaintenanceComplete",
+            Data = json.encode({
+                timedOutWorkflows = #timedOutWorkflows,
+                cleanedWorkflows = cleaned,
+                workflowCounts = statusCounts,
+                capacityUtilization = capacityUtilization,
+                maxCapacity = WorkflowConfig.maxConcurrentWorkflows,
+                metrics = WorkflowMetrics,
+                queueStatus = queueStatus,
+                resourceUsage = {
+                    totalMemoryUsage = totalMemoryUsage,
+                    averageProcessingTime = totalActive > 0 and (totalProcessingTime / totalActive) or 0
+                },
+                configuration = WorkflowConfig
+            }),
+            Timestamp = currentTime
+        })
     end
 )
 
@@ -1947,20 +1847,14 @@ Handlers.add("maintenance",
 Handlers.add("workflow-persistence",
     Handlers.utils.hasMatchingTag("Action", "SaveWorkflowState"),
     function(msg)
-        local success, err = pcall(function()
-            local persistentState = saveWorkflowState()
-            
-            ao.send({
-                Target = msg.From,
-                Action = "WorkflowStateSaved",
-                Data = json.encode(persistentState),
-                Timestamp = getCurrentTimestamp()
-            })
-        end)
+        local persistentState = saveWorkflowState()
         
-        if not success then
-            sendErrorResponse(msg.From, nil, "Workflow state save failed: " .. tostring(err), "SaveWorkflowState")
-        end
+        ao.send({
+            Target = msg.From,
+            Action = "WorkflowStateSaved",
+            Data = json.encode(persistentState),
+            Timestamp = getCurrentTimestamp()
+        })
     end
 )
 
@@ -1968,27 +1862,21 @@ Handlers.add("workflow-persistence",
 Handlers.add("workflow-restoration",
     Handlers.utils.hasMatchingTag("Action", "RestoreWorkflowState"),
     function(msg)
-        local success, err = pcall(function()
-            local valid, validationError = validateMessage(msg, {"Data"})
-            if not valid then
-                sendErrorResponse(msg.From, nil, validationError, "RestoreWorkflowState")
-                return
-            end
-            
-            local persistentState = json.decode(msg.Data)
-            local restoreSuccess, restoreResult = restoreWorkflowState(persistentState)
-            
-            ao.send({
-                Target = msg.From,
-                Action = restoreSuccess and "WorkflowStateRestored" or "WorkflowRestoreError",
-                Message = restoreResult,
-                Timestamp = getCurrentTimestamp()
-            })
-        end)
-        
-        if not success then
-            sendErrorResponse(msg.From, nil, "Workflow state restore failed: " .. tostring(err), "RestoreWorkflowState")
+        local valid, validationError = validateMessage(msg, {"Data"})
+        if not valid then
+            sendErrorResponse(msg.From, nil, validationError, "RestoreWorkflowState")
+            return
         end
+        
+        local persistentState = json.decode(msg.Data)
+        local restoreSuccess, restoreResult = restoreWorkflowState(persistentState)
+        
+        ao.send({
+            Target = msg.From,
+            Action = restoreSuccess and "WorkflowStateRestored" or "WorkflowRestoreError",
+            Message = restoreResult,
+            Timestamp = getCurrentTimestamp()
+        })
     end
 )
 
@@ -1996,31 +1884,25 @@ Handlers.add("workflow-restoration",
 Handlers.add("workflow-metrics",
     Handlers.utils.hasMatchingTag("Action", "GetWorkflowMetrics"),
     function(msg)
-        local success, err = pcall(function()
-            local currentTime = getCurrentTimestamp()
-            local hasCapacity, currentCount = checkWorkflowCapacity()
-            
-            ao.send({
-                Target = msg.From,
-                Action = "WorkflowMetricsResponse",
-                Data = json.encode({
-                    metrics = WorkflowMetrics,
-                    currentCapacity = {
-                        active = currentCount,
-                        max = WorkflowConfig.maxConcurrentWorkflows,
-                        available = WorkflowConfig.maxConcurrentWorkflows - currentCount,
-                        utilizationPercent = math.floor((currentCount / WorkflowConfig.maxConcurrentWorkflows) * 100)
-                    },
-                    priorityQueues = WorkflowPriorityQueue,
-                    configuration = WorkflowConfig
-                }),
-                Timestamp = currentTime
-            })
-        end)
+        local currentTime = getCurrentTimestamp()
+        local hasCapacity, currentCount = checkWorkflowCapacity()
         
-        if not success then
-            sendErrorResponse(msg.From, nil, "Workflow metrics failed: " .. tostring(err), "GetWorkflowMetrics")
-        end
+        ao.send({
+            Target = msg.From,
+            Action = "WorkflowMetricsResponse",
+            Data = json.encode({
+                metrics = WorkflowMetrics,
+                currentCapacity = {
+                    active = currentCount,
+                    max = WorkflowConfig.maxConcurrentWorkflows,
+                    available = WorkflowConfig.maxConcurrentWorkflows - currentCount,
+                    utilizationPercent = math.floor((currentCount / WorkflowConfig.maxConcurrentWorkflows) * 100)
+                },
+                priorityQueues = WorkflowPriorityQueue,
+                configuration = WorkflowConfig
+            }),
+            Timestamp = currentTime
+        })
     end
 )
 
@@ -2028,139 +1910,133 @@ Handlers.add("workflow-metrics",
 Handlers.add("info",
     Handlers.utils.hasMatchingTag("Action", "Info"),
     function(msg)
-        local success, err = pcall(function()
-            ao.send({
-                Target = msg.From,
-                Action = "InfoResponse",
-                Data = json.encode({
-                    process = {
-                        name = "Coordinator Process",
-                        version = "1.0.0",
-                        adpVersion = "1.0",
-                        capabilities = {
-                            "coordinateWorkflow",
-                            "routeMessage", 
-                            "checkProcessHealth",
-                            "manageGameState",
-                            "processDiscovery",
-                            "workflowManagement",
-                            "healthMonitoring",
-                            "timeoutManagement",
-                            "concurrentOperations",
-                            "priorityQueuing",
-                            "workflowPersistence",
-                            "resourceMonitoring",
-                            "capacityManagement",
-                            "memoryOptimization",
-                            "intelligentRouting",
-                            "loadBalancing",
-                            "performanceMonitoring",
-                            "routingCache",
-                            "failoverSupport",
-                            "clientSideGameState",
-                            "gameStateVersioning",
-                            "gameStateValidation",
-                            "gameStateCompression",
-                            "gameStateSynchronization"
+        ao.send({
+            Target = msg.From,
+            Action = "InfoResponse",
+            Data = json.encode({
+                process = {
+                    name = "Coordinator Process",
+                    version = "1.0.0",
+                    adpVersion = "1.0",
+                    capabilities = {
+                        "coordinateWorkflow",
+                        "routeMessage", 
+                        "checkProcessHealth",
+                        "manageGameState",
+                        "processDiscovery",
+                        "workflowManagement",
+                        "healthMonitoring",
+                        "timeoutManagement",
+                        "concurrentOperations",
+                        "priorityQueuing",
+                        "workflowPersistence",
+                        "resourceMonitoring",
+                        "capacityManagement",
+                        "memoryOptimization",
+                        "intelligentRouting",
+                        "loadBalancing",
+                        "performanceMonitoring",
+                        "routingCache",
+                        "failoverSupport",
+                        "clientSideGameState",
+                        "gameStateVersioning",
+                        "gameStateValidation",
+                        "gameStateCompression",
+                        "gameStateSynchronization"
+                    },
+                    messageSchemas = {
+                        RegisterProcess = {
+                            required = {"Action", "ProcessName", "ProcessId"},
+                            description = "Register a process for discovery and health monitoring"
                         },
-                        messageSchemas = {
-                            RegisterProcess = {
-                                required = {"Action", "ProcessName", "ProcessId"},
-                                description = "Register a process for discovery and health monitoring"
-                            },
-                            CoordinateWorkflow = {
-                                required = {"Action", "WorkflowType", "Steps"},
-                                optional = {"Data"},
-                                description = "Start a multi-step workflow across processes"
-                            },
-                            RouteMessage = {
-                                required = {"Action", "TargetProcess"},
-                                optional = {"Data"},
-                                description = "Route a message to a specific process"
-                            },
-                            CheckProcessHealth = {
-                                required = {"Action"},
-                                optional = {"ProcessName"},
-                                description = "Check health of specific process or all processes"
-                            },
-                            ManageGameState = {
-                                required = {"Action", "Operation"},
-                                optional = {"Data"},
-                                description = "Coordinate game state operations across processes"
-                            },
-                            WorkflowResponse = {
-                                required = {"Action", "WorkflowId", "StepNumber"},
-                                optional = {"Data"},
-                                description = "Response from a process participating in a workflow"
-                            },
-                            HealthResponse = {
-                                required = {"Action"},
-                                optional = {"ProcessName", "Status"},
-                                description = "Health status response from a monitored process"
-                            },
-                            Maintenance = {
-                                required = {"Action"},
-                                description = "Trigger maintenance operations (cleanup, timeout checks)"
-                            }
+                        CoordinateWorkflow = {
+                            required = {"Action", "WorkflowType", "Steps"},
+                            optional = {"Data"},
+                            description = "Start a multi-step workflow across processes"
                         },
-                        workflowPatterns = {
-                            battleFlow = {
-                                description = "Coordinate battle mechanics across battle-engine, status-effects-engine, and data processes",
-                                steps = {"initBattle", "processMove", "applyEffects", "checkWin"}
-                            },
-                            evolutionFlow = {
-                                description = "Handle pokemon evolution across evolution-engine and player state",
-                                steps = {"checkEvolution", "updateStats", "saveState"}
-                            },
-                            captureFlow = {
-                                description = "Coordinate pokemon capture across capture-engine and inventory",
-                                steps = {"attemptCapture", "updateInventory", "updateTeam"}
-                            },
-                            stateSync = {
-                                description = "Synchronize game state across all game processes",
-                                steps = {"backupState", "syncPlayer", "syncInventory", "syncTeam"}
-                            }
+                        RouteMessage = {
+                            required = {"Action", "TargetProcess"},
+                            optional = {"Data"},
+                            description = "Route a message to a specific process"
                         },
-                        routingCapabilities = {
-                            intelligentRouting = "Routes messages based on process availability and health",
-                            loadBalancing = "Distributes requests across healthy processes",
-                            failover = "Handles process failures with alternative routing",
-                            discovery = "Automatic process discovery and registration"
+                        CheckProcessHealth = {
+                            required = {"Action"},
+                            optional = {"ProcessName"},
+                            description = "Check health of specific process or all processes"
+                        },
+                        ManageGameState = {
+                            required = {"Action", "Operation"},
+                            optional = {"Data"},
+                            description = "Coordinate game state operations across processes"
+                        },
+                        WorkflowResponse = {
+                            required = {"Action", "WorkflowId", "StepNumber"},
+                            optional = {"Data"},
+                            description = "Response from a process participating in a workflow"
+                        },
+                        HealthResponse = {
+                            required = {"Action"},
+                            optional = {"ProcessName", "Status"},
+                            description = "Health status response from a monitored process"
+                        },
+                        Maintenance = {
+                            required = {"Action"},
+                            description = "Trigger maintenance operations (cleanup, timeout checks)"
                         }
                     },
-                    handlers = {
-                        "process-discovery",
-                        "coordinate-workflow", 
-                        "workflow-response",
-                        "route-message",
-                        "check-process-health",
-                        "health-response",
-                        "manage-game-state",
-                        "maintenance",
-                        "info"
-                    },
-                    state = {
-                        registeredProcesses = ProcessRegistry,
-                        activeWorkflows = ActiveWorkflows,
-                        configuration = {
-                            workflowTimeout = WorkflowTimeout,
-                            healthCheckInterval = HealthCheckInterval
+                    workflowPatterns = {
+                        battleFlow = {
+                            description = "Coordinate battle mechanics across battle-engine, status-effects-engine, and data processes",
+                            steps = {"initBattle", "processMove", "applyEffects", "checkWin"}
+                        },
+                        evolutionFlow = {
+                            description = "Handle pokemon evolution across evolution-engine and player state",
+                            steps = {"checkEvolution", "updateStats", "saveState"}
+                        },
+                        captureFlow = {
+                            description = "Coordinate pokemon capture across capture-engine and inventory",
+                            steps = {"attemptCapture", "updateInventory", "updateTeam"}
+                        },
+                        stateSync = {
+                            description = "Synchronize game state across all game processes",
+                            steps = {"backupState", "syncPlayer", "syncInventory", "syncTeam"}
                         }
                     },
-                    documentation = {
-                        adpCompliance = "v1.0",
-                        selfDocumenting = true,
-                        architecture = "26-process stateless AO with async coordination",
-                        purpose = "Multi-process workflow orchestration and health monitoring"
+                    routingCapabilities = {
+                        intelligentRouting = "Routes messages based on process availability and health",
+                        loadBalancing = "Distributes requests across healthy processes",
+                        failover = "Handles process failures with alternative routing",
+                        discovery = "Automatic process discovery and registration"
                     }
-                }),
-                Timestamp = getCurrentTimestamp()
-            })
-        end)
-        
-        if not success then
-            sendErrorResponse(msg.From, nil, "Info handler failed: " .. tostring(err), "Info")
-        end
+                },
+                handlers = {
+                    "process-discovery",
+                    "coordinate-workflow", 
+                    "workflow-response",
+                    "route-message",
+                    "check-process-health",
+                    "health-response",
+                    "manage-game-state",
+                    "maintenance",
+                    "info"
+                },
+                state = {
+                    registeredProcesses = ProcessRegistry,
+                    activeWorkflows = ActiveWorkflows,
+                    configuration = {
+                        workflowTimeout = WorkflowTimeout,
+                        healthCheckInterval = HealthCheckInterval
+                    }
+                },
+                documentation = {
+                    adpCompliance = "v1.0",
+                    selfDocumenting = true,
+                    architecture = "26-process stateless AO with async coordination",
+                    purpose = "Multi-process workflow orchestration and health monitoring"
+                }
+            }),
+            Timestamp = getCurrentTimestamp()
+        })
     end
 )
 

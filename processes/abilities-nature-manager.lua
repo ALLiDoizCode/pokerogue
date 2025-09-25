@@ -176,84 +176,81 @@ end
 Handlers.add("apply-nature",
   Handlers.utils.hasMatchingTag("Action", "ApplyNature"),
   function(msg)
-    local success, response = pcall(function()
-      local pokemonId = tonumber(msg.PokemonId or msg.Id)
-      local natureId = tonumber(msg.NatureId)
-      local forceNature = msg.ForceNature
-      local timestamp = tonumber(msg.Timestamp) or 0
-      
-      if not pokemonId then
-        return {
-          success = false,
-          error = "PokemonId is required"
-        }
-      end
-      
-      -- Generate or use provided nature
-      local selectedNatureId = natureId
-      if not selectedNatureId then
-        if forceNature then
-          -- Find nature by name
-          for id, data in pairs(NATURE_DATA) do
-            if data[1]:lower() == forceNature:lower() then
-              selectedNatureId = id
-              break
-            end
-          end
-        else
-          -- Random nature selection
-          selectedNatureId = selectRandomNature(pokemonId + timestamp)
-        end
-      end
-      
-      local natureData = getNatureById(selectedNatureId)
-      if not natureData then
-        return {
-          success = false,
-          error = "Invalid nature ID: " .. tostring(selectedNatureId)
-        }
-      end
-      
-      -- Calculate stat modifiers for all stats
-      local statModifiers = {
-        hp = 1.0,      -- HP is never modified by nature
-        attack = getNatureStatMultiplier(selectedNatureId, "ATK"),
-        defense = getNatureStatMultiplier(selectedNatureId, "DEF"),
-        spatk = getNatureStatMultiplier(selectedNatureId, "SPATK"),
-        spdef = getNatureStatMultiplier(selectedNatureId, "SPDEF"),
-        speed = getNatureStatMultiplier(selectedNatureId, "SPD")
-      }
-      
-      AbilityNatureState.totalNaturesApplied = AbilityNatureState.totalNaturesApplied + 1
-      
-      return {
-        success = true,
-        pokemonId = pokemonId,
-        nature = natureData,
-        statModifiers = statModifiers,
-        appliedAt = timestamp
-      }
-    end)
+    local pokemonId = tonumber(msg.PokemonId or msg.Id)
+    local natureId = tonumber(msg.NatureId)
+    local forceNature = msg.ForceNature
+    local timestamp = tonumber(msg.Timestamp) or 0
     
-    if success then
+    if not pokemonId then
       ao.send({
         Target = msg.From,
         Action = "NatureApplied",
-        Data = json.encode(response),
-        PokemonId = tostring(response.pokemonId or 0),
+        Data = json.encode({success = false, error = "PokemonId is required"}),
+        Error = "PokemonId is required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "NatureApplied",
-        Data = json.encode({success = false, error = response}),
-        Error = response,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    -- Generate or use provided nature
+    local selectedNatureId = natureId
+    if not selectedNatureId then
+      if forceNature then
+        -- Find nature by name
+        for id, data in pairs(NATURE_DATA) do
+          if data[1]:lower() == forceNature:lower() then
+            selectedNatureId = id
+            break
+          end
+        end
+      else
+        -- Random nature selection
+        selectedNatureId = selectRandomNature(pokemonId + timestamp)
+      end
+    end
+    
+    local natureData = getNatureById(selectedNatureId)
+    if not natureData then
+      ao.send({
+        Target = msg.From,
+        Action = "NatureApplied",
+        Data = json.encode({success = false, error = "Invalid nature ID: " .. tostring(selectedNatureId)}),
+        Error = "Invalid nature ID: " .. tostring(selectedNatureId),
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+      })
+      return
+    end
+    
+    -- Calculate stat modifiers for all stats
+    local statModifiers = {
+      hp = 1.0,      -- HP is never modified by nature
+      attack = getNatureStatMultiplier(selectedNatureId, "ATK"),
+      defense = getNatureStatMultiplier(selectedNatureId, "DEF"),
+      spatk = getNatureStatMultiplier(selectedNatureId, "SPATK"),
+      spdef = getNatureStatMultiplier(selectedNatureId, "SPDEF"),
+      speed = getNatureStatMultiplier(selectedNatureId, "SPD")
+    }
+    
+    AbilityNatureState.totalNaturesApplied = AbilityNatureState.totalNaturesApplied + 1
+    
+    local response = {
+      success = true,
+      pokemonId = pokemonId,
+      nature = natureData,
+      statModifiers = statModifiers,
+      appliedAt = timestamp
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "NatureApplied",
+      Data = json.encode(response),
+      PokemonId = tostring(response.pokemonId or 0),
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -261,83 +258,85 @@ Handlers.add("apply-nature",
 Handlers.add("assign-ability",
   Handlers.utils.hasMatchingTag("Action", "AssignAbility"),
   function(msg)
-    local success, response = pcall(function()
-      local pokemonId = tonumber(msg.PokemonId or msg.Id)
-      local abilitySlot = tonumber(msg.AbilitySlot) or 1
-      local forceAbility = tonumber(msg.ForceAbility)
-      local timestamp = tonumber(msg.Timestamp) or 0
-      
-      if not pokemonId then
-        return {
-          success = false,
-          error = "PokemonId is required"
-        }
-      end
-      
-      if abilitySlot < 1 or abilitySlot > 3 then
-        return {
-          success = false,
-          error = "AbilitySlot must be 1-3 (1=normal1, 2=normal2, 3=hidden)"
-        }
-      end
-      
-      -- For testing, assign common abilities based on slot
-      local assignedAbilityId = forceAbility
-      if not assignedAbilityId then
-        if abilitySlot == 1 then
-          assignedAbilityId = 65 -- Overgrow
-        elseif abilitySlot == 2 then
-          assignedAbilityId = 66 -- Blaze  
-        else
-          assignedAbilityId = 67 -- Torrent (hidden)
-        end
-      end
-      
-      local abilityData = getAbilityById(assignedAbilityId)
-      if not abilityData then
-        return {
-          success = false,
-          error = "Invalid ability ID: " .. tostring(assignedAbilityId)
-        }
-      end
-      
-      AbilityNatureState.totalAbilitiesAssigned = AbilityNatureState.totalAbilitiesAssigned + 1
-      
-      return {
-        success = true,
-        pokemonId = pokemonId,
-        ability = {
-          abilityId = assignedAbilityId,
-          name = abilityData.name,
-          description = abilityData.description,
-          triggers = abilityData.triggers or {},
-          effects = abilityData.effects or {},
-          slot = abilitySlot
-        },
-        slot = abilitySlot,
-        assignedAt = timestamp
-      }
-    end)
+    local pokemonId = tonumber(msg.PokemonId or msg.Id)
+    local abilitySlot = tonumber(msg.AbilitySlot) or 1
+    local forceAbility = tonumber(msg.ForceAbility)
+    local timestamp = tonumber(msg.Timestamp) or 0
     
-    if success then
+    if not pokemonId then
       ao.send({
         Target = msg.From,
         Action = "AbilityAssigned",
-        Data = json.encode(response),
-        AbilityId = tostring(response.ability and response.ability.abilityId or 0),
+        Data = json.encode({success = false, error = "PokemonId is required"}),
+        Error = "PokemonId is required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "AbilityAssigned",
-        Data = json.encode({success = false, error = response}),
-        Error = response,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    if abilitySlot < 1 or abilitySlot > 3 then
+      ao.send({
+        Target = msg.From,
+        Action = "AbilityAssigned",
+        Data = json.encode({success = false, error = "AbilitySlot must be 1-3 (1=normal1, 2=normal2, 3=hidden)"}),
+        Error = "AbilitySlot must be 1-3 (1=normal1, 2=normal2, 3=hidden)",
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+      })
+      return
+    end
+    
+    -- For testing, assign common abilities based on slot
+    local assignedAbilityId = forceAbility
+    if not assignedAbilityId then
+      if abilitySlot == 1 then
+        assignedAbilityId = 65 -- Overgrow
+      elseif abilitySlot == 2 then
+        assignedAbilityId = 66 -- Blaze  
+      else
+        assignedAbilityId = 67 -- Torrent (hidden)
+      end
+    end
+    
+    local abilityData = getAbilityById(assignedAbilityId)
+    if not abilityData then
+      ao.send({
+        Target = msg.From,
+        Action = "AbilityAssigned",
+        Data = json.encode({success = false, error = "Invalid ability ID: " .. tostring(assignedAbilityId)}),
+        Error = "Invalid ability ID: " .. tostring(assignedAbilityId),
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+      })
+      return
+    end
+    
+    AbilityNatureState.totalAbilitiesAssigned = AbilityNatureState.totalAbilitiesAssigned + 1
+    
+    local response = {
+      success = true,
+      pokemonId = pokemonId,
+      ability = {
+        abilityId = assignedAbilityId,
+        name = abilityData.name,
+        description = abilityData.description,
+        triggers = abilityData.triggers or {},
+        effects = abilityData.effects or {},
+        slot = abilitySlot
+      },
+      slot = abilitySlot,
+      assignedAt = timestamp
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "AbilityAssigned",
+      Data = json.encode(response),
+      AbilityId = tostring(response.ability and response.ability.abilityId or 0),
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -345,81 +344,78 @@ Handlers.add("assign-ability",
 Handlers.add("trigger-ability",
   Handlers.utils.hasMatchingTag("Action", "TriggerAbility"),
   function(msg)
-    local success, response = pcall(function()
-      local pokemonId = tonumber(msg.PokemonId or msg.Id)
-      local abilityId = tonumber(msg.AbilityId)
-      local triggerEvent = msg.TriggerEvent or "MANUAL"
-      local battleContext = msg.BattleContext and json.decode(msg.BattleContext) or {}
-      local timestamp = tonumber(msg.Timestamp) or 0
-      
-      if not pokemonId or not abilityId then
-        return {
-          success = false,
-          error = "PokemonId and AbilityId are required"
-        }
-      end
-      
-      local abilityData = getAbilityById(abilityId)
-      if not abilityData then
-        return {
-          success = false,
-          error = "Invalid ability ID: " .. tostring(abilityId)
-        }
-      end
-      
-      -- Process ability effects
-      local effects = {}
-      local chainTriggers = {}
-      
-      if abilityData.weatherEffect then
-        table.insert(effects, {type = "WEATHER", value = abilityData.weatherEffect})
-      end
-      
-      if abilityData.statChange then
-        table.insert(effects, {type = "STAT_CHANGE", data = abilityData.statChange})
-      end
-      
-      if abilityData.statusInflict then
-        table.insert(effects, {type = "STATUS_INFLICT", status = abilityData.statusInflict})
-      end
-      
-      if abilityData.typeBonus then
-        table.insert(effects, {type = "TYPE_BOOST", pokemonType = abilityData.typeBonus, multiplier = 1.5})
-      end
-      
-      AbilityNatureState.totalAbilitiesTriggered = AbilityNatureState.totalAbilitiesTriggered + 1
-      
-      return {
-        success = true,
-        pokemonId = pokemonId,
-        abilityId = abilityId,
-        abilityName = abilityData.name,
-        triggerEvent = triggerEvent,
-        effects = effects,
-        chainTriggers = chainTriggers,
-        triggeredAt = timestamp
-      }
-    end)
+    local pokemonId = tonumber(msg.PokemonId or msg.Id)
+    local abilityId = tonumber(msg.AbilityId)
+    local triggerEvent = msg.TriggerEvent or "MANUAL"
+    local battleContext = msg.BattleContext and json.decode(msg.BattleContext) or {}
+    local timestamp = tonumber(msg.Timestamp) or 0
     
-    if success then
+    if not pokemonId or not abilityId then
       ao.send({
         Target = msg.From,
         Action = "AbilityTriggered",
-        Data = json.encode(response),
-        AbilityId = tostring(response.abilityId),
+        Data = json.encode({success = false, error = "PokemonId and AbilityId are required"}),
+        Error = "PokemonId and AbilityId are required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "AbilityTriggered",
-        Data = json.encode({success = false, error = response}),
-        Error = response,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    local abilityData = getAbilityById(abilityId)
+    if not abilityData then
+      ao.send({
+        Target = msg.From,
+        Action = "AbilityTriggered",
+        Data = json.encode({success = false, error = "Invalid ability ID: " .. tostring(abilityId)}),
+        Error = "Invalid ability ID: " .. tostring(abilityId),
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+      })
+      return
+    end
+    
+    -- Process ability effects
+    local effects = {}
+    local chainTriggers = {}
+    
+    if abilityData.weatherEffect then
+      table.insert(effects, {type = "WEATHER", value = abilityData.weatherEffect})
+    end
+    
+    if abilityData.statChange then
+      table.insert(effects, {type = "STAT_CHANGE", data = abilityData.statChange})
+    end
+    
+    if abilityData.statusInflict then
+      table.insert(effects, {type = "STATUS_INFLICT", status = abilityData.statusInflict})
+    end
+    
+    if abilityData.typeBonus then
+      table.insert(effects, {type = "TYPE_BOOST", pokemonType = abilityData.typeBonus, multiplier = 1.5})
+    end
+    
+    AbilityNatureState.totalAbilitiesTriggered = AbilityNatureState.totalAbilitiesTriggered + 1
+    
+    local response = {
+      success = true,
+      pokemonId = pokemonId,
+      abilityId = abilityId,
+      abilityName = abilityData.name,
+      triggerEvent = triggerEvent,
+      effects = effects,
+      chainTriggers = chainTriggers,
+      triggeredAt = timestamp
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "AbilityTriggered",
+      Data = json.encode(response),
+      AbilityId = tostring(response.abilityId),
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -427,60 +423,57 @@ Handlers.add("trigger-ability",
 Handlers.add("get-ability-info",
   Handlers.utils.hasMatchingTag("Action", "GetAbilityInfo"),
   function(msg)
-    local success, response = pcall(function()
-      local abilityId = tonumber(msg.AbilityId or msg.Id)
-      
-      if not abilityId then
-        return {
-          success = false,
-          error = "AbilityId is required"
-        }
-      end
-      
-      local abilityData = getAbilityById(abilityId)
-      if not abilityData then
-        return {
-          success = false,
-          error = "Ability not found: " .. tostring(abilityId)
-        }
-      end
-      
-      return {
-        success = true,
-        ability = {
-          abilityId = abilityId,
-          name = abilityData.name,
-          description = abilityData.description,
-          triggers = abilityData.triggers or {},
-          effects = abilityData.effects or {},
-          weatherEffect = abilityData.weatherEffect,
-          statChange = abilityData.statChange,
-          statusInflict = abilityData.statusInflict,
-          typeBonus = abilityData.typeBonus,
-          absorbs = abilityData.absorbs
-        }
-      }
-    end)
+    local abilityId = tonumber(msg.AbilityId or msg.Id)
     
-    if success then
+    if not abilityId then
       ao.send({
         Target = msg.From,
         Action = "AbilityInfo",
-        Data = json.encode(response),
-        AbilityId = tostring(msg.AbilityId or msg.Id or 0),
+        Data = json.encode({success = false, error = "AbilityId is required"}),
+        Error = "AbilityId is required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "AbilityInfo",
-        Data = json.encode({success = false, error = response}),
-        Error = response,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    local abilityData = getAbilityById(abilityId)
+    if not abilityData then
+      ao.send({
+        Target = msg.From,
+        Action = "AbilityInfo",
+        Data = json.encode({success = false, error = "Ability not found: " .. tostring(abilityId)}),
+        Error = "Ability not found: " .. tostring(abilityId),
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+      })
+      return
+    end
+    
+    local response = {
+      success = true,
+      ability = {
+        abilityId = abilityId,
+        name = abilityData.name,
+        description = abilityData.description,
+        triggers = abilityData.triggers or {},
+        effects = abilityData.effects or {},
+        weatherEffect = abilityData.weatherEffect,
+        statChange = abilityData.statChange,
+        statusInflict = abilityData.statusInflict,
+        typeBonus = abilityData.typeBonus,
+        absorbs = abilityData.absorbs
+      }
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "AbilityInfo",
+      Data = json.encode(response),
+      AbilityId = tostring(msg.AbilityId or msg.Id or 0),
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -488,65 +481,62 @@ Handlers.add("get-ability-info",
 Handlers.add("get-nature-info",
   Handlers.utils.hasMatchingTag("Action", "GetNatureInfo"),
   function(msg)
-    local success, response = pcall(function()
-      local natureId = tonumber(msg.NatureId or msg.Id)
-      
-      if not natureId then
-        return {
-          success = false,
-          error = "NatureId is required"
-        }
-      end
-      
-      local natureData = getNatureById(natureId)
-      if not natureData then
-        return {
-          success = false,
-          error = "Nature not found: " .. tostring(natureId)
-        }
-      end
-      
-      -- Calculate multipliers for all stats
-      local multipliers = {
-        hp = 1.0,
-        attack = getNatureStatMultiplier(natureId, "ATK"),
-        defense = getNatureStatMultiplier(natureId, "DEF"),
-        spatk = getNatureStatMultiplier(natureId, "SPATK"),
-        spdef = getNatureStatMultiplier(natureId, "SPDEF"),
-        speed = getNatureStatMultiplier(natureId, "SPD")
-      }
-      
-      return {
-        success = true,
-        nature = {
-          natureId = natureId,
-          name = natureData.name,
-          increasedStat = natureData.increasedStat,
-          decreasedStat = natureData.decreasedStat,
-          multipliers = multipliers
-        }
-      }
-    end)
+    local natureId = tonumber(msg.NatureId or msg.Id)
     
-    if success then
+    if not natureId then
       ao.send({
         Target = msg.From,
         Action = "NatureInfo",
-        Data = json.encode(response),
-        NatureId = tostring(msg.NatureId or msg.Id or 0),
+        Data = json.encode({success = false, error = "NatureId is required"}),
+        Error = "NatureId is required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "NatureInfo",
-        Data = json.encode({success = false, error = response}),
-        Error = response,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    local natureData = getNatureById(natureId)
+    if not natureData then
+      ao.send({
+        Target = msg.From,
+        Action = "NatureInfo",
+        Data = json.encode({success = false, error = "Nature not found: " .. tostring(natureId)}),
+        Error = "Nature not found: " .. tostring(natureId),
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+      })
+      return
+    end
+    
+    -- Calculate multipliers for all stats
+    local multipliers = {
+      hp = 1.0,
+      attack = getNatureStatMultiplier(natureId, "ATK"),
+      defense = getNatureStatMultiplier(natureId, "DEF"),
+      spatk = getNatureStatMultiplier(natureId, "SPATK"),
+      spdef = getNatureStatMultiplier(natureId, "SPDEF"),
+      speed = getNatureStatMultiplier(natureId, "SPD")
+    }
+    
+    local response = {
+      success = true,
+      nature = {
+        natureId = natureId,
+        name = natureData.name,
+        increasedStat = natureData.increasedStat,
+        decreasedStat = natureData.decreasedStat,
+        multipliers = multipliers
+      }
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "NatureInfo",
+      Data = json.encode(response),
+      NatureId = tostring(msg.NatureId or msg.Id or 0),
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -554,48 +544,40 @@ Handlers.add("get-nature-info",
 Handlers.add("initialize-battle-state",
   Handlers.utils.hasMatchingTag("Action", "InitializeBattleState"),
   function(msg)
-    local success, response = pcall(function()
-      local battleId = msg.BattleId
-      local pokemonId = tonumber(msg.PokemonId)
-      local abilityId = tonumber(msg.AbilityId)
-      
-      if not battleId or not pokemonId or not abilityId then
-        return {
-          success = false,
-          error = "BattleId, PokemonId, and AbilityId are required"
-        }
-      end
-      
-      local battleState = initializeBattleAbilityState(battleId, pokemonId, abilityId)
-      
-      return {
-        success = true,
-        battleId = battleId,
-        pokemonId = pokemonId,
-        abilityId = abilityId,
-        battleState = battleState
-      }
-    end)
+    local battleId = msg.BattleId
+    local pokemonId = tonumber(msg.PokemonId)
+    local abilityId = tonumber(msg.AbilityId)
     
-    if success then
+    if not battleId or not pokemonId or not abilityId then
       ao.send({
         Target = msg.From,
         Action = "BattleStateInitialized",
-        Data = json.encode(response),
-        BattleId = msg.BattleId or "",
+        Data = json.encode({success = false, error = "BattleId, PokemonId, and AbilityId are required"}),
+        Error = "BattleId, PokemonId, and AbilityId are required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "BattleStateInitialized",
-        Data = json.encode({success = false, error = response}),
-        Error = response,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    local battleState = initializeBattleAbilityState(battleId, pokemonId, abilityId)
+    
+    local response = {
+      success = true,
+      battleId = battleId,
+      pokemonId = pokemonId,
+      abilityId = abilityId,
+      battleState = battleState
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "BattleStateInitialized",
+      Data = json.encode(response),
+      BattleId = msg.BattleId or "",
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -603,64 +585,56 @@ Handlers.add("initialize-battle-state",
 Handlers.add("update-battle-ability-state",
   Handlers.utils.hasMatchingTag("Action", "UpdateBattleAbilityState"),
   function(msg)
-    local success, response = pcall(function()
-      local battleId = msg.BattleId
-      local pokemonId = tonumber(msg.PokemonId)
-      local abilityId = tonumber(msg.AbilityId)
-      local turn = tonumber(msg.Turn) or 0
-      local effectData = msg.EffectData and json.decode(msg.EffectData) or {}
-      
-      if not battleId or not pokemonId or not abilityId then
-        return {
-          success = false,
-          error = "BattleId, PokemonId, and AbilityId are required"
-        }
-      end
-      
-      local battleState = initializeBattleAbilityState(battleId, pokemonId, abilityId)
-      battleState.activated = true
-      battleState.activationCount = battleState.activationCount + 1
-      battleState.lastActivatedTurn = turn
-      
-      -- Add persistent effect if provided
-      if effectData.type then
-        table.insert(battleState.persistentEffects, {
-          type = effectData.type,
-          value = effectData.value,
-          duration = effectData.duration or -1, -- -1 means permanent until removed
-          appliedTurn = turn
-        })
-      end
-      
-      return {
-        success = true,
-        battleId = battleId,
-        pokemonId = pokemonId,
-        abilityId = abilityId,
-        battleState = battleState,
-        updatedAt = turn
-      }
-    end)
+    local battleId = msg.BattleId
+    local pokemonId = tonumber(msg.PokemonId)
+    local abilityId = tonumber(msg.AbilityId)
+    local turn = tonumber(msg.Turn) or 0
+    local effectData = msg.EffectData and json.decode(msg.EffectData) or {}
     
-    if success then
+    if not battleId or not pokemonId or not abilityId then
       ao.send({
         Target = msg.From,
         Action = "BattleStateUpdated",
-        Data = json.encode(response),
-        BattleId = msg.BattleId or "",
+        Data = json.encode({success = false, error = "BattleId, PokemonId, and AbilityId are required"}),
+        Error = "BattleId, PokemonId, and AbilityId are required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "BattleStateUpdated",
-        Data = json.encode({success = false, error = response}),
-        Error = response,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
+      return
+    end
+    
+    local battleState = initializeBattleAbilityState(battleId, pokemonId, abilityId)
+    battleState.activated = true
+    battleState.activationCount = battleState.activationCount + 1
+    battleState.lastActivatedTurn = turn
+    
+    -- Add persistent effect if provided
+    if effectData.type then
+      table.insert(battleState.persistentEffects, {
+        type = effectData.type,
+        value = effectData.value,
+        duration = effectData.duration or -1, -- -1 means permanent until removed
+        appliedTurn = turn
       })
     end
+    
+    local response = {
+      success = true,
+      battleId = battleId,
+      pokemonId = pokemonId,
+      abilityId = abilityId,
+      battleState = battleState,
+      updatedAt = turn
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "BattleStateUpdated",
+      Data = json.encode(response),
+      BattleId = msg.BattleId or "",
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -668,50 +642,42 @@ Handlers.add("update-battle-ability-state",
 Handlers.add("cleanup-battle-state",
   Handlers.utils.hasMatchingTag("Action", "CleanupBattleState"),
   function(msg)
-    local success, response = pcall(function()
-      local battleId = msg.BattleId
-      
-      if not battleId then
-        return {
-          success = false,
-          error = "BattleId is required"
-        }
-      end
-      
-      local removedStates = 0
-      if BattleStates[battleId] then
-        for key, _ in pairs(BattleStates[battleId]) do
-          removedStates = removedStates + 1
-        end
-        BattleStates[battleId] = nil
-      end
-      
-      return {
-        success = true,
-        battleId = battleId,
-        removedStates = removedStates
-      }
-    end)
+    local battleId = msg.BattleId
     
-    if success then
+    if not battleId then
       ao.send({
         Target = msg.From,
         Action = "BattleStateCleanedUp",
-        Data = json.encode(response),
-        BattleId = msg.BattleId or "",
+        Data = json.encode({success = false, error = "BattleId is required"}),
+        Error = "BattleId is required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "BattleStateCleanedUp",
-        Data = json.encode({success = false, error = response}),
-        Error = response,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    local removedStates = 0
+    if BattleStates[battleId] then
+      for key, _ in pairs(BattleStates[battleId]) do
+        removedStates = removedStates + 1
+      end
+      BattleStates[battleId] = nil
+    end
+    
+    local response = {
+      success = true,
+      battleId = battleId,
+      removedStates = removedStates
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "BattleStateCleanedUp",
+      Data = json.encode(response),
+      BattleId = msg.BattleId or "",
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -719,69 +685,67 @@ Handlers.add("cleanup-battle-state",
 Handlers.add("get-battle-ability-state",
   Handlers.utils.hasMatchingTag("Action", "GetBattleAbilityState"),
   function(msg)
-    local success, response = pcall(function()
-      local battleId = msg.BattleId
-      local pokemonId = tonumber(msg.PokemonId)
-      local abilityId = tonumber(msg.AbilityId)
-      
-      if not battleId then
-        return {
-          success = false,
-          error = "BattleId is required"
-        }
-      end
-      
-      if pokemonId and abilityId then
-        -- Get specific ability state
-        local key = pokemonId .. "_" .. abilityId
-        local battleState = BattleStates[battleId] and BattleStates[battleId][key]
-        
-        if not battleState then
-          return {
-            success = false,
-            error = "Battle state not found for Pokemon " .. pokemonId .. " ability " .. abilityId
-          }
-        end
-        
-        return {
-          success = true,
-          battleId = battleId,
-          pokemonId = pokemonId,
-          abilityId = abilityId,
-          battleState = battleState
-        }
-      else
-        -- Get all battle states for this battle
-        local allStates = BattleStates[battleId] or {}
-        
-        return {
-          success = true,
-          battleId = battleId,
-          allStates = allStates,
-          stateCount = #allStates
-        }
-      end
-    end)
+    local battleId = msg.BattleId
+    local pokemonId = tonumber(msg.PokemonId)
+    local abilityId = tonumber(msg.AbilityId)
     
-    if success then
+    if not battleId then
       ao.send({
         Target = msg.From,
         Action = "BattleAbilityState",
-        Data = json.encode(response),
-        BattleId = msg.BattleId or "",
+        Data = json.encode({success = false, error = "BattleId is required"}),
+        Error = "BattleId is required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "BattleAbilityState",
-        Data = json.encode({success = false, error = response}),
-        Error = response,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    local response
+    if pokemonId and abilityId then
+      -- Get specific ability state
+      local key = pokemonId .. "_" .. abilityId
+      local battleState = BattleStates[battleId] and BattleStates[battleId][key]
+      
+      if not battleState then
+        ao.send({
+          Target = msg.From,
+          Action = "BattleAbilityState",
+          Data = json.encode({success = false, error = "Battle state not found for Pokemon " .. pokemonId .. " ability " .. abilityId}),
+          Error = "Battle state not found for Pokemon " .. pokemonId .. " ability " .. abilityId,
+          ProcessId = ao.id,
+          Timestamp = tostring(msg.Timestamp or 0)
+        })
+        return
+      end
+      
+      response = {
+        success = true,
+        battleId = battleId,
+        pokemonId = pokemonId,
+        abilityId = abilityId,
+        battleState = battleState
+      }
+    else
+      -- Get all battle states for this battle
+      local allStates = BattleStates[battleId] or {}
+      
+      response = {
+        success = true,
+        battleId = battleId,
+        allStates = allStates,
+        stateCount = #allStates
+      }
+    end
+    
+    ao.send({
+      Target = msg.From,
+      Action = "BattleAbilityState",
+      Data = json.encode(response),
+      BattleId = msg.BattleId or "",
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 

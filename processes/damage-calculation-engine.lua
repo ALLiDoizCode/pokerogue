@@ -369,106 +369,98 @@ Handlers.add(
     "CalculateFinalDamage",
     Handlers.utils.hasMatchingTag("Action", "CalculateFinalDamage"),
     function(msg)
-        local success, result = pcall(function()
-            -- Parse input parameters
-            local params = {}
-            if msg.Data and msg.Data ~= "" then
-                params = json.decode(msg.Data)
-            else
-                -- Extract from tags
-                params = {
-                    attackerLevel = tonumber(msg.AttackerLevel) or tonumber(msg.Level),
-                    movePower = tonumber(msg.MovePower) or tonumber(msg.Power),
-                    attackStat = tonumber(msg.AttackStat) or tonumber(msg.Attack),
-                    defenseStat = tonumber(msg.DefenseStat) or tonumber(msg.Defense),
-                    moveType = tonumber(msg.MoveType),
-                    defenderTypes = msg.DefenderTypes and json.decode(msg.DefenderTypes) or {tonumber(msg.DefenderType)},
-                    pokemonTypes = msg.PokemonTypes and json.decode(msg.PokemonTypes) or {},
-                    isCritical = msg.IsCritical == "true",
-                    weather = msg.Weather,
-                    terrain = msg.Terrain,
-                    hasAdaptability = msg.HasAdaptability == "true",
-                    battleId = msg.BattleId,
-                    battleSeed = msg.BattleSeed
-                }
-            end
-            
-            -- Validate parameters
-            local valid, error = validateDamageParams(params)
-            if not valid then
-                return {
-                    success = false,
-                    error = error
-                }
-            end
-            
-            -- Calculate base damage
-            local baseDamage = calculateBaseDamage(
-                params.attackerLevel,
-                params.movePower,
-                params.attackStat,
-                params.defenseStat
-            )
-            
-            -- Calculate type effectiveness
-            local typeEffectiveness = calculateTypeEffectiveness(params.moveType, params.defenderTypes)
-            
-            -- Calculate critical hit
-            local isCrit, critMultiplier = calculateCriticalHit(params.isCritical)
-            
-            -- Calculate STAB
-            local stabMultiplier = calculateSTAB(params.moveType, params.pokemonTypes or {}, params.hasAdaptability)
-            
-            -- Calculate weather/terrain modifier
-            local weatherModifier = calculateWeatherModifier(params.moveType, params.weather, params.terrain)
-            
-            -- Apply all multipliers
-            local finalDamage = baseDamage * typeEffectiveness * critMultiplier * stabMultiplier * weatherModifier
-            
-            -- Apply damage variance
-            if not params.simulated then
-                finalDamage = calculateDamageVariance(finalDamage, params.battleSeed)
-            end
-            
-            -- Ensure minimum 1 damage if move is not completely ineffective
-            if finalDamage > 0 and finalDamage < 1 then
-                finalDamage = 1
-            end
-            
-            return {
-                success = true,
-                finalDamage = math.floor(finalDamage),
-                damageBreakdown = {
-                    baseDamage = baseDamage,
-                    typeEffectiveness = typeEffectiveness,
-                    criticalHit = isCrit,
-                    criticalMultiplier = critMultiplier,
-                    stabMultiplier = stabMultiplier,
-                    weatherModifier = weatherModifier,
-                    appliedVariance = not params.simulated
-                },
-                battleId = params.battleId,
-                timestamp = msg.Timestamp
-            }
-        end)
-        
-        if success then
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Data = json.encode(result),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+        -- Parse input parameters
+        local params = {}
+        if msg.Data and msg.Data ~= "" then
+            params = json.decode(msg.Data)
         else
+            -- Extract from tags
+            params = {
+                attackerLevel = tonumber(msg.AttackerLevel) or tonumber(msg.Level),
+                movePower = tonumber(msg.MovePower) or tonumber(msg.Power),
+                attackStat = tonumber(msg.AttackStat) or tonumber(msg.Attack),
+                defenseStat = tonumber(msg.DefenseStat) or tonumber(msg.Defense),
+                moveType = tonumber(msg.MoveType),
+                defenderTypes = msg.DefenderTypes and json.decode(msg.DefenderTypes) or {tonumber(msg.DefenderType)},
+                pokemonTypes = msg.PokemonTypes and json.decode(msg.PokemonTypes) or {},
+                isCritical = msg.IsCritical == "true",
+                weather = msg.Weather,
+                terrain = msg.Terrain,
+                hasAdaptability = msg.HasAdaptability == "true",
+                battleId = msg.BattleId,
+                battleSeed = msg.BattleSeed
+            }
+        end
+        
+        -- Validate parameters
+        local valid, error = validateDamageParams(params)
+        if not valid then
             ao.send({
                 Target = msg.From,
                 Action = "SaveState",
-                Error = tostring(result),
+                Error = error,
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+        
+        -- Calculate base damage
+        local baseDamage = calculateBaseDamage(
+            params.attackerLevel,
+            params.movePower,
+            params.attackStat,
+            params.defenseStat
+        )
+        
+        -- Calculate type effectiveness
+        local typeEffectiveness = calculateTypeEffectiveness(params.moveType, params.defenderTypes)
+        
+        -- Calculate critical hit
+        local isCrit, critMultiplier = calculateCriticalHit(params.isCritical)
+        
+        -- Calculate STAB
+        local stabMultiplier = calculateSTAB(params.moveType, params.pokemonTypes or {}, params.hasAdaptability)
+        
+        -- Calculate weather/terrain modifier
+        local weatherModifier = calculateWeatherModifier(params.moveType, params.weather, params.terrain)
+        
+        -- Apply all multipliers
+        local finalDamage = baseDamage * typeEffectiveness * critMultiplier * stabMultiplier * weatherModifier
+        
+        -- Apply damage variance
+        if not params.simulated then
+            finalDamage = calculateDamageVariance(finalDamage, params.battleSeed)
+        end
+        
+        -- Ensure minimum 1 damage if move is not completely ineffective
+        if finalDamage > 0 and finalDamage < 1 then
+            finalDamage = 1
+        end
+        
+        local result = {
+            success = true,
+            finalDamage = math.floor(finalDamage),
+            damageBreakdown = {
+                baseDamage = baseDamage,
+                typeEffectiveness = typeEffectiveness,
+                criticalHit = isCrit,
+                criticalMultiplier = critMultiplier,
+                stabMultiplier = stabMultiplier,
+                weatherModifier = weatherModifier,
+                appliedVariance = not params.simulated
+            },
+            battleId = params.battleId,
+            timestamp = msg.Timestamp
+        }
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -477,45 +469,40 @@ Handlers.add(
     "CalculateBaseDamage",
     Handlers.utils.hasMatchingTag("Action", "CalculateBaseDamage"),
     function(msg)
-        local success, result = pcall(function()
-            local level = tonumber(msg.Level) or tonumber(msg.AttackerLevel)
-            local power = tonumber(msg.Power) or tonumber(msg.MovePower)
-            local attack = tonumber(msg.Attack) or tonumber(msg.AttackStat)
-            local defense = tonumber(msg.Defense) or tonumber(msg.DefenseStat)
-            
-            if not level or not power or not attack or not defense then
-                error("Missing required parameters: Level, Power, Attack, Defense")
-            end
-            
-            local baseDamage = calculateBaseDamage(level, power, attack, defense)
-            
-            return {
-                success = true,
-                baseDamage = baseDamage,
-                level = level,
-                power = power,
-                attack = attack,
-                defense = defense
-            }
-        end)
+        local level = tonumber(msg.Level) or tonumber(msg.AttackerLevel)
+        local power = tonumber(msg.Power) or tonumber(msg.MovePower)
+        local attack = tonumber(msg.Attack) or tonumber(msg.AttackStat)
+        local defense = tonumber(msg.Defense) or tonumber(msg.DefenseStat)
         
-        if success then
+        if not level or not power or not attack or not defense then
             ao.send({
                 Target = msg.From,
                 Action = "SaveState",
-                Data = json.encode(result),
+                Error = "Missing required parameters: Level, Power, Attack, Defense",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Error = tostring(result),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+            return
         end
+        
+        local baseDamage = calculateBaseDamage(level, power, attack, defense)
+        
+        local result = {
+            success = true,
+            baseDamage = baseDamage,
+            level = level,
+            power = power,
+            attack = attack,
+            defense = defense
+        }
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -524,44 +511,36 @@ Handlers.add(
     "CalculateTypeEffectiveness",
     Handlers.utils.hasMatchingTag("Action", "CalculateTypeEffectiveness"),
     function(msg)
-        local success, result = pcall(function()
-            local moveType = tonumber(msg.MoveType)
-            local defenderTypes = msg.DefenderTypes and json.decode(msg.DefenderTypes) or {tonumber(msg.DefenderType)}
-            
-            if not moveType or not defenderTypes then
-                return {
-                    success = false,
-                    error = "Missing required parameters: MoveType, DefenderTypes"
-                }
-            end
-            
-            local effectiveness = calculateTypeEffectiveness(moveType, defenderTypes)
-            
-            return {
-                success = true,
-                effectiveness = effectiveness,
-                moveType = moveType,
-                defenderTypes = defenderTypes
-            }
-        end)
+        local moveType = tonumber(msg.MoveType)
+        local defenderTypes = msg.DefenderTypes and json.decode(msg.DefenderTypes) or {tonumber(msg.DefenderType)}
         
-        if success then
+        if not moveType or not defenderTypes then
             ao.send({
                 Target = msg.From,
                 Action = "SaveState",
-                Data = json.encode(result),
+                Error = "Missing required parameters: MoveType, DefenderTypes",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Error = tostring(result),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+            return
         end
+        
+        local effectiveness = calculateTypeEffectiveness(moveType, defenderTypes)
+        
+        local result = {
+            success = true,
+            effectiveness = effectiveness,
+            moveType = moveType,
+            defenderTypes = defenderTypes
+        }
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 

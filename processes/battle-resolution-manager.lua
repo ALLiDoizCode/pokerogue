@@ -50,21 +50,7 @@ local function validateBattleInput(msg, requiredFields)
     return true, nil
 end
 
--- Handler wrapper function with pcall error handling
-local function safeHandler(handlerFn)
-    return function(msg)
-        local success, result = pcall(handlerFn, msg)
-        if not success then
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Error = "Handler execution failed: " .. tostring(result),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
-        end
-    end
-end
+-- Removed unnecessary safeHandler wrapper - AO processes should fail fast with clear errors
 
 local function calculateExperienceValue(baseExp, level)
     -- Exact TypeScript formula: (baseExp * level) / 5 + 1
@@ -85,81 +71,69 @@ Handlers.add(
     "detect-battle-outcome",
     Handlers.utils.hasMatchingTag("Action", "DetectBattleOutcome"),
     function(msg)
-        local success, result = pcall(function()
-            local valid, error_msg = validateBattleInput(msg, {"BattleId", "PlayerParty", "EnemyParty"})
-            if not valid then
-                ao.send({
-                    Target = msg.From,
-                    Action = "SaveState",
-                    Error = error_msg,
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                })
-                return
-            end
-
-            local battleId = msg.Tags.BattleId or msg.BattleId
-            local playerPartyData = json.decode(msg.Data or msg.Tags.PlayerParty or "{}")
-            local enemyPartyData = json.decode(msg.Tags.EnemyParty or msg.Tags.EnemyData or "{}")
-
-            -- Count non-fainted Pokemon for each side
-            local playerAlivePokemon = 0
-            local enemyAlivePokemon = 0
-
-            for _, pokemon in ipairs(playerPartyData) do
-                if pokemon.hp and pokemon.hp > 0 then
-                    playerAlivePokemon = playerAlivePokemon + 1
-                end
-            end
-
-            for _, pokemon in ipairs(enemyPartyData) do
-                if pokemon.hp and pokemon.hp > 0 then
-                    enemyAlivePokemon = enemyAlivePokemon + 1
-                end
-            end
-
-            -- Determine battle outcome
-            local battleOutcome = "ongoing"
-            local outcomeTrigger = "battle_continues"
-
-            if playerAlivePokemon == 0 and enemyAlivePokemon > 0 then
-                battleOutcome = "defeat"
-                outcomeTrigger = "player_party_fainted"
-            elseif enemyAlivePokemon == 0 and playerAlivePokemon > 0 then
-                battleOutcome = "victory" 
-                outcomeTrigger = "enemy_party_defeated"
-            elseif playerAlivePokemon == 0 and enemyAlivePokemon == 0 then
-                battleOutcome = "draw"
-                outcomeTrigger = "both_parties_fainted"
-            end
-
+        local valid, error_msg = validateBattleInput(msg, {"BattleId", "PlayerParty", "EnemyParty"})
+        if not valid then
             ao.send({
                 Target = msg.From,
                 Action = "SaveState",
-                Data = json.encode({
-                    battleOutcome = battleOutcome,
-                    outcomeTrigger = outcomeTrigger,
-                    playerAlivePokemon = playerAlivePokemon,
-                    enemyAlivePokemon = enemyAlivePokemon,
-                    participantResults = {
-                        playerParty = playerPartyData,
-                        enemyParty = enemyPartyData
-                    }
-                }),
+                Error = error_msg,
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
-        end)
-        
-        if not success then
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Error = "Handler execution failed: " .. tostring(result),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+            return
         end
+
+        local battleId = msg.Tags.BattleId or msg.BattleId
+        local playerPartyData = json.decode(msg.Data or msg.Tags.PlayerParty or "{}")
+        local enemyPartyData = json.decode(msg.Tags.EnemyParty or msg.Tags.EnemyData or "{}")
+
+        -- Count non-fainted Pokemon for each side
+        local playerAlivePokemon = 0
+        local enemyAlivePokemon = 0
+
+        for _, pokemon in ipairs(playerPartyData) do
+            if pokemon.hp and pokemon.hp > 0 then
+                playerAlivePokemon = playerAlivePokemon + 1
+            end
+        end
+
+        for _, pokemon in ipairs(enemyPartyData) do
+            if pokemon.hp and pokemon.hp > 0 then
+                enemyAlivePokemon = enemyAlivePokemon + 1
+            end
+        end
+
+        -- Determine battle outcome
+        local battleOutcome = "ongoing"
+        local outcomeTrigger = "battle_continues"
+
+        if playerAlivePokemon == 0 and enemyAlivePokemon > 0 then
+            battleOutcome = "defeat"
+            outcomeTrigger = "player_party_fainted"
+        elseif enemyAlivePokemon == 0 and playerAlivePokemon > 0 then
+            battleOutcome = "victory" 
+            outcomeTrigger = "enemy_party_defeated"
+        elseif playerAlivePokemon == 0 and enemyAlivePokemon == 0 then
+            battleOutcome = "draw"
+            outcomeTrigger = "both_parties_fainted"
+        end
+
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                battleOutcome = battleOutcome,
+                outcomeTrigger = outcomeTrigger,
+                playerAlivePokemon = playerAlivePokemon,
+                enemyAlivePokemon = enemyAlivePokemon,
+                participantResults = {
+                    playerParty = playerPartyData,
+                    enemyParty = enemyPartyData
+                }
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 

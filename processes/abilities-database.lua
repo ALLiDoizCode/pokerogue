@@ -126,20 +126,14 @@ local function handleMessage(message, processId, queryHandler)
         return createErrorResponse(rateLimitError, processId)
     end
     
-    local success, result = pcall(function()
-        return queryHandler(message)
-    end)
+    local result = queryHandler(message)
     
-    if success then
-        -- Determine response type based on action
-        local responseType = nil
-        if message.Action == "GetAbility" then
-            responseType = "single_ability"
-        end
-        return createSuccessResponse(result, processId, responseType)
-    else
-        return createErrorResponse("Query processing failed: " .. tostring(result), processId)
+    -- Determine response type based on action
+    local responseType = nil
+    if message.Action == "GetAbility" then
+        responseType = "single_ability"
     end
+    return createSuccessResponse(result, processId, responseType)
 end
 
 -- Query optimization utilities
@@ -679,73 +673,61 @@ end
 Handlers.add("info",
     Handlers.utils.hasMatchingTag("Action", "Info"),
     function(msg)
-        local success, result = pcall(function()
-            local abilityCount = 0
-            local triggerCount = 0
-            local effectTypes = {}
-            
-            for _ in pairs(AbilitiesDB) do
-                abilityCount = abilityCount + 1
-            end
-            
-            for trigger in pairs(triggerIndex) do
-                triggerCount = triggerCount + 1
-            end
-            
-            for _, ability in pairs(AbilitiesDB) do
-                effectTypes[ability.eff] = true
-            end
-            
-            local effectTypeCount = 0
-            for _ in pairs(effectTypes) do
-                effectTypeCount = effectTypeCount + 1
-            end
-            
-            return {
-                process = PROCESS_METADATA,
-                handlers = PROCESS_METADATA.capabilities,
-                documentation = {
-                    adpCompliance = "v1.0",
-                    selfDocumenting = true,
-                    performanceTarget = "sub-100ms",
-                    rateLimiting = {
-                        enabled = true,
-                        limit = RATE_LIMIT_MAX,
-                        window = "per-minute"
-                    }
-                },
-                statistics = {
-                    abilityCount = abilityCount,
-                    triggerTypeCount = triggerCount,
-                    effectTypeCount = effectTypeCount,
-                    indexesBuilt = 3,
-                    embeddedData = true
-                },
-                constants = {
-                    ABILITY = "Embedded ability ID constants",
-                    TRIGGER_TYPE = "Trigger condition types",
-                    EFFECT_TYPE = "Effect mechanism types"
-                }
-            }
-        end)
+        local abilityCount = 0
+        local triggerCount = 0
+        local effectTypes = {}
         
-        if success then
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Data = result,
-                ProcessId = PROCESS_ID,
-                Timestamp = tostring(msg and msg.Timestamp or 0)
-            })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Error = "Info query failed: " .. tostring(result),
-                ProcessId = PROCESS_ID,
-                Timestamp = tostring(msg and msg.Timestamp or 0)
-            })
+        for _ in pairs(AbilitiesDB) do
+            abilityCount = abilityCount + 1
         end
+        
+        for trigger in pairs(triggerIndex) do
+            triggerCount = triggerCount + 1
+        end
+        
+        for _, ability in pairs(AbilitiesDB) do
+            effectTypes[ability.eff] = true
+        end
+        
+        local effectTypeCount = 0
+        for _ in pairs(effectTypes) do
+            effectTypeCount = effectTypeCount + 1
+        end
+        
+        local result = {
+            process = PROCESS_METADATA,
+            handlers = PROCESS_METADATA.capabilities,
+            documentation = {
+                adpCompliance = "v1.0",
+                selfDocumenting = true,
+                performanceTarget = "sub-100ms",
+                rateLimiting = {
+                    enabled = true,
+                    limit = RATE_LIMIT_MAX,
+                    window = "per-minute"
+                }
+            },
+            statistics = {
+                abilityCount = abilityCount,
+                triggerTypeCount = triggerCount,
+                effectTypeCount = effectTypeCount,
+                indexesBuilt = 3,
+                embeddedData = true
+            },
+            constants = {
+                ABILITY = "Embedded ability ID constants",
+                TRIGGER_TYPE = "Trigger condition types",
+                EFFECT_TYPE = "Effect mechanism types"
+            }
+        }
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = result,
+            ProcessId = PROCESS_ID,
+            Timestamp = tostring(msg and msg.Timestamp or 0)
+        })
     end
 )
 
@@ -861,47 +843,35 @@ Handlers.add("get-ability-activation",
 Handlers.add("health-check",
     Handlers.utils.hasMatchingTag("Action", "HealthCheck"),
     function(msg)
-        local success, result = pcall(function()
-            local abilityCount = 0
-            local triggerCount = 0
-            
-            for _ in pairs(AbilitiesDB) do
-                abilityCount = abilityCount + 1
-            end
-            
-            for _ in pairs(triggerIndex) do
-                triggerCount = triggerCount + 1
-            end
-            
-            return {
-                status = "healthy",
-                processId = PROCESS_ID,
-                abilityCount = abilityCount,
-                triggerTypes = triggerCount,
-                mechanicsLoaded = true,
-                version = "1.0",
-                adpCompliant = true,
-                adpVersion = "1.0"
-            }
-        end)
+        local abilityCount = 0
+        local triggerCount = 0
         
-        if success then
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Data = result,
-                ProcessId = PROCESS_ID,
-                Timestamp = tostring(msg and msg.Timestamp or 0)
-            })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Error = "Health check failed: " .. tostring(result),
-                ProcessId = PROCESS_ID,
-                Timestamp = tostring(msg and msg.Timestamp or 0)
-            })
+        for _ in pairs(AbilitiesDB) do
+            abilityCount = abilityCount + 1
         end
+        
+        for _ in pairs(triggerIndex) do
+            triggerCount = triggerCount + 1
+        end
+        
+        local result = {
+            status = "healthy",
+            processId = PROCESS_ID,
+            abilityCount = abilityCount,
+            triggerTypes = triggerCount,
+            mechanicsLoaded = true,
+            version = "1.0",
+            adpCompliant = true,
+            adpVersion = "1.0"
+        }
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = result,
+            ProcessId = PROCESS_ID,
+            Timestamp = tostring(msg and msg.Timestamp or 0)
+        })
     end
 )
 

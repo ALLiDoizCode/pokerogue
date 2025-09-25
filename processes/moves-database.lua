@@ -550,20 +550,14 @@ local function handleMessage(message, processId, queryHandler)
         return createErrorResponse(rateLimitError, processId)
     end
     
-    local success, result = pcall(function()
-        return queryHandler(message)
-    end)
+    local result = queryHandler(message)
     
-    if success then
-        -- Determine response type based on action
-        local responseType = nil
-        if message.Action == "GetMove" then
-            responseType = "single_move"
-        end
-        return createSuccessResponse(result, processId, responseType)
-    else
-        return createErrorResponse("Query processing failed: " .. tostring(result), processId)
+    -- Determine response type based on action
+    local responseType = nil
+    if message.Action == "GetMove" then
+        responseType = "single_move"
     end
+    return createSuccessResponse(result, processId, responseType)
 end
 
 -- ============================================================================

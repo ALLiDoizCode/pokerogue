@@ -198,76 +198,66 @@ end
 Handlers.add("set-terrain",
     Handlers.utils.hasMatchingTag("Action", "SetTerrain"),
     function(msg)
-        local success, response = pcall(function()
-            local data = json.decode(msg.Data or "{}")
-            local terrainType = data.parameters and data.parameters.terrainType
-            local duration = data.parameters and data.parameters.duration or 5
-            local overwrite = data.parameters and data.parameters.overwrite or true
-            
-            -- Validate terrain type
-            local terrainTypeNum = TerrainType[terrainType]
-            if not terrainTypeNum then
-                return {
-                    Target = msg.From,
-                    Action = "Error",
-                    Error = "Invalid terrain type: " .. tostring(terrainType)
-                }
-            end
-            
-            -- Handle terrain overwrite logic
-            if TerrainState.isActive and not overwrite then
-                return {
-                    Target = msg.From,
-                    Action = "SaveState",
-                    Data = json.encode({
-                        success = false,
-                        message = "Terrain already active and overwrite disabled",
-                        terrain = {
-                            terrainType = terrainType,
-                            turnsLeft = TerrainState.turnsLeft,
-                            isActive = TerrainState.isActive
-                        }
-                    }),
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-            
-            -- Set new terrain
-            TerrainState.currentTerrain = terrainTypeNum
-            TerrainState.turnsLeft = (terrainTypeNum == TerrainType.NONE) and 0 or duration
-            TerrainState.isActive = (terrainTypeNum ~= TerrainType.NONE)
-            
-            local message = getTerrainMessage(terrainTypeNum, "start")
-            
-            return {
+        local data = json.decode(msg.Data or "{}")
+        local terrainType = data.parameters and data.parameters.terrainType
+        local duration = data.parameters and data.parameters.duration or 5
+        local overwrite = data.parameters and data.parameters.overwrite or true
+        
+        -- Validate terrain type
+        local terrainTypeNum = TerrainType[terrainType]
+        if not terrainTypeNum then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "Invalid terrain type: " .. tostring(terrainType),
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        -- Handle terrain overwrite logic
+        if TerrainState.isActive and not overwrite then
+            ao.send({
                 Target = msg.From,
                 Action = "SaveState",
                 Data = json.encode({
-                    success = true,
+                    success = false,
+                    message = "Terrain already active and overwrite disabled",
                     terrain = {
                         terrainType = terrainType,
                         turnsLeft = TerrainState.turnsLeft,
                         isActive = TerrainState.isActive
-                    },
-                    messages = {message}
+                    }
                 }),
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
-        
-        if success then
-            ao.send(response)
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+        
+        -- Set new terrain
+        TerrainState.currentTerrain = terrainTypeNum
+        TerrainState.turnsLeft = (terrainTypeNum == TerrainType.NONE) and 0 or duration
+        TerrainState.isActive = (terrainTypeNum ~= TerrainType.NONE)
+        
+        local message = getTerrainMessage(terrainTypeNum, "start")
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                success = true,
+                terrain = {
+                    terrainType = terrainType,
+                    turnsLeft = TerrainState.turnsLeft,
+                    isActive = TerrainState.isActive
+                },
+                messages = {message}
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -275,151 +265,17 @@ Handlers.add("set-terrain",
 Handlers.add("process-terrain-turn",
     Handlers.utils.hasMatchingTag("Action", "ProcessTerrainTurn"),
     function(msg)
-        local success, response = pcall(function()
-            local data = json.decode(msg.Data or "{}")
-            local gameState = data.gameState or {}
-            local battle = gameState.battle or {}
-            local playerParty = battle.playerParty or {}
-            local enemyParty = battle.enemyParty or {}
-            
-            local messages = {}
-            local healingResults = {}
-            
-            if not TerrainState.isActive then
-                return {
-                    Target = msg.From,
-                    Action = "SaveState",
-                    Data = json.encode({
-                        success = true,
-                        terrain = {
-                            terrainType = "NONE",
-                            turnsLeft = 0,
-                            isActive = false
-                        },
-                        effects = {},
-                        messages = {}
-                    }),
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-            
-            -- Generate lapse message
-            local lapseMessage = getTerrainMessage(TerrainState.currentTerrain, "lapse")
-            if lapseMessage ~= "" then
-                table.insert(messages, lapseMessage)
-            end
-            
-            -- Handle Grassy Terrain healing
-            if TerrainState.currentTerrain == TerrainType.GRASSY then
-                local allPokemon = {}
-                
-                -- Add player party Pokemon
-                for _, pokemon in ipairs(playerParty) do
-                    table.insert(allPokemon, pokemon)
-                end
-                
-                -- Add enemy party Pokemon
-                for _, pokemon in ipairs(enemyParty) do
-                    table.insert(allPokemon, pokemon)
-                end
-                
-                -- Apply healing to grounded Pokemon
-                for _, pokemon in ipairs(allPokemon) do
-                    if pokemon.isActive and pokemon.currentHP > 0 and isGrounded(pokemon) then
-                        local healAmount = math.floor(pokemon.maxHP / 16) -- 1/16 max HP healing
-                        if healAmount > 0 then
-                            local healMessage = getTerrainMessage(TerrainState.currentTerrain, "heal", pokemon.name)
-                            table.insert(messages, healMessage)
-                            
-                            table.insert(healingResults, {
-                                pokemonId = pokemon.id,
-                                healAmount = healAmount,
-                                terrainType = TerrainState.currentTerrain
-                            })
-                        end
-                    end
-                end
-            end
-            
-            -- Handle turn counting
-            if TerrainState.turnsLeft > 0 then
-                TerrainState.turnsLeft = TerrainState.turnsLeft - 1
-                
-                if TerrainState.turnsLeft <= 0 then
-                    local clearMessage = getTerrainMessage(TerrainState.currentTerrain, "clear")
-                    if clearMessage ~= "" then
-                        table.insert(messages, clearMessage)
-                    end
-                    
-                    TerrainState.currentTerrain = TerrainType.NONE
-                    TerrainState.isActive = false
-                    TerrainState.turnsLeft = 0
-                end
-            end
-            
-            -- Determine terrain type name
-            local terrainTypeName = "NONE"
-            for name, value in pairs(TerrainType) do
-                if value == TerrainState.currentTerrain then
-                    terrainTypeName = name
-                    break
-                end
-            end
-            
-            return {
-                Target = msg.From,
-                Action = "SaveState",
-                Data = json.encode({
-                    success = true,
-                    terrain = {
-                        terrainType = terrainTypeName,
-                        turnsLeft = TerrainState.turnsLeft,
-                        isActive = TerrainState.isActive
-                    },
-                    effects = {
-                        healingDealt = healingResults
-                    },
-                    messages = messages
-                }),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
+        local data = json.decode(msg.Data or "{}")
+        local gameState = data.gameState or {}
+        local battle = gameState.battle or {}
+        local playerParty = battle.playerParty or {}
+        local enemyParty = battle.enemyParty or {}
         
-        if success then
-            ao.send(response)
-        else
+        local messages = {}
+        local healingResults = {}
+        
+        if not TerrainState.isActive then
             ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
-        end
-    end
-)
-
--- Handler: Clear Terrain
-Handlers.add("clear-terrain",
-    Handlers.utils.hasMatchingTag("Action", "ClearTerrain"),
-    function(msg)
-        local success, response = pcall(function()
-            local messages = {}
-            
-            if TerrainState.isActive then
-                local clearMessage = getTerrainMessage(TerrainState.currentTerrain, "clear")
-                if clearMessage ~= "" then
-                    table.insert(messages, clearMessage)
-                end
-            end
-            
-            TerrainState.currentTerrain = TerrainType.NONE
-            TerrainState.turnsLeft = 0
-            TerrainState.isActive = false
-            
-            return {
                 Target = msg.From,
                 Action = "SaveState",
                 Data = json.encode({
@@ -429,24 +285,131 @@ Handlers.add("clear-terrain",
                         turnsLeft = 0,
                         isActive = false
                     },
-                    messages = messages
+                    effects = {},
+                    messages = {}
                 }),
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
-        
-        if success then
-            ao.send(response)
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+        
+        -- Generate lapse message
+        local lapseMessage = getTerrainMessage(TerrainState.currentTerrain, "lapse")
+        if lapseMessage ~= "" then
+            table.insert(messages, lapseMessage)
+        end
+        
+        -- Handle Grassy Terrain healing
+        if TerrainState.currentTerrain == TerrainType.GRASSY then
+            local allPokemon = {}
+            
+            -- Add player party Pokemon
+            for _, pokemon in ipairs(playerParty) do
+                table.insert(allPokemon, pokemon)
+            end
+            
+            -- Add enemy party Pokemon
+            for _, pokemon in ipairs(enemyParty) do
+                table.insert(allPokemon, pokemon)
+            end
+            
+            -- Apply healing to grounded Pokemon
+            for _, pokemon in ipairs(allPokemon) do
+                if pokemon.isActive and pokemon.currentHP > 0 and isGrounded(pokemon) then
+                    local healAmount = math.floor(pokemon.maxHP / 16) -- 1/16 max HP healing
+                    if healAmount > 0 then
+                        local healMessage = getTerrainMessage(TerrainState.currentTerrain, "heal", pokemon.name)
+                        table.insert(messages, healMessage)
+                        
+                        table.insert(healingResults, {
+                            pokemonId = pokemon.id,
+                            healAmount = healAmount,
+                            terrainType = TerrainState.currentTerrain
+                        })
+                    end
+                end
+            end
+        end
+        
+        -- Handle turn counting
+        if TerrainState.turnsLeft > 0 then
+            TerrainState.turnsLeft = TerrainState.turnsLeft - 1
+            
+            if TerrainState.turnsLeft <= 0 then
+                local clearMessage = getTerrainMessage(TerrainState.currentTerrain, "clear")
+                if clearMessage ~= "" then
+                    table.insert(messages, clearMessage)
+                end
+                
+                TerrainState.currentTerrain = TerrainType.NONE
+                TerrainState.isActive = false
+                TerrainState.turnsLeft = 0
+            end
+        end
+        
+        -- Determine terrain type name
+        local terrainTypeName = "NONE"
+        for name, value in pairs(TerrainType) do
+            if value == TerrainState.currentTerrain then
+                terrainTypeName = name
+                break
+            end
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                success = true,
+                terrain = {
+                    terrainType = terrainTypeName,
+                    turnsLeft = TerrainState.turnsLeft,
+                    isActive = TerrainState.isActive
+                },
+                effects = {
+                    healingDealt = healingResults
+                },
+                messages = messages
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
+    end
+)
+
+-- Handler: Clear Terrain
+Handlers.add("clear-terrain",
+    Handlers.utils.hasMatchingTag("Action", "ClearTerrain"),
+    function(msg)
+        local messages = {}
+        
+        if TerrainState.isActive then
+            local clearMessage = getTerrainMessage(TerrainState.currentTerrain, "clear")
+            if clearMessage ~= "" then
+                table.insert(messages, clearMessage)
+            end
+        end
+        
+        TerrainState.currentTerrain = TerrainType.NONE
+        TerrainState.turnsLeft = 0
+        TerrainState.isActive = false
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                success = true,
+                terrain = {
+                    terrainType = "NONE",
+                    turnsLeft = 0,
+                    isActive = false
+                },
+                messages = messages
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -454,91 +417,77 @@ Handlers.add("clear-terrain",
 Handlers.add("get-terrain-info",
     Handlers.utils.hasMatchingTag("Action", "GetTerrainInfo"),
     function(msg)
-        local success, response = pcall(function()
-            local data = json.decode(msg.Data or "{}")
-            local parameters = data.parameters or {}
-            local moveType = parameters.moveType
-            local moveData = parameters.moveData or {}
-            local targetPokemon = parameters.targetPokemon
-            local pokemon = parameters.pokemon -- For ability checking
-            
-            -- Determine terrain type name
-            local terrainTypeName = "NONE"
-            for name, value in pairs(TerrainType) do
-                if value == TerrainState.currentTerrain then
-                    terrainTypeName = name
-                    break
-                end
-            end
-            
-            local effects = {}
-            local terrainSuppressed = false
-            
-            -- Check if terrain effects are suppressed by abilities
-            if pokemon and hasTerrainSuppressionAbility(pokemon) then
-                terrainSuppressed = true
-                effects.terrainSuppressed = true
-                effects.suppressionMessage = pokemon.name .. "'s ability nullifies terrain effects!"
-            end
-            
-            -- Calculate move effects if move info provided and terrain not suppressed
-            if moveType and TerrainState.isActive and not terrainSuppressed then
-                local moveTypeNum = Type[moveType]
-                
-                if moveTypeNum then
-                    effects.typeMultiplier = getTerrainTypeMultiplier(moveTypeNum, TerrainState.currentTerrain)
-                    
-                    -- Check move blocking for Psychic terrain
-                    if targetPokemon then
-                        effects.moveBlocked = isMoveBlocked(moveData, targetPokemon, TerrainState.currentTerrain)
-                        if effects.moveBlocked then
-                            effects.blockMessage = getTerrainMessage(TerrainState.currentTerrain, "block", targetPokemon.name)
-                        end
-                    end
-                    
-                    -- Check status prevention for Misty terrain
-                    if parameters.statusCondition and targetPokemon then
-                        effects.statusPrevented = canPreventStatus(parameters.statusCondition, targetPokemon, TerrainState.currentTerrain)
-                        if effects.statusPrevented then
-                            effects.preventMessage = getTerrainMessage(TerrainState.currentTerrain, "prevent", targetPokemon.name)
-                        end
-                    end
-                end
-            elseif terrainSuppressed then
-                -- Terrain suppressed, so no effects apply
-                effects.typeMultiplier = 1.0
-                effects.moveBlocked = false
-                effects.statusPrevented = false
-            end
-            
-            return {
-                Target = msg.From,
-                Action = "SaveState",
-                Data = json.encode({
-                    success = true,
-                    terrain = {
-                        terrainType = terrainTypeName,
-                        turnsLeft = TerrainState.turnsLeft,
-                        isActive = TerrainState.isActive
-                    },
-                    effects = effects
-                }),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
+        local data = json.decode(msg.Data or "{}")
+        local parameters = data.parameters or {}
+        local moveType = parameters.moveType
+        local moveData = parameters.moveData or {}
+        local targetPokemon = parameters.targetPokemon
+        local pokemon = parameters.pokemon -- For ability checking
         
-        if success then
-            ao.send(response)
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+        -- Determine terrain type name
+        local terrainTypeName = "NONE"
+        for name, value in pairs(TerrainType) do
+            if value == TerrainState.currentTerrain then
+                terrainTypeName = name
+                break
+            end
         end
+        
+        local effects = {}
+        local terrainSuppressed = false
+        
+        -- Check if terrain effects are suppressed by abilities
+        if pokemon and hasTerrainSuppressionAbility(pokemon) then
+            terrainSuppressed = true
+            effects.terrainSuppressed = true
+            effects.suppressionMessage = pokemon.name .. "'s ability nullifies terrain effects!"
+        end
+        
+        -- Calculate move effects if move info provided and terrain not suppressed
+        if moveType and TerrainState.isActive and not terrainSuppressed then
+            local moveTypeNum = Type[moveType]
+            
+            if moveTypeNum then
+                effects.typeMultiplier = getTerrainTypeMultiplier(moveTypeNum, TerrainState.currentTerrain)
+                
+                -- Check move blocking for Psychic terrain
+                if targetPokemon then
+                    effects.moveBlocked = isMoveBlocked(moveData, targetPokemon, TerrainState.currentTerrain)
+                    if effects.moveBlocked then
+                        effects.blockMessage = getTerrainMessage(TerrainState.currentTerrain, "block", targetPokemon.name)
+                    end
+                end
+                
+                -- Check status prevention for Misty terrain
+                if parameters.statusCondition and targetPokemon then
+                    effects.statusPrevented = canPreventStatus(parameters.statusCondition, targetPokemon, TerrainState.currentTerrain)
+                    if effects.statusPrevented then
+                        effects.preventMessage = getTerrainMessage(TerrainState.currentTerrain, "prevent", targetPokemon.name)
+                    end
+                end
+            end
+        elseif terrainSuppressed then
+            -- Terrain suppressed, so no effects apply
+            effects.typeMultiplier = 1.0
+            effects.moveBlocked = false
+            effects.statusPrevented = false
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                success = true,
+                terrain = {
+                    terrainType = terrainTypeName,
+                    turnsLeft = TerrainState.turnsLeft,
+                    isActive = TerrainState.isActive
+                },
+                effects = effects
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -546,66 +495,53 @@ Handlers.add("get-terrain-info",
 Handlers.add("check-move-blocking",
     Handlers.utils.hasMatchingTag("Action", "CheckMoveBlocking"),
     function(msg)
-        local success, response = pcall(function()
-            local data = json.decode(msg.Data or "{}")
-            local moveData = data.parameters and data.parameters.moveData or {}
-            local targetPokemon = data.parameters and data.parameters.targetPokemon
-            
-            if not TerrainState.isActive or not targetPokemon then
-                return {
-                    Target = msg.From,
-                    Action = "SaveState",
-                    Data = json.encode({
-                        success = true,
-                        moveBlocked = false,
-                        terrainType = "NONE"
-                    }),
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-            
-            local moveBlocked = isMoveBlocked(moveData, targetPokemon, TerrainState.currentTerrain)
-            local blockMessage = ""
-            
-            if moveBlocked then
-                blockMessage = getTerrainMessage(TerrainState.currentTerrain, "block", targetPokemon.name)
-            end
-            
-            -- Determine terrain type name
-            local terrainTypeName = "NONE"
-            for name, value in pairs(TerrainType) do
-                if value == TerrainState.currentTerrain then
-                    terrainTypeName = name
-                    break
-                end
-            end
-            
-            return {
+        local data = json.decode(msg.Data or "{}")
+        local moveData = data.parameters and data.parameters.moveData or {}
+        local targetPokemon = data.parameters and data.parameters.targetPokemon
+        
+        if not TerrainState.isActive or not targetPokemon then
+            ao.send({
                 Target = msg.From,
                 Action = "SaveState",
                 Data = json.encode({
                     success = true,
-                    moveBlocked = moveBlocked,
-                    terrainType = terrainTypeName,
-                    blockMessage = blockMessage
+                    moveBlocked = false,
+                    terrainType = "NONE"
                 }),
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
-        
-        if success then
-            ao.send(response)
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+        
+        local moveBlocked = isMoveBlocked(moveData, targetPokemon, TerrainState.currentTerrain)
+        local blockMessage = ""
+        
+        if moveBlocked then
+            blockMessage = getTerrainMessage(TerrainState.currentTerrain, "block", targetPokemon.name)
+        end
+        
+        -- Determine terrain type name
+        local terrainTypeName = "NONE"
+        for name, value in pairs(TerrainType) do
+            if value == TerrainState.currentTerrain then
+                terrainTypeName = name
+                break
+            end
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                success = true,
+                moveBlocked = moveBlocked,
+                terrainType = terrainTypeName,
+                blockMessage = blockMessage
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -613,73 +549,60 @@ Handlers.add("check-move-blocking",
 Handlers.add("calculate-type-multiplier",
     Handlers.utils.hasMatchingTag("Action", "CalculateTypeMultiplier"),
     function(msg)
-        local success, response = pcall(function()
-            local data = json.decode(msg.Data or "{}")
-            local moveType = data.parameters and data.parameters.moveType
-            local pokemon = data.parameters and data.parameters.pokemon
-            
-            if not moveType or not TerrainState.isActive then
-                return {
-                    Target = msg.From,
-                    Action = "SaveState",
-                    Data = json.encode({
-                        success = true,
-                        typeMultiplier = 1.0,
-                        terrainType = "NONE"
-                    }),
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-            
-            -- Check if Pokemon is grounded (required for terrain type multipliers)
-            local multiplier = 1.0
-            if pokemon and isGrounded(pokemon) then
-                local moveTypeNum = Type[moveType]
-                if moveTypeNum then
-                    multiplier = getTerrainTypeMultiplier(moveTypeNum, TerrainState.currentTerrain)
-                end
-            end
-            
-            local boostMessage = ""
-            if multiplier > 1.0 then
-                boostMessage = getTerrainMessage(TerrainState.currentTerrain, "boost")
-            end
-            
-            -- Determine terrain type name
-            local terrainTypeName = "NONE"
-            for name, value in pairs(TerrainType) do
-                if value == TerrainState.currentTerrain then
-                    terrainTypeName = name
-                    break
-                end
-            end
-            
-            return {
+        local data = json.decode(msg.Data or "{}")
+        local moveType = data.parameters and data.parameters.moveType
+        local pokemon = data.parameters and data.parameters.pokemon
+        
+        if not moveType or not TerrainState.isActive then
+            ao.send({
                 Target = msg.From,
                 Action = "SaveState",
                 Data = json.encode({
                     success = true,
-                    typeMultiplier = multiplier,
-                    terrainType = terrainTypeName,
-                    boostMessage = boostMessage
+                    typeMultiplier = 1.0,
+                    terrainType = "NONE"
                 }),
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
-        
-        if success then
-            ao.send(response)
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+        
+        -- Check if Pokemon is grounded (required for terrain type multipliers)
+        local multiplier = 1.0
+        if pokemon and isGrounded(pokemon) then
+            local moveTypeNum = Type[moveType]
+            if moveTypeNum then
+                multiplier = getTerrainTypeMultiplier(moveTypeNum, TerrainState.currentTerrain)
+            end
+        end
+        
+        local boostMessage = ""
+        if multiplier > 1.0 then
+            boostMessage = getTerrainMessage(TerrainState.currentTerrain, "boost")
+        end
+        
+        -- Determine terrain type name
+        local terrainTypeName = "NONE"
+        for name, value in pairs(TerrainType) do
+            if value == TerrainState.currentTerrain then
+                terrainTypeName = name
+                break
+            end
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                success = true,
+                typeMultiplier = multiplier,
+                terrainType = terrainTypeName,
+                boostMessage = boostMessage
+            }),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 

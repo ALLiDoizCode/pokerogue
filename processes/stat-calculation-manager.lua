@@ -116,54 +116,46 @@ Handlers.add(
     "generate-ivs",
     Handlers.utils.hasMatchingTag("Action", "GenerateIVs"),
     function(msg)
-        local success, result = pcall(function()
-            local pokemonId = msg.PokemonId
-            local seed = msg.Seed
-            
-            if not pokemonId then
-                return {
-                    error = "PokemonId is required",
-                    success = false
-                }
-            end
-            
-            -- Generate IVs using AO crypto for secure randomness
-            local ivs = {}
-            for i = 1, 6 do
-                ivs[i] = generateSecureRandom(31) -- 0-31 range
-            end
-            
-            -- Calculate Hidden Power type based on IVs
-            local hiddenPowerType = "Normal" -- Simplified implementation
-            
-            -- Store IVs
-            PokemonIVs[pokemonId] = ivs
-            
-            return {
-                success = true,
-                ivs = ivs,
-                hiddenPowerType = hiddenPowerType,
-                pokemonId = pokemonId
-            }
-        end)
+        local pokemonId = msg.PokemonId
+        local seed = msg.Seed
         
-        if success then
+        if not pokemonId then
             ao.send({
                 Target = msg.From,
                 Action = "SaveState",
-                Data = json.encode(result),
+                Error = "PokemonId is required",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState", 
-                Error = result,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+            return
         end
+        
+        -- Generate IVs using AO crypto for secure randomness
+        local ivs = {}
+        for i = 1, 6 do
+            ivs[i] = generateSecureRandom(31) -- 0-31 range
+        end
+        
+        -- Calculate Hidden Power type based on IVs
+        local hiddenPowerType = "Normal" -- Simplified implementation
+        
+        -- Store IVs
+        PokemonIVs[pokemonId] = ivs
+        
+        local result = {
+            success = true,
+            ivs = ivs,
+            hiddenPowerType = hiddenPowerType,
+            pokemonId = pokemonId
+        }
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -172,76 +164,75 @@ Handlers.add(
     "gain-evs",
     Handlers.utils.hasMatchingTag("Action", "GainEVs"),
     function(msg)
-        local success, result = pcall(function()
-            local pokemonId = msg.PokemonId
-            local evYieldStr = msg.EVYield
-            local multiplier = tonumber(msg.Multiplier) or 1.0
-            
-            if not pokemonId or not evYieldStr then
-                return {
-                    error = "PokemonId and EVYield are required",
-                    success = false
-                }
-            end
-            
-            local evYield = json.decode(evYieldStr)
-            local currentEVs = PokemonEVs[pokemonId] or {0, 0, 0, 0, 0, 0}
-            local newEVs = {}
-            local totalEVs = 0
-            
-            -- Apply EV gains with constraints
-            for i = 1, 6 do
-                local gain = math.floor((evYield[i] or 0) * multiplier)
-                newEVs[i] = math.min(currentEVs[i] + gain, 252) -- Cap at 252 per stat
-                totalEVs = totalEVs + newEVs[i]
-            end
-            
-            -- Check total EV constraint (510)
-            if totalEVs > 510 then
-                return {
-                    error = "Total EVs would exceed 510 limit",
-                    success = false,
-                    currentTotal = totalEVs
-                }
-            end
-            
-            -- Validate and store
-            local valid, errorMsg = validateEVs(newEVs)
-            if not valid then
-                return {
-                    error = errorMsg,
-                    success = false
-                }
-            end
-            
-            PokemonEVs[pokemonId] = newEVs
-            
-            return {
-                success = true,
-                evs = newEVs,
-                totalEVs = totalEVs,
-                gained = true,
-                pokemonId = pokemonId
-            }
-        end)
+        local pokemonId = msg.PokemonId
+        local evYieldStr = msg.EVYield
+        local multiplier = tonumber(msg.Multiplier) or 1.0
         
-        if success then
+        if not pokemonId or not evYieldStr then
             ao.send({
                 Target = msg.From,
                 Action = "SaveState",
-                Data = json.encode(result),
+                Error = "PokemonId and EVYield are required",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Error = result,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+            return
         end
+        
+        local evYield = json.decode(evYieldStr)
+        local currentEVs = PokemonEVs[pokemonId] or {0, 0, 0, 0, 0, 0}
+        local newEVs = {}
+        local totalEVs = 0
+        
+        -- Apply EV gains with constraints
+        for i = 1, 6 do
+            local gain = math.floor((evYield[i] or 0) * multiplier)
+            newEVs[i] = math.min(currentEVs[i] + gain, 252) -- Cap at 252 per stat
+            totalEVs = totalEVs + newEVs[i]
+        end
+        
+        -- Check total EV constraint (510)
+        if totalEVs > 510 then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = "Total EVs would exceed 510 limit",
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        -- Validate and store
+        local valid, errorMsg = validateEVs(newEVs)
+        if not valid then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = errorMsg,
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        PokemonEVs[pokemonId] = newEVs
+        
+        local result = {
+            success = true,
+            evs = newEVs,
+            totalEVs = totalEVs,
+            gained = true,
+            pokemonId = pokemonId
+        }
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -250,80 +241,80 @@ Handlers.add(
     "calculate-stats",
     Handlers.utils.hasMatchingTag("Action", "CalculateStats"),
     function(msg)
-        local success, result = pcall(function()
-            local speciesId = tonumber(msg.SpeciesId)
-            local level = tonumber(msg.Level)
-            local ivsStr = msg.IVs
-            local evsStr = msg.EVs  
-            local nature = msg.Nature
-            
-            if not speciesId or not level or not ivsStr or not evsStr then
-                return {
-                    error = "SpeciesId, Level, IVs, and EVs are required",
-                    success = false
-                }
-            end
-            
-            local ivs = json.decode(ivsStr)
-            local evs = json.decode(evsStr)
-            
-            -- Validate inputs
-            for i = 1, 6 do
-                if not validateIV(ivs[i]) then
-                    return {
-                        error = "Invalid IV value: " .. (ivs[i] or "nil"),
-                        success = false
-                    }
-                end
-            end
-            
-            local validEVs, evError = validateEVs(evs)
-            if not validEVs then
-                return {
-                    error = evError,
-                    success = false
-                }
-            end
-            
-            -- Get base stats from species data (simplified - would integrate with species DB)
-            local baseStats = {65, 55, 40, 50, 50, 90} -- Pikachu example
-            
-            local calculatedStats = {}
-            local natureMultipliers = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0} -- Simplified
-            
-            -- Calculate each stat
-            for i = 1, 6 do
-                local baseStat = calculateBaseStat(baseStats[i], ivs[i], evs[i], level, i == STATS.HP)
-                calculatedStats[i] = applyNatureModifier(baseStat, natureMultipliers[i])
-            end
-            
-            return {
-                success = true,
-                stats = calculatedStats,
-                baseStats = baseStats,
-                level = level,
-                nature = nature,
-                speciesId = speciesId
-            }
-        end)
+        local speciesId = tonumber(msg.SpeciesId)
+        local level = tonumber(msg.Level)
+        local ivsStr = msg.IVs
+        local evsStr = msg.EVs  
+        local nature = msg.Nature
         
-        if success then
+        if not speciesId or not level or not ivsStr or not evsStr then
             ao.send({
                 Target = msg.From,
                 Action = "SaveState",
-                Data = json.encode(result),
+                Error = "SpeciesId, Level, IVs, and EVs are required",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Error = result,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+            return
         end
+        
+        local ivs = json.decode(ivsStr)
+        local evs = json.decode(evsStr)
+        
+        -- Validate inputs
+        for i = 1, 6 do
+            if not validateIV(ivs[i]) then
+                ao.send({
+                    Target = msg.From,
+                    Action = "SaveState",
+                    Error = "Invalid IV value: " .. (ivs[i] or "nil"),
+                    ProcessId = ao.id,
+                    Timestamp = tostring(msg.Timestamp or 0)
+                })
+                return
+            end
+        end
+        
+        local validEVs, evError = validateEVs(evs)
+        if not validEVs then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Error = evError,
+                ProcessId = ao.id,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        -- Get base stats from species data (simplified - would integrate with species DB)
+        local baseStats = {65, 55, 40, 50, 50, 90} -- Pikachu example
+        
+        local calculatedStats = {}
+        local natureMultipliers = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0} -- Simplified
+        
+        -- Calculate each stat
+        for i = 1, 6 do
+            local baseStat = calculateBaseStat(baseStats[i], ivs[i], evs[i], level, i == STATS.HP)
+            calculatedStats[i] = applyNatureModifier(baseStat, natureMultipliers[i])
+        end
+        
+        local result = {
+            success = true,
+            stats = calculatedStats,
+            baseStats = baseStats,
+            level = level,
+            nature = nature,
+            speciesId = speciesId
+        }
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -332,76 +323,68 @@ Handlers.add(
     "get-battle-stats",
     Handlers.utils.hasMatchingTag("Action", "GetBattleStats"),
     function(msg)
-        local success, result = pcall(function()
-            local pokemonId = msg.PokemonId
-            local statStagesStr = msg.StatStages
-            local modifiersStr = msg.Modifiers or "{}"
-            local weather = msg.Weather
-            local terrain = msg.Terrain
-            local isCritical = msg.CriticalHit == "true"
-            
-            if not pokemonId then
-                return {
-                    error = "PokemonId is required",
-                    success = false
-                }
-            end
-            
-            -- Get base stats (simplified - would get from PokemonStats)
-            local baseStats = PokemonStats[pokemonId] or {100, 100, 100, 100, 100, 100}
-            local statStages = statStagesStr and json.decode(statStagesStr) or {0, 0, 0, 0, 0, 0}
-            local modifiers = json.decode(modifiersStr)
-            
-            local battleStats = {}
-            
-            -- Apply stat stages to each stat (except HP)
-            for i = 1, 6 do
-                if i == STATS.HP then
-                    battleStats[i] = baseStats[i] -- HP doesn't get stat stage modifications
-                else
-                    local statStage = statStages[i] or 0
-                    local statName = STAT_NAMES[i]
-                    battleStats[i] = applyStatStageMultiplier(baseStats[i], statStage, isCritical, statName)
-                end
-            end
-            
-            -- Apply temporary modifiers (items, abilities, weather, etc.)
-            local appliedModifiers = {}
-            
-            -- Weather effects (simplified)
-            if weather == "sun" and modifiers.ability == "chlorophyll" then
-                battleStats[STATS.SPEED] = math.floor(battleStats[STATS.SPEED] * 2)
-                table.insert(appliedModifiers, "chlorophyll_sun_speed")
-            end
-            
-            return {
-                success = true,
-                battleStats = battleStats,
-                appliedModifiers = appliedModifiers,
-                effectiveStats = battleStats,
-                pokemonId = pokemonId,
-                weather = weather,
-                terrain = terrain
-            }
-        end)
+        local pokemonId = msg.PokemonId
+        local statStagesStr = msg.StatStages
+        local modifiersStr = msg.Modifiers or "{}"
+        local weather = msg.Weather
+        local terrain = msg.Terrain
+        local isCritical = msg.CriticalHit == "true"
         
-        if success then
+        if not pokemonId then
             ao.send({
                 Target = msg.From,
                 Action = "SaveState",
-                Data = json.encode(result),
+                Error = "PokemonId is required",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState",
-                Error = result,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+            return
         end
+        
+        -- Get base stats (simplified - would get from PokemonStats)
+        local baseStats = PokemonStats[pokemonId] or {100, 100, 100, 100, 100, 100}
+        local statStages = statStagesStr and json.decode(statStagesStr) or {0, 0, 0, 0, 0, 0}
+        local modifiers = json.decode(modifiersStr)
+        
+        local battleStats = {}
+        
+        -- Apply stat stages to each stat (except HP)
+        for i = 1, 6 do
+            if i == STATS.HP then
+                battleStats[i] = baseStats[i] -- HP doesn't get stat stage modifications
+            else
+                local statStage = statStages[i] or 0
+                local statName = STAT_NAMES[i]
+                battleStats[i] = applyStatStageMultiplier(baseStats[i], statStage, isCritical, statName)
+            end
+        end
+        
+        -- Apply temporary modifiers (items, abilities, weather, etc.)
+        local appliedModifiers = {}
+        
+        -- Weather effects (simplified)
+        if weather == "sun" and modifiers.ability == "chlorophyll" then
+            battleStats[STATS.SPEED] = math.floor(battleStats[STATS.SPEED] * 2)
+            table.insert(appliedModifiers, "chlorophyll_sun_speed")
+        end
+        
+        local result = {
+            success = true,
+            battleStats = battleStats,
+            appliedModifiers = appliedModifiers,
+            effectiveStats = battleStats,
+            pokemonId = pokemonId,
+            weather = weather,
+            terrain = terrain
+        }
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -410,60 +393,52 @@ Handlers.add(
     "calculate-damage",
     Handlers.utils.hasMatchingTag("Action", "CalculateDamage"),
     function(msg)
-        local success, result = pcall(function()
-            local attackerId = msg.AttackerId
-            local defenderId = msg.DefenderId
-            local move = msg.Move
-            local isCritical = msg.CriticalHit == "true"
-            
-            if not attackerId or not defenderId then
-                return {
-                    error = "AttackerId and DefenderId are required",
-                    success = false
-                }
-            end
-            
-            -- Get battle stats for attacker and defender
-            local attackerStats = PokemonStats[attackerId] or {100, 100, 100, 100, 100, 100}
-            local defenderStats = PokemonStats[defenderId] or {100, 100, 100, 100, 100, 100}
-            
-            -- Simplified damage calculation (would integrate with move data)
-            local attackStat = attackerStats[STATS.ATK]
-            local defenseStat = defenderStats[STATS.DEF]
-            local baseDamage = math.floor((attackStat / defenseStat) * 50) -- Simplified formula
-            
-            -- Critical hit multiplier
-            local critMultiplier = isCritical and 2.0 or 1.0
-            local finalDamage = math.floor(baseDamage * critMultiplier)
-            
-            return {
-                success = true,
-                baseDamage = baseDamage,
-                finalDamage = finalDamage,
-                attackStat = attackStat,
-                defenseStat = defenseStat,
-                critMultiplier = critMultiplier,
-                isCritical = isCritical
-            }
-        end)
+        local attackerId = msg.AttackerId
+        local defenderId = msg.DefenderId
+        local move = msg.Move
+        local isCritical = msg.CriticalHit == "true"
         
-        if success then
+        if not attackerId or not defenderId then
             ao.send({
                 Target = msg.From,
                 Action = "SaveState",
-                Data = json.encode(result),
+                Error = "AttackerId and DefenderId are required",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "SaveState", 
-                Error = result,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+            return
         end
+        
+        -- Get battle stats for attacker and defender
+        local attackerStats = PokemonStats[attackerId] or {100, 100, 100, 100, 100, 100}
+        local defenderStats = PokemonStats[defenderId] or {100, 100, 100, 100, 100, 100}
+        
+        -- Simplified damage calculation (would integrate with move data)
+        local attackStat = attackerStats[STATS.ATK]
+        local defenseStat = defenderStats[STATS.DEF]
+        local baseDamage = math.floor((attackStat / defenseStat) * 50) -- Simplified formula
+        
+        -- Critical hit multiplier
+        local critMultiplier = isCritical and 2.0 or 1.0
+        local finalDamage = math.floor(baseDamage * critMultiplier)
+        
+        local result = {
+            success = true,
+            baseDamage = baseDamage,
+            finalDamage = finalDamage,
+            attackStat = attackStat,
+            defenseStat = defenseStat,
+            critMultiplier = critMultiplier,
+            isCritical = isCritical
+        }
+        
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode(result),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 

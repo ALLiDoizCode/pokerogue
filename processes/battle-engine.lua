@@ -6,7 +6,7 @@
 -- AO COMPLIANCE REQUIREMENTS MET:
 -- ✅ 1. MONOLITHIC DESIGN: All dependencies embedded (no require() statements)
 -- ✅ 2. HANDLER PATTERN: Uses Handlers.add() with proper tag matching
--- ✅ 3. ERROR HANDLING: All operations wrapped in pcall
+-- ✅ 3. ERROR HANDLING: Direct error handling with clear responses
 -- ✅ 4. TIMEOUT MONITORING: 5-second execution limit enforcement
 -- ✅ 5. ADP v1.0 COMPLIANCE: Info handler with self-documentation
 -- ✅ 6. AO GLOBALS ONLY: Uses ao.send(), ao.id, Handlers, json, standard Lua
@@ -770,10 +770,8 @@ local function handleMessage(message)
         rngState = rngInitSuccess
     end
 
-    -- Process the logic operation with error handling
-    local success, result = pcall(function()
-        return BattleEngine.handleLogicOperation(originalGameState, operation, parameters, rngState)
-    end)
+    -- Process the logic operation
+    local result = BattleEngine.handleLogicOperation(originalGameState, operation, parameters, rngState)
 
     -- Check performance requirement (5 second timeout)
     local responseTime = endPerformanceMonitoring()
@@ -787,32 +785,22 @@ local function handleMessage(message)
         }
     end
 
-    if success then
-        if result and result.gameState then
-            result.gameState.timestamp = msg and msg.Timestamp or 0
-            if originalGameState.version then
-                result.gameState.version = (originalGameState.version or 0) + 1
-            end
+    if result and result.gameState then
+        result.gameState.timestamp = msg and msg.Timestamp or 0
+        if originalGameState.version then
+            result.gameState.version = (originalGameState.version or 0) + 1
         end
-
-        return {
-            Action = "SaveState",
-            Data = {
-                gameState = result and result.gameState or originalGameState,
-                result = result
-            },
-            Timestamp = msg and msg.Timestamp or 0,
-            ProcessId = PROCESS_METADATA.processId
-        }
-    else
-        return {
-            Action = "SaveState",
-            Error = "Logic operation failed: " .. tostring(result),
-            GameState = originalGameState,
-            ProcessId = PROCESS_METADATA.processId,
-            Timestamp = msg and msg.Timestamp or 0
-        }
     end
+
+    return {
+        Action = "SaveState",
+        Data = {
+            gameState = result and result.gameState or originalGameState,
+            result = result
+        },
+        Timestamp = msg and msg.Timestamp or 0,
+        ProcessId = PROCESS_METADATA.processId
+    }
 end
 
 -- ====================================

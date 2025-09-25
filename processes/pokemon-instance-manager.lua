@@ -236,52 +236,47 @@ Handlers.add(
   "create-pokemon",
   Handlers.utils.hasMatchingTag("Action", "CreatePokemon"),
   function(msg)
-    local success, result = pcall(function()
-      local data = msg.Data and json.decode(msg.Data) or {}
-      
-      local speciesId = data.speciesId or tonumber(msg.SpeciesId)
-      if not speciesId then
-        error("SpeciesId required for Pokemon creation")
-      end
-      
-      local level = data.level or tonumber(msg.Level) or 5
-      local forcedValues = {
-        forceShiny = data.forceShiny or msg.ForceShiny == "true",
-        ivs = data.forcedIVs,
-        nature = data.forcedNature,
-        timestamp = msg.Timestamp or 0
-      }
-      
-      local pokemon = createPokemonInstance(speciesId, level, forcedValues)
-      
-      return {
-        success = true,
-        pokemon = pokemon,
-        message = "Pokemon created successfully"
-      }
-    end)
+    local data = msg.Data and json.decode(msg.Data) or {}
     
-    if success then
+    local speciesId = data.speciesId or tonumber(msg.SpeciesId)
+    if not speciesId then
       ao.send({
         Target = msg.From,
         Action = "PokemonCreated",
-        Data = json.encode(result),
-        SpeciesId = tostring(result.pokemon.speciesId),
-        PokemonId = tostring(result.pokemon.id),
-        Level = tostring(result.pokemon.level),
-        Shiny = tostring(result.pokemon.shiny),
+        Error = "SpeciesId required for Pokemon creation",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "PokemonCreated",
-        Error = result,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    local level = data.level or tonumber(msg.Level) or 5
+    local forcedValues = {
+      forceShiny = data.forceShiny or msg.ForceShiny == "true",
+      ivs = data.forcedIVs,
+      nature = data.forcedNature,
+      timestamp = msg.Timestamp or 0
+    }
+    
+    local pokemon = createPokemonInstance(speciesId, level, forcedValues)
+    
+    local result = {
+      success = true,
+      pokemon = pokemon,
+      message = "Pokemon created successfully"
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "PokemonCreated",
+      Data = json.encode(result),
+      SpeciesId = tostring(result.pokemon.speciesId),
+      PokemonId = tostring(result.pokemon.id),
+      Level = tostring(result.pokemon.level),
+      Shiny = tostring(result.pokemon.shiny),
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -290,107 +285,109 @@ Handlers.add(
   "update-pokemon-state",
   Handlers.utils.hasMatchingTag("Action", "UpdatePokemonState"),
   function(msg)
-    local success, result = pcall(function()
-      local data = msg.Data and json.decode(msg.Data) or {}
-      
-      local pokemonId = data.pokemonId or tonumber(msg.PokemonId)
-      if not pokemonId then
-        error("PokemonId required for state update")
-      end
-      
-      local pokemon = PokemonInstances[pokemonId]
-      if not pokemon then
-        error("Pokemon not found: " .. tostring(pokemonId))
-      end
-      
-      local changes = {}
-      
-      -- Update level
-      if data.modifications and data.modifications.level then
-        local newLevel = data.modifications.level
-        if newLevel ~= pokemon.level then
-          pokemon.level = newLevel
-          -- Recalculate stats based on new level
-          local baseStats = getBaseStats(pokemon.speciesId)
-          pokemon.stats.hp = calculateStat(baseStats[1], pokemon.ivs.hp, newLevel, pokemon.nature, "hp")
-          pokemon.stats.attack = calculateStat(baseStats[2], pokemon.ivs.attack, newLevel, pokemon.nature, "attack")
-          pokemon.stats.defense = calculateStat(baseStats[3], pokemon.ivs.defense, newLevel, pokemon.nature, "defense")
-          pokemon.stats.spatk = calculateStat(baseStats[4], pokemon.ivs.spatk, newLevel, pokemon.nature, "spatk")
-          pokemon.stats.spdef = calculateStat(baseStats[5], pokemon.ivs.spdef, newLevel, pokemon.nature, "spdef")
-          pokemon.stats.speed = calculateStat(baseStats[6], pokemon.ivs.speed, newLevel, pokemon.nature, "speed")
-          pokemon.maxHp = pokemon.stats.hp
-          -- Adjust current HP proportionally to preserve percentage
-          local hpPercentage = pokemon.hp / (pokemon.maxHp > 0 and pokemon.maxHp or 1)
-          pokemon.hp = math.floor(pokemon.maxHp * hpPercentage)
-          changes.level = newLevel
-        end
-      end
-      
-      -- Update experience
-      if data.modifications and data.modifications.exp then
-        pokemon.exp = data.modifications.exp
-        changes.exp = data.modifications.exp
-        
-        -- Check if experience change triggers level up
-        local newLevelFromExp = calculateLevelFromExp(pokemon.exp)
-        if newLevelFromExp ~= pokemon.level then
-          pokemon.level = newLevelFromExp
-          -- Recalculate stats for new level
-          local baseStats = getBaseStats(pokemon.speciesId)
-          pokemon.stats.hp = calculateStat(baseStats[1], pokemon.ivs.hp, pokemon.level, pokemon.nature, "hp")
-          pokemon.stats.attack = calculateStat(baseStats[2], pokemon.ivs.attack, pokemon.level, pokemon.nature, "attack")
-          pokemon.stats.defense = calculateStat(baseStats[3], pokemon.ivs.defense, pokemon.level, pokemon.nature, "defense")
-          pokemon.stats.spatk = calculateStat(baseStats[4], pokemon.ivs.spatk, pokemon.level, pokemon.nature, "spatk")
-          pokemon.stats.spdef = calculateStat(baseStats[5], pokemon.ivs.spdef, pokemon.level, pokemon.nature, "spdef")
-          pokemon.stats.speed = calculateStat(baseStats[6], pokemon.ivs.speed, pokemon.level, pokemon.nature, "speed")
-          local oldMaxHp = pokemon.maxHp
-          pokemon.maxHp = pokemon.stats.hp
-          -- Scale current HP proportionally
-          local hpPercentage = pokemon.hp / (oldMaxHp > 0 and oldMaxHp or 1)
-          pokemon.hp = math.floor(pokemon.maxHp * hpPercentage)
-          changes.level = pokemon.level
-          changes.maxHp = pokemon.maxHp
-        end
-      end
-      
-      -- Update HP
-      if data.modifications and data.modifications.hp then
-        pokemon.hp = math.max(0, math.min(data.modifications.hp, pokemon.maxHp))
-        changes.hp = pokemon.hp
-      end
-      
-      -- Update status effect
-      if data.modifications and data.modifications.statusEffect then
-        pokemon.statusEffect = data.modifications.statusEffect
-        changes.statusEffect = data.modifications.statusEffect
-      end
-      
-      return {
-        success = true,
-        pokemon = pokemon,
-        changes = changes,
-        message = "Pokemon state updated successfully"
-      }
-    end)
+    local data = msg.Data and json.decode(msg.Data) or {}
     
-    if success then
+    local pokemonId = data.pokemonId or tonumber(msg.PokemonId)
+    if not pokemonId then
       ao.send({
         Target = msg.From,
         Action = "PokemonStateUpdated",
-        Data = json.encode(result),
-        PokemonId = tostring(result.pokemon.id),
+        Error = "PokemonId required for state update",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "PokemonStateUpdated",
-        Error = result,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    local pokemon = PokemonInstances[pokemonId]
+    if not pokemon then
+      ao.send({
+        Target = msg.From,
+        Action = "PokemonStateUpdated",
+        Error = "Pokemon not found: " .. tostring(pokemonId),
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+      })
+      return
+    end
+    
+    local changes = {}
+    
+    -- Update level
+    if data.modifications and data.modifications.level then
+      local newLevel = data.modifications.level
+      if newLevel ~= pokemon.level then
+        pokemon.level = newLevel
+        -- Recalculate stats based on new level
+        local baseStats = getBaseStats(pokemon.speciesId)
+        pokemon.stats.hp = calculateStat(baseStats[1], pokemon.ivs.hp, newLevel, pokemon.nature, "hp")
+        pokemon.stats.attack = calculateStat(baseStats[2], pokemon.ivs.attack, newLevel, pokemon.nature, "attack")
+        pokemon.stats.defense = calculateStat(baseStats[3], pokemon.ivs.defense, newLevel, pokemon.nature, "defense")
+        pokemon.stats.spatk = calculateStat(baseStats[4], pokemon.ivs.spatk, newLevel, pokemon.nature, "spatk")
+        pokemon.stats.spdef = calculateStat(baseStats[5], pokemon.ivs.spdef, newLevel, pokemon.nature, "spdef")
+        pokemon.stats.speed = calculateStat(baseStats[6], pokemon.ivs.speed, newLevel, pokemon.nature, "speed")
+        pokemon.maxHp = pokemon.stats.hp
+        -- Adjust current HP proportionally to preserve percentage
+        local hpPercentage = pokemon.hp / (pokemon.maxHp > 0 and pokemon.maxHp or 1)
+        pokemon.hp = math.floor(pokemon.maxHp * hpPercentage)
+        changes.level = newLevel
+      end
+    end
+    
+    -- Update experience
+    if data.modifications and data.modifications.exp then
+      pokemon.exp = data.modifications.exp
+      changes.exp = data.modifications.exp
+      
+      -- Check if experience change triggers level up
+      local newLevelFromExp = calculateLevelFromExp(pokemon.exp)
+      if newLevelFromExp ~= pokemon.level then
+        pokemon.level = newLevelFromExp
+        -- Recalculate stats for new level
+        local baseStats = getBaseStats(pokemon.speciesId)
+        pokemon.stats.hp = calculateStat(baseStats[1], pokemon.ivs.hp, pokemon.level, pokemon.nature, "hp")
+        pokemon.stats.attack = calculateStat(baseStats[2], pokemon.ivs.attack, pokemon.level, pokemon.nature, "attack")
+        pokemon.stats.defense = calculateStat(baseStats[3], pokemon.ivs.defense, pokemon.level, pokemon.nature, "defense")
+        pokemon.stats.spatk = calculateStat(baseStats[4], pokemon.ivs.spatk, pokemon.level, pokemon.nature, "spatk")
+        pokemon.stats.spdef = calculateStat(baseStats[5], pokemon.ivs.spdef, pokemon.level, pokemon.nature, "spdef")
+        pokemon.stats.speed = calculateStat(baseStats[6], pokemon.ivs.speed, pokemon.level, pokemon.nature, "speed")
+        local oldMaxHp = pokemon.maxHp
+        pokemon.maxHp = pokemon.stats.hp
+        -- Scale current HP proportionally
+        local hpPercentage = pokemon.hp / (oldMaxHp > 0 and oldMaxHp or 1)
+        pokemon.hp = math.floor(pokemon.maxHp * hpPercentage)
+        changes.level = pokemon.level
+        changes.maxHp = pokemon.maxHp
+      end
+    end
+    
+    -- Update HP
+    if data.modifications and data.modifications.hp then
+      pokemon.hp = math.max(0, math.min(data.modifications.hp, pokemon.maxHp))
+      changes.hp = pokemon.hp
+    end
+    
+    -- Update status effect
+    if data.modifications and data.modifications.statusEffect then
+      pokemon.statusEffect = data.modifications.statusEffect
+      changes.statusEffect = data.modifications.statusEffect
+    end
+    
+    local result = {
+      success = true,
+      pokemon = pokemon,
+      changes = changes,
+      message = "Pokemon state updated successfully"
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "PokemonStateUpdated",
+      Data = json.encode(result),
+      PokemonId = tostring(result.pokemon.id),
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -399,42 +396,44 @@ Handlers.add(
   "get-pokemon-instance",
   Handlers.utils.hasMatchingTag("Action", "GetPokemonInstance"),
   function(msg)
-    local success, result = pcall(function()
-      local pokemonId = tonumber(msg.PokemonId) or (msg.Data and json.decode(msg.Data).pokemonId)
-      if not pokemonId then
-        error("PokemonId required")
-      end
-      
-      local pokemon = PokemonInstances[pokemonId]
-      if not pokemon then
-        error("Pokemon not found: " .. tostring(pokemonId))
-      end
-      
-      return {
-        success = true,
-        pokemon = pokemon,
-        message = "Pokemon retrieved successfully"
-      }
-    end)
-    
-    if success then
+    local pokemonId = tonumber(msg.PokemonId) or (msg.Data and json.decode(msg.Data).pokemonId)
+    if not pokemonId then
       ao.send({
         Target = msg.From,
         Action = "PokemonInstanceData",
-        Data = json.encode(result),
-        PokemonId = tostring(result.pokemon.id),
+        Error = "PokemonId required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "PokemonInstanceData",
-        Error = result,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    local pokemon = PokemonInstances[pokemonId]
+    if not pokemon then
+      ao.send({
+        Target = msg.From,
+        Action = "PokemonInstanceData",
+        Error = "Pokemon not found: " .. tostring(pokemonId),
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+      })
+      return
+    end
+    
+    local result = {
+      success = true,
+      pokemon = pokemon,
+      message = "Pokemon retrieved successfully"
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "PokemonInstanceData",
+      Data = json.encode(result),
+      PokemonId = tostring(result.pokemon.id),
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -443,50 +442,52 @@ Handlers.add(
   "serialize-pokemon",
   Handlers.utils.hasMatchingTag("Action", "SerializePokemon"),
   function(msg)
-    local success, result = pcall(function()
-      local pokemonId = tonumber(msg.PokemonId) or (msg.Data and json.decode(msg.Data).pokemonId)
-      if not pokemonId then
-        error("PokemonId required")
-      end
-      
-      local pokemon = PokemonInstances[pokemonId]
-      if not pokemon then
-        error("Pokemon not found: " .. tostring(pokemonId))
-      end
-      
-      local serialized = json.encode(pokemon)
-      
-      -- Simple checksum for data integrity
-      local checksum = tostring(#serialized)
-      
-      ProcessState.totalSerializations = ProcessState.totalSerializations + 1
-      
-      return {
-        success = true,
-        serialized = serialized,
-        checksum = checksum,
-        message = "Pokemon serialized successfully"
-      }
-    end)
-    
-    if success then
+    local pokemonId = tonumber(msg.PokemonId) or (msg.Data and json.decode(msg.Data).pokemonId)
+    if not pokemonId then
       ao.send({
         Target = msg.From,
         Action = "PokemonSerialized",
-        Data = json.encode(result),
-        PokemonId = msg.PokemonId,
+        Error = "PokemonId required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "PokemonSerialized",
-        Error = result,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    local pokemon = PokemonInstances[pokemonId]
+    if not pokemon then
+      ao.send({
+        Target = msg.From,
+        Action = "PokemonSerialized",
+        Error = "Pokemon not found: " .. tostring(pokemonId),
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+      })
+      return
+    end
+    
+    local serialized = json.encode(pokemon)
+    
+    -- Simple checksum for data integrity
+    local checksum = tostring(#serialized)
+    
+    ProcessState.totalSerializations = ProcessState.totalSerializations + 1
+    
+    local result = {
+      success = true,
+      serialized = serialized,
+      checksum = checksum,
+      message = "Pokemon serialized successfully"
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "PokemonSerialized",
+      Data = json.encode(result),
+      PokemonId = msg.PokemonId,
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 
@@ -495,56 +496,58 @@ Handlers.add(
   "deserialize-pokemon",
   Handlers.utils.hasMatchingTag("Action", "DeserializePokemon"),
   function(msg)
-    local success, result = pcall(function()
-      local data = msg.Data and json.decode(msg.Data) or {}
-      
-      local serialized = data.serialized
-      local checksum = data.checksum
-      
-      if not serialized then
-        error("Serialized data required")
-      end
-      
-      -- Verify checksum
-      if checksum and tostring(#serialized) ~= checksum then
-        error("Data integrity check failed")
-      end
-      
-      local pokemon = json.decode(serialized)
-      
-      -- Assign new ID and store
-      pokemon.id = NextInstanceId
-      PokemonInstances[NextInstanceId] = pokemon
-      NextInstanceId = NextInstanceId + 1
-      
-      ProcessState.totalDeserializations = ProcessState.totalDeserializations + 1
-      
-      return {
-        success = true,
-        pokemon = pokemon,
-        pokemonId = pokemon.id,
-        message = "Pokemon deserialized successfully"
-      }
-    end)
+    local data = msg.Data and json.decode(msg.Data) or {}
     
-    if success then
+    local serialized = data.serialized
+    local checksum = data.checksum
+    
+    if not serialized then
       ao.send({
         Target = msg.From,
         Action = "PokemonDeserialized",
-        Data = json.encode(result),
-        PokemonId = tostring(result.pokemonId),
+        Error = "Serialized data required",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)
       })
-    else
-      ao.send({
-        Target = msg.From,
-        Action = "PokemonDeserialized",
-        Error = result,
-        ProcessId = ao.id,
-        Timestamp = tostring(msg.Timestamp or 0)
-      })
+      return
     end
+    
+    -- Verify checksum
+    if checksum and tostring(#serialized) ~= checksum then
+      ao.send({
+        Target = msg.From,
+        Action = "PokemonDeserialized",
+        Error = "Data integrity check failed",
+        ProcessId = ao.id,
+        Timestamp = tostring(msg.Timestamp or 0)
+      })
+      return
+    end
+    
+    local pokemon = json.decode(serialized)
+    
+    -- Assign new ID and store
+    pokemon.id = NextInstanceId
+    PokemonInstances[NextInstanceId] = pokemon
+    NextInstanceId = NextInstanceId + 1
+    
+    ProcessState.totalDeserializations = ProcessState.totalDeserializations + 1
+    
+    local result = {
+      success = true,
+      pokemon = pokemon,
+      pokemonId = pokemon.id,
+      message = "Pokemon deserialized successfully"
+    }
+    
+    ao.send({
+      Target = msg.From,
+      Action = "PokemonDeserialized",
+      Data = json.encode(result),
+      PokemonId = tostring(result.pokemonId),
+      ProcessId = ao.id,
+      Timestamp = tostring(msg.Timestamp or 0)
+    })
   end
 )
 

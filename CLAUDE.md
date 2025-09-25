@@ -340,7 +340,7 @@ end
 ```
 
 **When to use pcall (VERY LIMITED):**
-- JSON parsing of untrusted input (`json.decode`)
+- JSON parsing of untrusted external input (`json.decode` from untrusted sources)
 - File I/O operations (if available)
 - Mathematical operations that might overflow/underflow
 - Calling external modules that might not exist
@@ -352,8 +352,55 @@ end
 - Accessing msg tags or known data structures
 - Handler logic that should fail fast
 - Any operation where you control the inputs
+- **JSON parsing of AO message data** (`msg.Data`, `msg.Tags` - these are controlled inputs)
+- **Entire handler function wrapping** (masks real errors and prevents debugging)
+- **Simple validation functions** (should return boolean/error directly)
+- **Database lookups from embedded tables** (predictable operations)
 
-**AO Best Practice**: Let processes fail fast with clear error messages rather than masking issues with pcall.
+**CRITICAL ANTI-PATTERNS TO AVOID:**
+```lua
+-- ❌ FORBIDDEN: Generic handler wrapper functions
+local function safeHandler(handlerFn)
+    return function(msg)
+        local success, result = pcall(handlerFn, msg)
+        if not success then
+            ao.send({Target = msg.From, Error = "Handler failed"})
+        end
+    end
+end
+
+-- ❌ FORBIDDEN: Wrapping entire handler body in pcall
+Handlers.add("my-handler", pattern, function(msg)
+    local success, result = pcall(function()
+        -- ... entire handler logic ...
+        return { success = true, data = ... }
+    end)
+    -- Error handling...
+end)
+
+-- ❌ FORBIDDEN: Unnecessary pcall for AO message parsing
+local success, data = pcall(json.decode, msg.Data)  -- msg.Data is controlled
+```
+
+**✅ CORRECT PATTERN: Direct error handling**
+```lua
+Handlers.add("my-handler", pattern, function(msg)
+    -- Direct parameter validation
+    if not msg.RequiredParam then
+        ao.send({Target = msg.From, Action = "Error", Error = "RequiredParam missing"})
+        return
+    end
+    
+    -- Direct data access (no pcall needed for controlled inputs)
+    local data = json.decode(msg.Data or "{}")
+    local result = processData(data)
+    
+    -- Direct response
+    ao.send({Target = msg.From, Action = "SaveState", Data = json.encode(result)})
+end)
+```
+
+**AO Best Practice**: Let processes fail fast with clear error messages rather than masking issues with pcall. Use direct error handling with `ao.send()` and `return` statements.
 
 #### 4. Timestamp Handling (REQUIRED)
 ```lua

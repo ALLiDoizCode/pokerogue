@@ -675,9 +675,7 @@ local function handleMessage(message)
         rngState = rngInitSuccess
     end
     
-    local success, result = pcall(function()
-        return CaptureEngine.handleLogicOperation(originalGameState, operation, parameters, rngState)
-    end)
+    local result = CaptureEngine.handleLogicOperation(originalGameState, operation, parameters, rngState)
     
     local responseTime = endPerformanceMonitoring()
     if responseTime and responseTime > LOGIC_OPERATION_TIMEOUT then
@@ -690,32 +688,22 @@ local function handleMessage(message)
         }
     end
     
-    if success then
-        if result and result.gameState then
-            result.gameState.timestamp = msg and msg.Timestamp or 0
-            if originalGameState.version then
-                result.gameState.version = (originalGameState.version or 0) + 1
-            end
+    if result and result.gameState then
+        result.gameState.timestamp = msg and msg.Timestamp or 0
+        if originalGameState.version then
+            result.gameState.version = (originalGameState.version or 0) + 1
         end
-        
-        return {
-            Action = "SaveState",
-            Data = {
-                gameState = result and result.gameState or originalGameState,
-                result = result
-            },
-            Timestamp = msg and msg.Timestamp or 0,
-            ProcessId = PROCESS_INFO.processId
-        }
-    else
-        return {
-            Action = "SaveState",
-            Error = "Logic operation failed: " .. tostring(result),
-            GameState = originalGameState,
-            ProcessId = PROCESS_INFO.processId,
-            Timestamp = msg and msg.Timestamp or 0
-        }
     end
+    
+    return {
+        Action = "SaveState",
+        Data = {
+            gameState = result and result.gameState or originalGameState,
+            result = result
+        },
+        Timestamp = msg and msg.Timestamp or 0,
+        ProcessId = PROCESS_INFO.processId
+    }
 end
 
 -- ====================================

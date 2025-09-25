@@ -902,9 +902,7 @@ local function handleMessage(message)
     local operation = message.Data.operation
     local parameters = message.Data.parameters or {}
     
-    local success, result = pcall(function()
-        return EvolutionEngine.handleLogicOperation(originalGameState, operation, parameters, nil)
-    end)
+    local result = EvolutionEngine.handleLogicOperation(originalGameState, operation, parameters, nil)
     
     local responseTime = endPerformanceMonitoring()
     if responseTime and responseTime > LOGIC_OPERATION_TIMEOUT then
@@ -917,32 +915,22 @@ local function handleMessage(message)
         }
     end
     
-    if success then
-        if result and result.gameState then
-            result.gameState.timestamp = msg and msg.Timestamp or 0
-            if originalGameState.version then
-                result.gameState.version = (originalGameState.version or 0) + 1
-            end
+    if result and result.gameState then
+        result.gameState.timestamp = msg and msg.Timestamp or 0
+        if originalGameState.version then
+            result.gameState.version = (originalGameState.version or 0) + 1
         end
-        
-        return {
-            Action = "SaveState",
-            Data = {
-                gameState = result and result.gameState or originalGameState,
-                result = result
-            },
-            Timestamp = msg and msg.Timestamp or 0,
-            ProcessId = PROCESS_ID
-        }
-    else
-        return {
-            Action = "SaveState",
-            Error = "Logic operation failed: " .. tostring(result),
-            GameState = originalGameState,
-            ProcessId = PROCESS_ID,
-            Timestamp = msg and msg.Timestamp or 0
-        }
     end
+    
+    return {
+        Action = "SaveState",
+        Data = {
+            gameState = result and result.gameState or originalGameState,
+            result = result
+        },
+        Timestamp = msg and msg.Timestamp or 0,
+        ProcessId = PROCESS_ID
+    }
 end
 
 -- ====================================

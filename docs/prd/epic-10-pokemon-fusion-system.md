@@ -2,22 +2,43 @@
 
 Migrate fusion creation, battle mechanics, evolution/form changes, and separation management to specialized stateless AO processes while maintaining identical fusion calculation algorithms and battle behavior.
 
-## Story 10.1: Fusion Creation and Calculation Migration
-As a **fusion system engineer**,  
-I want **Pokemon fusion creation algorithms migrated to stateless AO process**,  
-so that **fusion stat calculation and form generation maintain identical mathematical behavior**.
+## Story 10.1: Fusion Stat & Type Calculation Migration
+As a **fusion calculation engineer**,  
+I want **fusion stat and type calculation algorithms migrated to stateless AO process**,  
+so that **fusion mathematical calculations maintain identical computational behavior**.
 
 ### Acceptance Criteria
 1. Fusion stat calculation formulas produce mathematically identical results for all Pokemon combinations
 2. Fusion type determination maintains identical priority rules and combination logic
 3. Fusion ability selection maintains identical probability distributions and selection criteria
-4. Fusion appearance generation maintains identical sprite combination and visual algorithms
-5. Fusion move pool generation maintains identical move inheritance and learning rules
-6. Fusion name generation maintains identical text combination and formatting rules
-7. Fusion creation validation maintains identical constraint checking and error handling
-8. Comprehensive testing validates 100% fusion creation mathematical and behavioral parity
+4. Fusion creation validation maintains identical constraint checking and error handling
+5. Comprehensive testing validates 100% fusion calculation mathematical and computational parity
 
-## Story 10.2: Fusion Battle Mechanics Migration
+## Story 10.2: Fusion Form & Appearance Generation Migration
+As a **fusion appearance engineer**,  
+I want **fusion form and appearance generation migrated to stateless AO process**,  
+so that **fusion visual generation maintains identical sprite and form behavior**.
+
+### Acceptance Criteria
+1. Fusion appearance generation maintains identical sprite combination and visual algorithms
+2. Form generation maintains identical visual composition and appearance logic
+3. Appearance validation maintains identical visual constraint checking and quality assurance
+4. Complex appearance scenarios maintain identical visual resolution and form generation
+5. Comprehensive testing validates 100% fusion appearance generation visual and form parity
+
+## Story 10.3: Fusion Move Pool & Name Generation Migration
+As a **fusion content generation engineer**,  
+I want **fusion move pool and name generation migrated to stateless AO process**,  
+so that **fusion content creation maintains identical generation behavior**.
+
+### Acceptance Criteria
+1. Fusion move pool generation maintains identical move inheritance and learning rules
+2. Fusion name generation maintains identical text combination and formatting rules
+3. Content generation validation maintains identical rule checking and content quality assurance
+4. Complex content scenarios maintain identical generation resolution and content creation
+5. Comprehensive testing validates 100% fusion content generation move and naming parity
+
+## Story 10.4: Fusion Battle Mechanics Migration
 As a **fusion battle engineer**,  
 I want **fusion-specific battle mechanics migrated to stateless AO process**,  
 so that **fusion Pokemon behavior in battles maintains identical functionality to TypeScript**.
@@ -32,7 +53,7 @@ so that **fusion Pokemon behavior in battles maintains identical functionality t
 7. Fusion battle event handling maintains identical timing and sequence management
 8. Comprehensive testing validates 100% fusion battle system behavioral parity
 
-## Story 10.3: Fusion Evolution and Form Change Migration
+## Story 10.5: Fusion Evolution and Form Change Migration
 As a **fusion evolution engineer**,  
 I want **fusion evolution and form change systems migrated to stateless AO process**,  
 so that **fusion transformations maintain identical trigger conditions and calculation behavior**.
@@ -47,7 +68,7 @@ so that **fusion transformations maintain identical trigger conditions and calcu
 7. Fusion evolution prevention mechanics maintain identical override and constraint behavior
 8. Comprehensive testing validates 100% fusion evolution system behavioral parity
 
-## Story 10.4: Fusion Separation and Management Migration
+## Story 10.6: Fusion Separation and Management Migration
 As a **fusion management engineer**,  
 I want **fusion separation and lifecycle management migrated to stateless AO process**,  
 so that **fusion Pokemon management maintains identical state tracking and separation behavior**.

@@ -200,83 +200,70 @@ end
 Handlers.add("ProcessEnvironmentalInteraction",
     Handlers.utils.hasMatchingTag("Action", "ProcessEnvironmentalInteraction"),
     function(msg)
-        local success, response = pcall(function()
-            -- Validate required parameters
-            local weatherType = msg.WeatherType or WeatherType.NONE
-            local terrainType = msg.TerrainType or TerrainType.NONE  
-            local moveType = msg.MoveType
-            local isGrounded = msg.IsGrounded == "true"
-            local itemHeld = msg.ItemHeld
-            
-            if not moveType then
-                return {
-                    Target = msg.From,
-                    Action = "EnvironmentalInteractionError", 
-                    Error = "MoveType required",
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-            
-            -- Calculate environmental multipliers
-            local multipliers = calculateEnvironmentalMultipliers(weatherType, terrainType, moveType, isGrounded)
-            
-            -- Check status prevention
-            local statusPrevention = checkStatusPrevention(terrainType, msg.StatusType)
-            
-            -- Calculate item extensions
-            local itemExtensions = calculateItemExtensions(weatherType, terrainType, itemHeld)
-            
-            -- Update environmental state
-            EnvironmentalState.activeWeather = weatherType
-            EnvironmentalState.activeTerrain = terrainType
-            EnvironmentalState.effectMultipliers = multipliers
-            EnvironmentalState.statusPrevention = statusPrevention
-            EnvironmentalState.itemExtensions = itemExtensions
-            
-            return {
-                Target = msg.From,
-                Action = "EnvironmentalInteractionSuccess",
-                Data = json.encode({
-                    environment = {
-                        weather = weatherType,
-                        terrain = terrainType,
-                        isGrounded = isGrounded
-                    },
-                    calculations = {
-                        multipliers = multipliers,
-                        statusPrevention = statusPrevention,
-                        itemExtensions = itemExtensions
-                    },
-                    interactions = {
-                        weatherTerrainCombo = weatherType .. "_" .. terrainType,
-                        environmentalEffects = {
-                            damageBoost = multipliers.combined,
-                            statusBlocked = statusPrevention.prevented,
-                            durationExtended = itemExtensions.weatherTurns > 0 or itemExtensions.terrainTurns > 0
-                        }
-                    }
-                }),
-                Success = "true",
-                WeatherMultiplier = tostring(multipliers.weather),
-                TerrainMultiplier = tostring(multipliers.terrain),  
-                CombinedMultiplier = tostring(multipliers.combined),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
+        -- Validate required parameters
+        local weatherType = msg.WeatherType or WeatherType.NONE
+        local terrainType = msg.TerrainType or TerrainType.NONE  
+        local moveType = msg.MoveType
+        local isGrounded = msg.IsGrounded == "true"
+        local itemHeld = msg.ItemHeld
         
-        if success then
-            ao.send(response)
-        else
+        if not moveType then
             ao.send({
                 Target = msg.From,
-                Action = "EnvironmentalInteractionError",
-                Error = response,
+                Action = "EnvironmentalInteractionError", 
+                Error = "MoveType required",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+        
+        -- Calculate environmental multipliers
+        local multipliers = calculateEnvironmentalMultipliers(weatherType, terrainType, moveType, isGrounded)
+        
+        -- Check status prevention
+        local statusPrevention = checkStatusPrevention(terrainType, msg.StatusType)
+        
+        -- Calculate item extensions
+        local itemExtensions = calculateItemExtensions(weatherType, terrainType, itemHeld)
+        
+        -- Update environmental state
+        EnvironmentalState.activeWeather = weatherType
+        EnvironmentalState.activeTerrain = terrainType
+        EnvironmentalState.effectMultipliers = multipliers
+        EnvironmentalState.statusPrevention = statusPrevention
+        EnvironmentalState.itemExtensions = itemExtensions
+        
+        ao.send({
+            Target = msg.From,
+            Action = "EnvironmentalInteractionSuccess",
+            Data = json.encode({
+                environment = {
+                    weather = weatherType,
+                    terrain = terrainType,
+                    isGrounded = isGrounded
+                },
+                calculations = {
+                    multipliers = multipliers,
+                    statusPrevention = statusPrevention,
+                    itemExtensions = itemExtensions
+                },
+                interactions = {
+                    weatherTerrainCombo = weatherType .. "_" .. terrainType,
+                    environmentalEffects = {
+                        damageBoost = multipliers.combined,
+                        statusBlocked = statusPrevention.prevented,
+                        durationExtended = itemExtensions.weatherTurns > 0 or itemExtensions.terrainTurns > 0
+                    }
+                }
+            }),
+            Success = "true",
+            WeatherMultiplier = tostring(multipliers.weather),
+            TerrainMultiplier = tostring(multipliers.terrain),  
+            CombinedMultiplier = tostring(multipliers.combined),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -284,59 +271,45 @@ Handlers.add("ProcessEnvironmentalInteraction",
 Handlers.add("CheckWeatherTerrainCombo",
     Handlers.utils.hasMatchingTag("Action", "CheckWeatherTerrainCombo"),
     function(msg)
-        local success, response = pcall(function()
-            local weatherType = msg.WeatherType or WeatherType.NONE
-            local terrainType = msg.TerrainType or TerrainType.NONE
-            
-            local combo = weatherType .. "_" .. terrainType
-            local hasInteraction = weatherType ~= WeatherType.NONE and terrainType ~= TerrainType.NONE
-            
-            -- Check for specific weather-terrain interactions
-            local specialInteractions = {}
-            
-            if weatherType == WeatherType.RAIN and terrainType == TerrainType.ELECTRIC then
-                table.insert(specialInteractions, {
-                    type = "ENHANCED_ELECTRIC",
-                    description = "Rain boosts Water moves (1.5x), Electric Terrain boosts Electric moves (1.3x)",
-                    combinedEffect = "Water Electric moves get 1.95x multiplier (1.5 * 1.3)"
-                })
-            elseif weatherType == WeatherType.SUN and terrainType == TerrainType.GRASSY then
-                table.insert(specialInteractions, {
-                    type = "ENHANCED_FIRE_GRASS",
-                    description = "Sun boosts Fire moves (1.5x), Grassy Terrain boosts Grass moves (1.3x)",
-                    combinedEffect = "Fire and Grass moves get respective boosts independently"
-                })
-            end
-            
-            return {
-                Target = msg.From,
-                Action = "WeatherTerrainComboResult",
-                Data = json.encode({
-                    combo = combo,
-                    hasInteraction = hasInteraction,
-                    weather = {type = weatherType, active = weatherType ~= WeatherType.NONE},
-                    terrain = {type = terrainType, active = terrainType ~= TerrainType.NONE},
-                    specialInteractions = specialInteractions
-                }),
-                Success = "true",
-                Combo = combo,
-                HasInteraction = tostring(hasInteraction),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
+        local weatherType = msg.WeatherType or WeatherType.NONE
+        local terrainType = msg.TerrainType or TerrainType.NONE
         
-        if success then
-            ao.send(response)
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "WeatherTerrainComboError",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
+        local combo = weatherType .. "_" .. terrainType
+        local hasInteraction = weatherType ~= WeatherType.NONE and terrainType ~= TerrainType.NONE
+        
+        -- Check for specific weather-terrain interactions
+        local specialInteractions = {}
+        
+        if weatherType == WeatherType.RAIN and terrainType == TerrainType.ELECTRIC then
+            table.insert(specialInteractions, {
+                type = "ENHANCED_ELECTRIC",
+                description = "Rain boosts Water moves (1.5x), Electric Terrain boosts Electric moves (1.3x)",
+                combinedEffect = "Water Electric moves get 1.95x multiplier (1.5 * 1.3)"
+            })
+        elseif weatherType == WeatherType.SUN and terrainType == TerrainType.GRASSY then
+            table.insert(specialInteractions, {
+                type = "ENHANCED_FIRE_GRASS",
+                description = "Sun boosts Fire moves (1.5x), Grassy Terrain boosts Grass moves (1.3x)",
+                combinedEffect = "Fire and Grass moves get respective boosts independently"
             })
         end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "WeatherTerrainComboResult",
+            Data = json.encode({
+                combo = combo,
+                hasInteraction = hasInteraction,
+                weather = {type = weatherType, active = weatherType ~= WeatherType.NONE},
+                terrain = {type = terrainType, active = terrainType ~= TerrainType.NONE},
+                specialInteractions = specialInteractions
+            }),
+            Success = "true",
+            Combo = combo,
+            HasInteraction = tostring(hasInteraction),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -344,76 +317,62 @@ Handlers.add("CheckWeatherTerrainCombo",
 Handlers.add("ProcessEnvironmentalTurn",
     Handlers.utils.hasMatchingTag("Action", "ProcessEnvironmentalTurn"),
     function(msg)
-        local success, response = pcall(function()
-            -- Process environmental effects that occur each turn
-            local weatherDamage = 0
-            local terrainHealing = 0
-            local statusChanges = {}
-            
-            -- Calculate weather damage (affects all Pokemon)
-            if EnvironmentalState.activeWeather == WeatherType.SANDSTORM then
-                -- Sandstorm damages non-Ground/Rock/Steel types
-                local pokemonType1 = msg.PokemonType1
-                local pokemonType2 = msg.PokemonType2
-                
-                if pokemonType1 ~= PokemonType.GROUND and pokemonType1 ~= PokemonType.ROCK and pokemonType1 ~= PokemonType.STEEL and
-                   (not pokemonType2 or (pokemonType2 ~= PokemonType.GROUND and pokemonType2 ~= PokemonType.ROCK and pokemonType2 ~= PokemonType.STEEL)) then
-                    weatherDamage = math.floor(tonumber(msg.MaxHP or "100") / 16)  -- 1/16 max HP damage
-                end
-            elseif EnvironmentalState.activeWeather == WeatherType.HAIL then
-                -- Hail damages non-Ice types
-                local pokemonType1 = msg.PokemonType1
-                local pokemonType2 = msg.PokemonType2
-                
-                if pokemonType1 ~= PokemonType.ICE and (not pokemonType2 or pokemonType2 ~= PokemonType.ICE) then
-                    weatherDamage = math.floor(tonumber(msg.MaxHP or "100") / 16)  -- 1/16 max HP damage
-                end
-            end
-            
-            -- Calculate terrain healing (only affects grounded Pokemon)
-            local isGrounded = msg.IsGrounded == "true"
-            if isGrounded and EnvironmentalState.activeTerrain == TerrainType.GRASSY then
-                terrainHealing = math.floor(tonumber(msg.MaxHP or "100") / 16)  -- 1/16 max HP healing
-            end
-            
-            return {
-                Target = msg.From,
-                Action = "EnvironmentalTurnResult",
-                Data = json.encode({
-                    environmental = {
-                        weather = EnvironmentalState.activeWeather,
-                        terrain = EnvironmentalState.activeTerrain
-                    },
-                    effects = {
-                        weatherDamage = weatherDamage,
-                        terrainHealing = terrainHealing,
-                        statusChanges = statusChanges
-                    },
-                    calculations = {
-                        damageSource = weatherDamage > 0 and EnvironmentalState.activeWeather or "NONE",
-                        healingSource = terrainHealing > 0 and EnvironmentalState.activeTerrain or "NONE",
-                        affectedByGrounding = isGrounded
-                    }
-                }),
-                Success = "true",
-                WeatherDamage = tostring(weatherDamage),
-                TerrainHealing = tostring(terrainHealing),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
+        -- Process environmental effects that occur each turn
+        local weatherDamage = 0
+        local terrainHealing = 0
+        local statusChanges = {}
         
-        if success then
-            ao.send(response)
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "EnvironmentalTurnError",
-                Error = response,
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            })
+        -- Calculate weather damage (affects all Pokemon)
+        if EnvironmentalState.activeWeather == WeatherType.SANDSTORM then
+            -- Sandstorm damages non-Ground/Rock/Steel types
+            local pokemonType1 = msg.PokemonType1
+            local pokemonType2 = msg.PokemonType2
+            
+            if pokemonType1 ~= PokemonType.GROUND and pokemonType1 ~= PokemonType.ROCK and pokemonType1 ~= PokemonType.STEEL and
+               (not pokemonType2 or (pokemonType2 ~= PokemonType.GROUND and pokemonType2 ~= PokemonType.ROCK and pokemonType2 ~= PokemonType.STEEL)) then
+                weatherDamage = math.floor(tonumber(msg.MaxHP or "100") / 16)  -- 1/16 max HP damage
+            end
+        elseif EnvironmentalState.activeWeather == WeatherType.HAIL then
+            -- Hail damages non-Ice types
+            local pokemonType1 = msg.PokemonType1
+            local pokemonType2 = msg.PokemonType2
+            
+            if pokemonType1 ~= PokemonType.ICE and (not pokemonType2 or pokemonType2 ~= PokemonType.ICE) then
+                weatherDamage = math.floor(tonumber(msg.MaxHP or "100") / 16)  -- 1/16 max HP damage
+            end
         end
+        
+        -- Calculate terrain healing (only affects grounded Pokemon)
+        local isGrounded = msg.IsGrounded == "true"
+        if isGrounded and EnvironmentalState.activeTerrain == TerrainType.GRASSY then
+            terrainHealing = math.floor(tonumber(msg.MaxHP or "100") / 16)  -- 1/16 max HP healing
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "EnvironmentalTurnResult",
+            Data = json.encode({
+                environmental = {
+                    weather = EnvironmentalState.activeWeather,
+                    terrain = EnvironmentalState.activeTerrain
+                },
+                effects = {
+                    weatherDamage = weatherDamage,
+                    terrainHealing = terrainHealing,
+                    statusChanges = statusChanges
+                },
+                calculations = {
+                    damageSource = weatherDamage > 0 and EnvironmentalState.activeWeather or "NONE",
+                    healingSource = terrainHealing > 0 and EnvironmentalState.activeTerrain or "NONE",
+                    affectedByGrounding = isGrounded
+                }
+            }),
+            Success = "true",
+            WeatherDamage = tostring(weatherDamage),
+            TerrainHealing = tostring(terrainHealing),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 
@@ -421,67 +380,54 @@ Handlers.add("ProcessEnvironmentalTurn",
 Handlers.add("ResolveEnvironmentalConflicts",
     Handlers.utils.hasMatchingTag("Action", "ResolveEnvironmentalConflicts"),
     function(msg)
-        local success, response = pcall(function()
-            local removalSource = msg.RemovalSource
-            local currentWeather = msg.CurrentWeather or EnvironmentalState.activeWeather
-            local currentTerrain = msg.CurrentTerrain or EnvironmentalState.activeTerrain
-            
-            if not removalSource then
-                return {
-                    Target = msg.From,
-                    Action = "EnvironmentalConflictError",
-                    Error = "RemovalSource required",
-                    ProcessId = ao.id,
-                    Timestamp = tostring(msg.Timestamp or 0)
-                }
-            end
-            
-            -- Process removal chains
-            local removedEffects = processRemovalChains(removalSource, currentWeather, currentTerrain)
-            
-            -- Update environmental state after removals
-            for _, effect in ipairs(removedEffects) do
-                if effect.type == "WEATHER" then
-                    EnvironmentalState.activeWeather = WeatherType.NONE
-                elseif effect.type == "TERRAIN" then
-                    EnvironmentalState.activeTerrain = TerrainType.NONE
-                end
-            end
-            
-            return {
-                Target = msg.From,
-                Action = "EnvironmentalConflictResolution",
-                Data = json.encode({
-                    removalSource = removalSource,
-                    removedEffects = removedEffects,
-                    newEnvironment = {
-                        weather = EnvironmentalState.activeWeather,
-                        terrain = EnvironmentalState.activeTerrain
-                    },
-                    removalChain = {
-                        triggered = #removedEffects > 0,
-                        effectCount = #removedEffects,
-                        chainLength = #removedEffects
-                    }
-                }),
-                Success = "true",
-                RemovedEffects = tostring(#removedEffects),
-                ProcessId = ao.id,
-                Timestamp = tostring(msg.Timestamp or 0)
-            }
-        end)
+        local removalSource = msg.RemovalSource
+        local currentWeather = msg.CurrentWeather or EnvironmentalState.activeWeather
+        local currentTerrain = msg.CurrentTerrain or EnvironmentalState.activeTerrain
         
-        if success then
-            ao.send(response)
-        else
+        if not removalSource then
             ao.send({
                 Target = msg.From,
                 Action = "EnvironmentalConflictError",
-                Error = response,
+                Error = "RemovalSource required",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
             })
+            return
         end
+        
+        -- Process removal chains
+        local removedEffects = processRemovalChains(removalSource, currentWeather, currentTerrain)
+        
+        -- Update environmental state after removals
+        for _, effect in ipairs(removedEffects) do
+            if effect.type == "WEATHER" then
+                EnvironmentalState.activeWeather = WeatherType.NONE
+            elseif effect.type == "TERRAIN" then
+                EnvironmentalState.activeTerrain = TerrainType.NONE
+            end
+        end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "EnvironmentalConflictResolution",
+            Data = json.encode({
+                removalSource = removalSource,
+                removedEffects = removedEffects,
+                newEnvironment = {
+                    weather = EnvironmentalState.activeWeather,
+                    terrain = EnvironmentalState.activeTerrain
+                },
+                removalChain = {
+                    triggered = #removedEffects > 0,
+                    effectCount = #removedEffects,
+                    chainLength = #removedEffects
+                }
+            }),
+            Success = "true",
+            RemovedEffects = tostring(#removedEffects),
+            ProcessId = ao.id,
+            Timestamp = tostring(msg.Timestamp or 0)
+        })
     end
 )
 

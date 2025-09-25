@@ -702,131 +702,83 @@ initializeTopology()
 Handlers.add("get-topology",
     Handlers.utils.hasMatchingTag("Action", "GetTopology"),
     function(msg)
-        local success, response = pcall(handleGetTopology, msg)
-        if success then
-            ao.send({
-                Target = msg.From,
-                Action = response.Action,
-                Data = response.Data,
-                Error = response.Error,
-                Timestamp = response.Timestamp
-            })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "TopologyError",
-                Error = response
-            })
-        end
+        local response = handleGetTopology(msg)
+        ao.send({
+            Target = msg.From,
+            Action = response.Action,
+            Data = response.Data,
+            Error = response.Error,
+            Timestamp = response.Timestamp
+        })
     end
 )
 
 Handlers.add("validate-process",
     Handlers.utils.hasMatchingTag("Action", "ValidateProcess"),
     function(msg)
-        local success, response = pcall(handleValidateProcess, msg)
-        if success then
-            ao.send({
-                Target = msg.From,
-                Action = response.Action,
-                Data = response.Data,
-                Error = response.Error,
-                Timestamp = response.Timestamp
-            })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "ValidationError",
-                Error = response
-            })
-        end
+        local response = handleValidateProcess(msg)
+        ao.send({
+            Target = msg.From,
+            Action = response.Action,
+            Data = response.Data,
+            Error = response.Error,
+            Timestamp = response.Timestamp
+        })
     end
 )
 
 Handlers.add("get-process-metadata",
     Handlers.utils.hasMatchingTag("Action", "GetProcessMetadata"),
     function(msg)
-        local success, response = pcall(handleGetProcessMetadata, msg)
-        if success then
-            ao.send({
-                Target = msg.From,
-                Action = response.Action,
-                Data = response.Data,
-                Error = response.Error,
-                Timestamp = response.Timestamp
-            })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "MetadataError",
-                Error = response
-            })
-        end
+        local response = handleGetProcessMetadata(msg)
+        ao.send({
+            Target = msg.From,
+            Action = response.Action,
+            Data = response.Data,
+            Error = response.Error,
+            Timestamp = response.Timestamp
+        })
     end
 )
 
 Handlers.add("discover-processes",
     Handlers.utils.hasMatchingTag("Action", "DiscoverProcesses"),
     function(msg)
-        local success, response = pcall(handleDiscoverProcesses, msg)
-        if success then
-            ao.send({
-                Target = msg.From,
-                Action = response.Action,
-                Data = response.Data,
-                Error = response.Error,
-                Timestamp = response.Timestamp
-            })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "DiscoveryError",
-                Error = response
-            })
-        end
+        local response = handleDiscoverProcesses(msg)
+        ao.send({
+            Target = msg.From,
+            Action = response.Action,
+            Data = response.Data,
+            Error = response.Error,
+            Timestamp = response.Timestamp
+        })
     end
 )
 
 Handlers.add("health-check",
     Handlers.utils.hasMatchingTag("Action", "HealthCheck"),
     function(msg)
-        local success, response = pcall(handleHealthCheck, msg)
-        if success then
-            ao.send({
-                Target = msg.From,
-                Action = response.Action,
-                Data = response.Data,
-                Error = response.Error,
-                Timestamp = response.Timestamp
-            })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "HealthError",
-                Error = response
-            })
-        end
+        local response = handleHealthCheck(msg)
+        ao.send({
+            Target = msg.From,
+            Action = response.Action,
+            Data = response.Data,
+            Error = response.Error,
+            Timestamp = response.Timestamp
+        })
     end
 )
 
 Handlers.add("info",
     Handlers.utils.hasMatchingTag("Action", "Info"),
     function(msg)
-        local success, response = pcall(handleInfo, msg)
-        if success then
-            ao.send({
-                Target = msg.From,
-                Action = "ProcessInfo",
-                Data = response.Data,
-                Timestamp = response.Timestamp
-            })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "InfoError",
-                Error = response
-            })
-        end
+        local response = handleInfo(msg)
+        ao.send({
+            Target = msg.From,
+            Action = "ProcessInfo",
+            Data = response.Data,
+            Timestamp = response.Timestamp
+        })
     end
 )
 

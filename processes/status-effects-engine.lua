@@ -1188,9 +1188,7 @@ Handlers.add("process-logic",
             rngState = rngInitSuccess
         end
         
-        local success, result = pcall(function()
-            return StatusEffectsEngine.handleOperation(gameState, operation, parameters, rngState)
-        end)
+        local result = StatusEffectsEngine.handleOperation(gameState, operation, parameters, rngState)
         
         local responseTime = endPerformanceMonitoring()
         if responseTime and responseTime > OPERATION_TIMEOUT then
@@ -1203,26 +1201,17 @@ Handlers.add("process-logic",
             return
         end
         
-        if success then
-            if result and result.gameState then
-                result.gameState.timestamp = msg and msg.Timestamp or 0
-                result.gameState.version = (gameState.version or 0) + 1
-            end
-            
-            ao.send({
-                Target = msg.From,
-                Action = "ProcessResult",
-                Data = result,
-                Timestamp = tostring(msg and msg.Timestamp or 0)
-            })
-        else
-            ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = "Operation failed: " .. tostring(result),
-                Timestamp = tostring(msg and msg.Timestamp or 0)
-            })
+        if result and result.gameState then
+            result.gameState.timestamp = msg and msg.Timestamp or 0
+            result.gameState.version = (gameState.version or 0) + 1
         end
+        
+        ao.send({
+            Target = msg.From,
+            Action = "ProcessResult",
+            Data = result,
+            Timestamp = tostring(msg and msg.Timestamp or 0)
+        })
     end
 )
 
