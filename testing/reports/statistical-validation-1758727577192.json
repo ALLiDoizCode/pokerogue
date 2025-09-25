@@ -1,0 +1,145 @@
+{
+  "timestamp": "2025-09-24T15:26:17.192Z",
+  "framework": "Property-Based Testing & Statistical Validation",
+  "configuration": {
+    "minIterations": 10000,
+    "confidenceLevel": 0.95,
+    "tolerances": {
+      "probability": 0.02,
+      "damage": 0.05,
+      "critical": 0.01
+    }
+  },
+  "summary": {
+    "total": 4,
+    "passed": 1,
+    "failed": 3,
+    "errors": 0,
+    "successRate": 25,
+    "totalIterations": 35000
+  },
+  "results": [
+    {
+      "scenarioId": "critical-hit-rate-stage-0",
+      "scenarioName": "Critical Hit Rate - Stage 0",
+      "timestamp": "2025-09-24T15:26:17.180Z",
+      "iterations": 10000,
+      "expectedDistribution": {
+        "rate": 0.041666666666666664
+      },
+      "actualDistribution": {
+        "criticalRate": 0.0429,
+        "totalSamples": 10000
+      },
+      "statisticalAnalysis": {
+        "testType": "chi_square",
+        "confidenceLevel": 0.95,
+        "tolerance": 0.01,
+        "expectedRate": 0.041666666666666664,
+        "actualRate": 0.0429,
+        "difference": 0.0012333333333333363,
+        "relativeError": 0.02960000000000007,
+        "standardError": 0.0020263166090223905,
+        "marginOfError": 0.003971580553683885,
+        "confidenceInterval": [0.038928419446316115, 0.046871580553683886],
+        "withinTolerance": false,
+        "sampleSize": 10000
+      },
+      "status": "failed",
+      "duration": 4
+    },
+    {
+      "scenarioId": "damage-variance-normal",
+      "scenarioName": "Damage Variance - Normal Attack",
+      "timestamp": "2025-09-24T15:26:17.185Z",
+      "iterations": 5000,
+      "expectedDistribution": {
+        "mean": 92.5,
+        "variance": 18.75
+      },
+      "actualDistribution": {
+        "mean": 92.1422,
+        "min": 85,
+        "max": 99,
+        "variance": 18.60637916000014,
+        "standardDeviation": 4.313511233322586
+      },
+      "statisticalAnalysis": {
+        "testType": "chi_square",
+        "confidenceLevel": 0.95,
+        "tolerance": 0.05,
+        "expectedMean": 92.5,
+        "actualMean": 92.1422,
+        "expectedVariance": 18.75,
+        "actualVariance": 18.60637916000014,
+        "meanDifference": 0.35779999999999745,
+        "relativeError": 0.0038681081081080805,
+        "withinTolerance": true,
+        "actualStandardDeviation": 4.313511233322586
+      },
+      "status": "passed",
+      "duration": 2
+    },
+    {
+      "scenarioId": "capture-rate-pokeball",
+      "scenarioName": "Capture Rate - Pokeball",
+      "timestamp": "2025-09-24T15:26:17.187Z",
+      "iterations": 10000,
+      "expectedDistribution": {
+        "rate": 0.088
+      },
+      "actualDistribution": {
+        "captureRate": 0.1092,
+        "totalAttempts": 10000
+      },
+      "statisticalAnalysis": {
+        "testType": "chi_square",
+        "confidenceLevel": 0.95,
+        "tolerance": 0.02,
+        "expectedRate": 0.088,
+        "actualRate": 0.1092,
+        "difference": 0.02120000000000001,
+        "relativeError": 0.24090909090909104,
+        "standardError": 0.003118899806021348,
+        "marginOfError": 0.006113043619801841,
+        "confidenceInterval": [0.10308695638019816, 0.11531304361980185],
+        "withinTolerance": false,
+        "sampleSize": 10000
+      },
+      "status": "failed",
+      "duration": 2
+    },
+    {
+      "scenarioId": "burn-status-chance",
+      "scenarioName": "Burn Status Effect Chance",
+      "timestamp": "2025-09-24T15:26:17.189Z",
+      "iterations": 10000,
+      "expectedDistribution": {
+        "rate": 0.1
+      },
+      "actualDistribution": {
+        "applicationRate": 0.1032,
+        "totalAttempts": 10000
+      },
+      "statisticalAnalysis": {
+        "testType": "chi_square",
+        "confidenceLevel": 0.95,
+        "tolerance": 0.02,
+        "expectedRate": 0.1,
+        "actualRate": 0.1032,
+        "difference": 0.0031999999999999945,
+        "relativeError": 0.031999999999999945,
+        "standardError": 0.0030421992045229387,
+        "marginOfError": 0.0059627104408649595,
+        "confidenceInterval": [0.09723728955913503, 0.10916271044086497],
+        "withinTolerance": false,
+        "sampleSize": 10000
+      },
+      "status": "failed",
+      "duration": 3
+    }
+  ],
+  "environment": {
+    "nodeVersion": "v22.13.1"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "critical-hit-rate-stage-0",
+  "name": "Critical Hit Rate - Stage 0",
+  "type": "critical_hit_rate",
+  "category": "critical",
+  "description": "Validate base critical hit rate (1/24)",
+  "iterations": 10000,
+  "parameters": {
+    "criticalStage": 0
+  },
+  "expectedDistribution": {
+    "rate": 0.041666666666666664
+  }
+}

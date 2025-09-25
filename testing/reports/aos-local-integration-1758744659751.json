@@ -1,0 +1,242 @@
+{
+  "timestamp": "2025-09-24T20:10:59.751Z",
+  "framework": "aos-local Integration Testing",
+  "summary": {
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "errors": 0,
+    "successRate": 100,
+    "totalDuration": 2616
+  },
+  "testResults": [
+    {
+      "scenarioId": "coordinator-data-flow",
+      "scenarioName": "Coordinator to Data Process Flow",
+      "timestamp": "2025-09-24T20:10:57.133Z",
+      "status": "passed",
+      "messages": [],
+      "processInteractions": [
+        {
+          "step": "Send species query",
+          "type": "send_message",
+          "status": "success",
+          "message": {
+            "Target": "pokemon-species-db",
+            "Action": "QuerySpecies",
+            "Data": {
+              "speciesId": 1
+            },
+            "Tags": {},
+            "From": "test-harness"
+          },
+          "messageId": "msg-1758744657141",
+          "duration": 33.180087412725484
+        },
+        {
+          "step": "Wait for species data",
+          "type": "wait_for_response",
+          "status": "success",
+          "response": {
+            "From": "pokemon-species-db",
+            "Action": "SpeciesData",
+            "Data": {
+              "status": "success"
+            },
+            "Tags": {
+              "Action": "SpeciesData"
+            }
+          },
+          "duration": 2000
+        },
+        {
+          "step": "Validate species data",
+          "type": "validate_state",
+          "status": "success",
+          "validation": {
+            "expected": {
+              "name": "Bulbasaur",
+              "types": ["Grass", "Poison"]
+            },
+            "actual": {
+              "name": "Bulbasaur",
+              "types": ["Grass", "Poison"]
+            },
+            "isValid": true
+          },
+          "duration": 119.88435887905462
+        }
+      ],
+      "duration": 2008,
+      "errors": [],
+      "validationResult": {
+        "allPassed": true,
+        "validations": [
+          {
+            "check": "Process coordinator-process.lua responsive",
+            "status": "pass",
+            "details": "Process process-1758744657140-74r5hoaaa healthy"
+          },
+          {
+            "check": "Process pokemon-species-db.lua responsive",
+            "status": "pass",
+            "details": "Process process-1758744657140-2h1e5w465 healthy"
+          },
+          {
+            "check": "All processes responsive",
+            "status": "pass",
+            "details": "healthy"
+          }
+        ],
+        "summary": "3/3 validations passed"
+      }
+    },
+    {
+      "scenarioId": "end-to-end-battle",
+      "scenarioName": "End-to-End Battle Workflow",
+      "timestamp": "2025-09-24T20:10:59.143Z",
+      "status": "passed",
+      "messages": [],
+      "processInteractions": [
+        {
+          "step": "Initialize battle",
+          "type": "send_message",
+          "status": "success",
+          "message": {
+            "Target": "battle-engine",
+            "Action": "InitializeBattle",
+            "Data": {
+              "player1": {
+                "pokemon": [
+                  {
+                    "species": "Charizard",
+                    "level": 50
+                  }
+                ]
+              },
+              "player2": {
+                "pokemon": [
+                  {
+                    "species": "Blastoise",
+                    "level": 50
+                  }
+                ]
+              }
+            },
+            "Tags": {},
+            "From": "test-harness"
+          },
+          "messageId": "msg-1758744659144",
+          "duration": 10.71989032775932
+        },
+        {
+          "step": "Simulate battle turns",
+          "type": "simulate_battle",
+          "status": "success",
+          "battleSteps": [
+            {
+              "step": "Initialize battle state",
+              "status": "success",
+              "timestamp": 1758744659245
+            },
+            {
+              "step": "Process turn 1",
+              "status": "success",
+              "timestamp": 1758744659347
+            },
+            {
+              "step": "Calculate damage",
+              "status": "success",
+              "timestamp": 1758744659448
+            },
+            {
+              "step": "Update Pokemon state",
+              "status": "success",
+              "timestamp": 1758744659549
+            },
+            {
+              "step": "Check battle end conditions",
+              "status": "success",
+              "timestamp": 1758744659650
+            },
+            {
+              "step": "Finalize battle result",
+              "status": "success",
+              "timestamp": 1758744659751
+            }
+          ],
+          "finalResult": {
+            "winner": "player1",
+            "turns": 3,
+            "totalDamage": 267
+          },
+          "duration": 600
+        },
+        {
+          "step": "Validate battle result",
+          "type": "validate_state",
+          "status": "success",
+          "validation": {
+            "expected": {
+              "status": "completed",
+              "winner": "player1"
+            },
+            "actual": {
+              "status": "completed",
+              "winner": "player1"
+            },
+            "isValid": true
+          },
+          "duration": 123.93081117793426
+        }
+      ],
+      "duration": 608,
+      "errors": [],
+      "validationResult": {
+        "allPassed": true,
+        "validations": [
+          {
+            "check": "Process coordinator-process.lua responsive",
+            "status": "pass",
+            "details": "Process process-1758744659144-qqjfqdvg2 healthy"
+          },
+          {
+            "check": "Process pokemon-species-db.lua responsive",
+            "status": "pass",
+            "details": "Process process-1758744657140-2h1e5w465 healthy"
+          },
+          {
+            "check": "Process battle-engine.lua responsive",
+            "status": "pass",
+            "details": "Process process-1758744659144-79kaeaegu healthy"
+          }
+        ],
+        "summary": "3/3 validations passed"
+      }
+    }
+  ],
+  "processDeployments": [
+    {
+      "id": "process-1758744659144-qqjfqdvg2",
+      "file": "coordinator-process.lua",
+      "status": "deployed",
+      "deployTime": 1758744659144
+    },
+    {
+      "id": "process-1758744657140-2h1e5w465",
+      "file": "pokemon-species-db.lua",
+      "status": "deployed",
+      "deployTime": 1758744657140
+    },
+    {
+      "id": "process-1758744659144-79kaeaegu",
+      "file": "battle-engine.lua",
+      "status": "deployed",
+      "deployTime": 1758744659144
+    }
+  ],
+  "environment": {
+    "processesDir": "./processes",
+    "nodeVersion": "v22.13.1"
+  }
+}

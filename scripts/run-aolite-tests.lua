@@ -4,7 +4,7 @@
 -- Runs comprehensive unit tests with enhanced framework features
 
 -- Add current directory to package path for requiring local modules
-package.path = package.path .. ";./?.lua;./testing/unit/?.lua;./testing/aolite/?.lua;./processes/?.lua"
+package.path = package.path .. ";./?.lua;./testing/unit/?.lua;./testing/aolite/?.lua;./processes/?.lua;./test/unit/?.lua"
 
 -- Load enhanced testing framework
 local EnhancedFramework = require('testing.aolite.enhanced-test-framework')
@@ -68,7 +68,10 @@ local function main()
     "testing/unit/pokemon-instance-manager.test.lua",
     "testing/unit/moves-database.test.lua",
     "testing/unit/items-database.test.lua",
-    "testing/unit/abilities-database.test.lua"
+    "testing/unit/abilities-database.test.lua",
+    "testing/unit/damage-calculation-engine.test.lua",
+    "testing/unit/battle-state-manager.test.lua",
+    "test/unit/weather-system-engine.test.lua"
   }
   
   local totalLegacyTests = 0

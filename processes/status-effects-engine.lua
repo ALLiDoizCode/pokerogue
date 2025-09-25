@@ -109,12 +109,12 @@ local STATUS_EFFECTS = {
         turnEndEffect = "applyPoisonDamage",
         description = "Deals 1/8 max HP damage per turn"
     },
-    badlyPoisoned = {
-        name = "Badly Poisoned",
+    toxic = {
+        name = "Toxic",
         category = "major",
         duration = -1,
         damageOverTime = true,
-        damagePercent = 0.0625, -- Starts at 1/16, increases each turn
+        damagePercent = 0.0625, -- Base 1/16, multiplied by toxicTurnCount
         statModifiers = {},
         moveRestrictions = {},
         immunities = {"poison", "steel"},
@@ -123,9 +123,8 @@ local STATUS_EFFECTS = {
             preventedBy = {"poisonType", "steelType", "immunity"},
             resetOnSwitch = true
         },
-        turnEndEffect = "applyBadPoisonDamage",
-        counter = 1,
-        description = "Deals increasing damage each turn (1/16, 2/16, 3/16...)"
+        turnEndEffect = "applyToxicDamage",
+        description = "Deals increasing damage each turn (1/16 * toxicTurnCount)"
     },
     paralysis = {
         name = "Paralysis", 
@@ -146,7 +145,7 @@ local STATUS_EFFECTS = {
     sleep = {
         name = "Sleep",
         category = "major", 
-        duration = {min = 1, max = 3}, -- 1-3 turns
+        duration = -1, -- Managed by sleepTurnsRemaining
         damageOverTime = false,
         statModifiers = {},
         moveRestrictions = {cannotMove = true},
@@ -158,7 +157,7 @@ local STATUS_EFFECTS = {
             wakenBy = {"uproar"}
         },
         turnEndEffect = "checkWakeUp",
-        description = "Cannot move for 1-3 turns"
+        description = "Cannot move until sleepTurnsRemaining reaches 0"
     },
     freeze = {
         name = "Freeze",
@@ -287,15 +286,15 @@ local ENVIRONMENTAL_EFFECTS = {
 local TYPE_IMMUNITIES = {
     fire = {"burn"},
     electric = {"paralysis"},
-    poison = {"poison", "badlyPoisoned"},
-    steel = {"poison", "badlyPoisoned"},
+    poison = {"poison", "toxic"},
+    steel = {"poison", "toxic"},
     ice = {"freeze"},
     psychic = {"confusion"} -- Only from other Psychic types
 }
 
 -- Ability-based immunities
 local ABILITY_IMMUNITIES = {
-    immunity = {"poison", "badlyPoisoned"},
+    immunity = {"poison", "toxic"},
     limber = {"paralysis"},
     insomnia = {"sleep"},
     vitalSpirit = {"sleep"},
@@ -417,6 +416,117 @@ local function validateInput(message)
     end
     
     return true, nil
+end
+
+-- ====================================
+-- MESSAGE GENERATION (TypeScript Parity)
+-- ====================================
+
+-- Get status effect message key for i18n compatibility
+local function getStatusEffectMessageKey(statusEffect)
+    local messageKeys = {
+        poison = "statusEffect:poison",
+        toxic = "statusEffect:toxic",
+        paralysis = "statusEffect:paralysis",
+        sleep = "statusEffect:sleep",
+        freeze = "statusEffect:freeze",
+        burn = "statusEffect:burn",
+        none = "statusEffect:none"
+    }
+    return messageKeys[statusEffect] or "statusEffect:none"
+end
+
+-- Generate obtain message
+local function getStatusEffectObtainText(statusEffect, pokemonName, sourceText)
+    if statusEffect == "none" then
+        return ""
+    end
+    
+    local messages = {
+        poison = pokemonName .. " was poisoned!",
+        toxic = pokemonName .. " was badly poisoned!",
+        paralysis = pokemonName .. " is paralyzed! It may be unable to move!",
+        sleep = pokemonName .. " fell asleep!",
+        freeze = pokemonName .. " was frozen solid!",
+        burn = pokemonName .. " was burned!"
+    }
+    
+    if sourceText then
+        messages.poison = pokemonName .. " was poisoned by " .. sourceText .. "!"
+        messages.toxic = pokemonName .. " was badly poisoned by " .. sourceText .. "!"
+        messages.paralysis = pokemonName .. " is paralyzed by " .. sourceText .. "! It may be unable to move!"
+        messages.sleep = pokemonName .. " fell asleep from " .. sourceText .. "!"
+        messages.freeze = pokemonName .. " was frozen solid by " .. sourceText .. "!"
+        messages.burn = pokemonName .. " was burned by " .. sourceText .. "!"
+    end
+    
+    return messages[statusEffect] or ""
+end
+
+-- Generate activation message
+local function getStatusEffectActivationText(statusEffect, pokemonName)
+    if statusEffect == "none" then
+        return ""
+    end
+    
+    local messages = {
+        poison = pokemonName .. " is hurt by poison!",
+        toxic = pokemonName .. " is hurt by poison!",
+        paralysis = pokemonName .. " is paralyzed and can't move!",
+        sleep = pokemonName .. " is fast asleep.",
+        freeze = pokemonName .. " is frozen solid!",
+        burn = pokemonName .. " is hurt by its burn!"
+    }
+    
+    return messages[statusEffect] or ""
+end
+
+-- Generate overlap message
+local function getStatusEffectOverlapText(statusEffect, pokemonName)
+    if statusEffect == "none" then
+        return ""
+    end
+    
+    local messages = {
+        poison = pokemonName .. " is already poisoned!",
+        toxic = pokemonName .. " is already badly poisoned!",
+        paralysis = pokemonName .. " is already paralyzed!",
+        sleep = pokemonName .. " is already asleep!",
+        freeze = pokemonName .. " is already frozen!",
+        burn = pokemonName .. " is already burned!"
+    }
+    
+    return messages[statusEffect] or ""
+end
+
+-- Generate heal message
+local function getStatusEffectHealText(statusEffect, pokemonName)
+    if statusEffect == "none" then
+        return ""
+    end
+    
+    local messages = {
+        poison = pokemonName .. " was cured of its poisoning!",
+        toxic = pokemonName .. " was cured of its poisoning!",
+        paralysis = pokemonName .. " was cured of paralysis!",
+        sleep = pokemonName .. " woke up!",
+        freeze = pokemonName .. " thawed out!",
+        burn = pokemonName .. " was healed of its burn!"
+    }
+    
+    return messages[statusEffect] or ""
+end
+
+-- Get catch rate multiplier for status
+local function getStatusEffectCatchRateMultiplier(statusEffect)
+    if statusEffect == "poison" or statusEffect == "toxic" or 
+       statusEffect == "paralysis" or statusEffect == "burn" then
+        return 1.5
+    elseif statusEffect == "sleep" or statusEffect == "freeze" then
+        return 2.5
+    else
+        return 1.0
+    end
 end
 
 -- ====================================
@@ -542,17 +652,23 @@ function StatusEffectsEngine.applyStatusEffect(pokemon, statusEffect, rngState, 
     newPokemon.statusEffect = statusEffect
     newPokemon.statusEffectData = deepCopy(effectData)
     
-    -- Set duration if applicable
+    -- Initialize TOXIC turn counter
+    if statusEffect == "toxic" then
+        newPokemon.toxicTurnCount = 1
+    end
+    
+    -- Initialize SLEEP turns remaining (1-3 turns)
+    if statusEffect == "sleep" then
+        local sleepDuration = nextRandom(rngState, 1, 3)
+        newPokemon.sleepTurnsRemaining = sleepDuration
+    end
+    
+    -- Set duration if applicable (for other status effects)
     if effectData.duration and type(effectData.duration) == "table" then
         local duration = nextRandom(rngState, effectData.duration.min, effectData.duration.max)
         newPokemon.statusEffectData.remainingDuration = duration
     elseif effectData.duration and effectData.duration > 0 then
         newPokemon.statusEffectData.remainingDuration = effectData.duration
-    end
-    
-    -- Initialize counters for progressive effects
-    if effectData.counter then
-        newPokemon.statusEffectData.counter = effectData.counter
     end
     
     return newPokemon, true, "Status effect applied: " .. effectData.name
@@ -567,9 +683,16 @@ function StatusEffectsEngine.calculateStatusDamage(pokemon, statusData, environm
     local baseDamage = 0
     local damagePercent = statusData.damagePercent or 0
     
-    if statusData.name == "Badly Poisoned" then
-        local counter = statusData.counter or 1
-        baseDamage = math.floor(pokemon.maxHp * damagePercent * counter)
+    if statusData.name == "Toxic" then
+        -- Toxic damage: 1/16 max HP * toxicTurnCount
+        local toxicTurnCount = pokemon.toxicTurnCount or 1
+        baseDamage = math.floor(pokemon.maxHp * damagePercent * toxicTurnCount)
+    elseif statusData.name == "Poison" then
+        -- Poison damage: Fixed 1/8 max HP per turn
+        baseDamage = math.floor(pokemon.maxHp * 0.125)
+    elseif statusData.name == "Burn" then
+        -- Burn damage: Fixed 1/16 max HP per turn
+        baseDamage = math.floor(pokemon.maxHp * 0.0625)
     else
         baseDamage = math.floor(pokemon.maxHp * damagePercent)
     end
@@ -615,9 +738,9 @@ function StatusEffectsEngine.processStatusTurn(pokemon, rngState, environmentalE
                 message = newPokemon.name .. " is hurt by " .. statusData.name:lower() .. "!"
             })
             
-            -- Increment counter for badly poisoned
-            if statusData.name == "Badly Poisoned" then
-                newPokemon.statusEffectData.counter = (statusData.counter or 1) + 1
+            -- Increment toxicTurnCount for toxic status
+            if statusData.name == "Toxic" then
+                newPokemon.toxicTurnCount = (newPokemon.toxicTurnCount or 1) + 1
             end
         end
     end
@@ -625,14 +748,19 @@ function StatusEffectsEngine.processStatusTurn(pokemon, rngState, environmentalE
     -- Process turn-end effects
     if statusData.turnEndEffect then
         if statusData.turnEndEffect == "checkWakeUp" then
-            if statusData.remainingDuration and statusData.remainingDuration <= 1 then
-                newPokemon.statusEffect = "none"
-                newPokemon.statusEffectData = nil
-                table.insert(effects, {
-                    type = "cure",
-                    source = "naturalRecovery",
-                    message = newPokemon.name .. " woke up!"
-                })
+            -- Decrement sleepTurnsRemaining
+            if newPokemon.sleepTurnsRemaining then
+                newPokemon.sleepTurnsRemaining = newPokemon.sleepTurnsRemaining - 1
+                if newPokemon.sleepTurnsRemaining <= 0 then
+                    newPokemon.statusEffect = "none"
+                    newPokemon.statusEffectData = nil
+                    newPokemon.sleepTurnsRemaining = nil
+                    table.insert(effects, {
+                        type = "cure",
+                        source = "naturalRecovery",
+                        message = newPokemon.name .. " woke up!"
+                    })
+                end
             end
             
         elseif statusData.turnEndEffect == "checkThaw" then
@@ -705,6 +833,14 @@ function StatusEffectsEngine.removeStatusEffect(pokemon, cureMethod, rngState)
                 local oldStatus = newPokemon.statusEffect
                 newPokemon.statusEffect = "none"
                 newPokemon.statusEffectData = nil
+                -- Reset toxic turn counter
+                if oldStatus == "toxic" then
+                    newPokemon.toxicTurnCount = nil
+                end
+                -- Reset sleep turns remaining
+                if oldStatus == "sleep" then
+                    newPokemon.sleepTurnsRemaining = nil
+                end
                 return newPokemon, true, "Status effect " .. oldStatus .. " cured by " .. cureMethod
             end
         end
