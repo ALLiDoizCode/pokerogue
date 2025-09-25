@@ -120,6 +120,23 @@ local WorkflowPriorityQueue = {
 local HealthCheckInterval = 10000 -- 10 seconds
 local LastCleanupTime = 0
 
+-- Retry Configuration for Workflow Execution
+local RetryConfig = {
+    maxRetries = 3,
+    baseDelay = 1000, -- 1 second
+    maxDelay = 10000, -- 10 seconds
+    exponentialBackoff = true,
+    jitterEnabled = true
+}
+
+-- Dead Letter Queue for Failed Messages
+local DeadLetterQueue = {
+    messages = {},
+    maxSize = 1000,
+    retentionTime = 3600000, -- 1 hour
+    cleanupInterval = 300000 -- 5 minutes
+}
+
 -- Message Queuing and Ordering System
 local MessageQueue = {
     queues = {
@@ -274,6 +291,16 @@ local function updateProcessMetrics(processName, responseTime, success)
     process.healthScore = calculateHealthScore(process)
 end
 
+local function clearRoutingCache(processName)
+    if not RoutingConfig.cacheEnabled then return end
+    
+    for key, _ in pairs(RoutingCache.cache) do
+        if string.find(key, processName) then
+            RoutingCache.cache[key] = nil
+        end
+    end
+end
+
 local function discoverProcess(processName, processId, instanceInfo)
     local allProcesses = getAllProcesses()
     if allProcesses[processName] then
@@ -300,16 +327,6 @@ local function discoverProcess(processName, processId, instanceInfo)
         return true
     end
     return false
-end
-
-local function clearRoutingCache(processName)
-    if not RoutingConfig.cacheEnabled then return end
-    
-    for key, _ in pairs(RoutingCache.cache) do
-        if string.find(key, processName) then
-            RoutingCache.cache[key] = nil
-        end
-    end
 end
 
 local function getProcessId(processName)
@@ -754,6 +771,72 @@ local function performWorkflowCleanup()
     end
     
     return cleaned
+end
+
+local function cleanupDeadLetterQueue()
+    local currentTime = getCurrentTimestamp()
+    local cleanupThreshold = currentTime - DeadLetterQueue.retentionTime
+    local cleaned = 0
+    
+    -- Clean expired messages from dead letter queue
+    local cleanedMessages = {}
+    for i, message in ipairs(DeadLetterQueue.messages) do
+        if message.timestamp > cleanupThreshold then
+            table.insert(cleanedMessages, message)
+        else
+            cleaned = cleaned + 1
+        end
+    end
+    
+    DeadLetterQueue.messages = cleanedMessages
+    
+    -- Enforce max size limit
+    if #DeadLetterQueue.messages > DeadLetterQueue.maxSize then
+        local excess = #DeadLetterQueue.messages - DeadLetterQueue.maxSize
+        for i = 1, excess do
+            table.remove(DeadLetterQueue.messages, 1) -- Remove oldest messages
+            cleaned = cleaned + 1
+        end
+    end
+    
+    return cleaned
+end
+
+local function executeWithRetry(operation, processName, maxRetries)
+    local retries = 0
+    local lastError = nil
+    
+    while retries <= maxRetries do
+        local success, result = pcall(operation)
+        
+        if success then
+            return true, result
+        else
+            lastError = result
+            retries = retries + 1
+            
+            if retries <= maxRetries then
+                -- Calculate retry delay with exponential backoff and jitter
+                local baseDelay = RetryConfig.baseDelay
+                local delay = RetryConfig.exponentialBackoff and (baseDelay * (2 ^ (retries - 1))) or baseDelay
+                delay = math.min(delay, RetryConfig.maxDelay)
+                
+                -- Add jitter if enabled
+                if RetryConfig.jitterEnabled then
+                    delay = delay * (0.5 + (math.random() * 0.5)) -- 50-100% of calculated delay
+                end
+                
+                -- In a real AO environment, we would wait here
+                -- For testing, we just continue
+                if msg and msg.Timestamp then
+                    -- Simple delay simulation for testing
+                    -- In production, this would be handled by AO's scheduling
+                end
+            end
+        end
+    end
+    
+    return false, lastError
 end
 
 local function getNextPriorityWorkflow()
@@ -1214,7 +1297,12 @@ Handlers.add("coordinate-workflow",
             return
         end
         
-        local steps = json.decode(msg.Steps)
+        local steps = msg.Steps and json.decode(msg.Steps) or {}
+        if not steps or #steps == 0 then
+            sendErrorResponse(msg.From, nil, "Steps required for workflow coordination", "CoordinateWorkflow")
+            return
+        end
+        
         local data = msg.Data and json.decode(msg.Data) or {}
         local priority = msg.Priority or "normal"
         local customTimeout = msg.Timeout and tonumber(msg.Timeout)
