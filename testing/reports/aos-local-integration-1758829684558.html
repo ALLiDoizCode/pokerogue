@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>aos-local Integration Test Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .summary { background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .pass { color: green; font-weight: bold; }
+        .fail { color: red; font-weight: bold; }
+        .error { color: orange; font-weight: bold; }
+        .test-result { border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .process-interactions { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; }
+        .message-flow { font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>aos-local Integration Test Report</h1>
+    
+    <div class="summary">
+        <h2>Summary</h2>
+        <p><strong>Generated:</strong> 2025-09-25T19:48:04.558Z</p>
+        <p><strong>Framework:</strong> aos-local Integration Testing</p>
+        <p><strong>Total Tests:</strong> 2</p>
+        <p><strong>Passed:</strong> <span class="pass">2</span></p>
+        <p><strong>Failed:</strong> <span class="fail">0</span></p>
+        <p><strong>Errors:</strong> <span class="error">0</span></p>
+        <p><strong>Success Rate:</strong> 100.0%</p>
+    </div>
+    
+    <h2>Process Deployments</h2>
+    
+        <div class="test-result">
+            <h4>coordinator-process.lua (process-1758829683950-37exnor3v)</h4>
+            <p><strong>Status:</strong> deployed</p>
+            <p><strong>Deploy Time:</strong> 9/25/2025, 3:48:03 PM</p>
+        </div>
+    
+        <div class="test-result">
+            <h4>pokemon-species-db.lua (process-1758829681947-88caqbpfw)</h4>
+            <p><strong>Status:</strong> deployed</p>
+            <p><strong>Deploy Time:</strong> 9/25/2025, 3:48:01 PM</p>
+        </div>
+    
+        <div class="test-result">
+            <h4>battle-engine.lua (process-1758829683951-15lkihx5b)</h4>
+            <p><strong>Status:</strong> deployed</p>
+            <p><strong>Deploy Time:</strong> 9/25/2025, 3:48:03 PM</p>
+        </div>
+    
+    
+    <h2>Test Results</h2>
+    
+        <div class="test-result">
+            <h3>Coordinator to Data Process Flow <span class="passed">PASSED</span></h3>
+            <p><strong>Duration:</strong> 2003ms</p>
+            
+                <div class="process-interactions">
+                    <h4>Process Interactions (3):</h4>
+                    
+                        <div class="message-flow">
+                            Send species query: success (28.58882558497339ms)
+                        </div>
+                    
+                        <div class="message-flow">
+                            Wait for species data: success (2000ms)
+                        </div>
+                    
+                        <div class="message-flow">
+                            Validate species data: success (75.9915040689809ms)
+                        </div>
+                    
+                </div>
+            
+            
+        </div>
+    
+        <div class="test-result">
+            <h3>End-to-End Battle Workflow <span class="passed">PASSED</span></h3>
+            <p><strong>Duration:</strong> 608ms</p>
+            
+                <div class="process-interactions">
+                    <h4>Process Interactions (3):</h4>
+                    
+                        <div class="message-flow">
+                            Initialize battle: success (10.417465643203418ms)
+                        </div>
+                    
+                        <div class="message-flow">
+                            Simulate battle turns: success (600ms)
+                        </div>
+                    
+                        <div class="message-flow">
+                            Validate battle result: success (96.16855266138097ms)
+                        </div>
+                    
+                </div>
+            
+            
+        </div>
+    
+</body>
+</html>

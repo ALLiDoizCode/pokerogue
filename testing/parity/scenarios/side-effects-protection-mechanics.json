@@ -1,0 +1,95 @@
+{
+  "id": "side-effects-protection-mechanics",
+  "name": "Side Effects Protection Mechanics",
+  "description": "Test Safeguard status protection and Mist stat protection mechanisms",
+  "scenarioType": "side-effect-protection",
+  "inputGameState": {
+    "sideEffects": {
+      "player": {
+        "safeguard": {
+          "active": true,
+          "turnsRemaining": 5
+        }
+      },
+      "enemy": {
+        "mist": {
+          "active": true,
+          "turnsRemaining": 5
+        }
+      }
+    },
+    "statusAttempts": [
+      {
+        "target": "player",
+        "statusType": "BURN",
+        "source": "enemy"
+      },
+      {
+        "target": "player",
+        "statusType": "POISON",
+        "source": "enemy"
+      },
+      {
+        "target": "player",
+        "statusType": "LEECH_SEED",
+        "source": "enemy"
+      }
+    ],
+    "statReductionAttempts": [
+      {
+        "target": "enemy",
+        "statType": "ATTACK",
+        "stages": -2,
+        "source": "player"
+      },
+      {
+        "target": "enemy",
+        "statType": "DEFENSE",
+        "stages": -1,
+        "source": "player"
+      }
+    ]
+  },
+  "expectedOutput": {
+    "statusResults": [
+      {
+        "attempt": 0,
+        "blocked": true,
+        "reason": "Safeguard protection",
+        "statusType": "BURN"
+      },
+      {
+        "attempt": 1,
+        "blocked": true,
+        "reason": "Safeguard protection",
+        "statusType": "POISON"
+      },
+      {
+        "attempt": 2,
+        "blocked": false,
+        "reason": "Not protected status type",
+        "statusType": "LEECH_SEED"
+      }
+    ],
+    "statReductionResults": [
+      {
+        "attempt": 0,
+        "blocked": true,
+        "reason": "Mist protection",
+        "statType": "ATTACK"
+      },
+      {
+        "attempt": 1,
+        "blocked": true,
+        "reason": "Mist protection",
+        "statType": "DEFENSE"
+      }
+    ],
+    "effectsRemaining": {
+      "playerSafeguard": true,
+      "enemyMist": true
+    }
+  },
+  "tolerances": {},
+  "requiresStatisticalAnalysis": false
+}

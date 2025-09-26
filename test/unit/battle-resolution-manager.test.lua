@@ -24,12 +24,13 @@ local mockHandlers = {
 
 -- Test utilities
 local function createMockMessage(action, tags, data)
+    tags = tags or {}
+    tags.Action = action
     return {
         From = "test_sender",
-        Tags = tags or {},
+        Tags = tags,
         Data = data,
-        Timestamp = 1234567890,
-        [action] = action
+        Timestamp = 1234567890
     }
 end
 
@@ -309,7 +310,7 @@ end)
 -- Run all tests
 local function runTests()
     print("🧪 Running Battle Resolution Manager Unit Tests")
-    print("=".rep(50))
+    print(string.rep("=", 50))
     
     -- Mock json for tests
     json = json or {

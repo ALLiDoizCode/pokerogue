@@ -1,0 +1,124 @@
+{
+  "id": "side-effects-screen-damage-reduction",
+  "name": "Side Effects Screen Damage Reduction",
+  "description": "Test Reflect and Light Screen damage reduction calculations in single vs double battles",
+  "scenarioType": "side-effect",
+  "inputGameState": {
+    "battleFormat": {
+      "single": true,
+      "double": false
+    },
+    "sideEffects": {
+      "player": {
+        "reflect": {
+          "active": true,
+          "turnsRemaining": 5,
+          "hasLightClay": false
+        }
+      },
+      "enemy": {
+        "lightScreen": {
+          "active": true,
+          "turnsRemaining": 8,
+          "hasLightClay": true
+        }
+      }
+    },
+    "attacks": [
+      {
+        "attacker": "enemy",
+        "target": "player",
+        "move": {
+          "name": "Earthquake",
+          "category": "Physical",
+          "power": 100
+        },
+        "attackerAbility": "none"
+      },
+      {
+        "attacker": "player",
+        "target": "enemy",
+        "move": {
+          "name": "Psychic",
+          "category": "Special",
+          "power": 90
+        },
+        "attackerAbility": "none"
+      }
+    ]
+  },
+  "expectedOutput": {
+    "damageReductions": [
+      {
+        "attack": 0,
+        "damageMultiplier": 0.5,
+        "effectApplied": "reflect",
+        "bypassedReason": ""
+      },
+      {
+        "attack": 1,
+        "damageMultiplier": 0.5,
+        "effectApplied": "lightScreen",
+        "bypassedReason": ""
+      }
+    ],
+    "effectDurations": {
+      "playerReflect": 5,
+      "enemyLightScreen": 8
+    }
+  },
+  "tolerances": {
+    "damageMultiplier": 0.001
+  },
+  "requiresStatisticalAnalysis": false,
+  "variations": [
+    {
+      "name": "double-battle",
+      "battleFormat": {
+        "single": false,
+        "double": true
+      },
+      "expectedOutput": {
+        "damageReductions": [
+          {
+            "attack": 0,
+            "damageMultiplier": 0.667,
+            "effectApplied": "reflect",
+            "bypassedReason": ""
+          },
+          {
+            "attack": 1,
+            "damageMultiplier": 0.667,
+            "effectApplied": "lightScreen",
+            "bypassedReason": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "infiltrator-bypass",
+      "attacks": [
+        {
+          "attacker": "enemy",
+          "target": "player",
+          "move": {
+            "name": "Earthquake",
+            "category": "Physical",
+            "power": 100
+          },
+          "attackerAbility": "infiltrator"
+        }
+      ],
+      "expectedOutput": {
+        "damageReductions": [
+          {
+            "attack": 0,
+            "damageMultiplier": 1.0,
+            "effectApplied": "reflect",
+            "bypassedReason": "Infiltrator ability"
+          }
+        ]
+      }
+    }
+  ]
+}
