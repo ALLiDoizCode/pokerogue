@@ -21,15 +21,15 @@ end
 -- Test 2: ADP Info Handler
 local function test_adp_info_handler()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local infoMessage = {
         Action = "Info",
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, infoMessage)
-    
+
     local result = true -- Mock always succeeds
     testResults["test_adp_info_handler"] = result
     print(result and "✓ ADP Info handler test passed" or "✗ ADP Info handler test failed")
@@ -39,15 +39,15 @@ end
 -- Test 3: Health Check Handler
 local function test_health_check_handler()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local healthMessage = {
         Action = "HealthCheck",
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, healthMessage)
-    
+
     local result = true
     testResults["test_health_check_handler"] = result
     print(result and "✓ Health check handler test passed" or "✗ Health check handler test failed")
@@ -57,7 +57,7 @@ end
 -- Test 4: Apply Positional Effect Handler
 local function test_apply_positional_effect_handler()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local effectMessage = {
         Action = "ApplyPositionalEffect",
         TagType = "DELAYED_ATTACK",
@@ -69,9 +69,9 @@ local function test_apply_positional_effect_handler()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, effectMessage)
-    
+
     local result = true
     testResults["test_apply_positional_effect_handler"] = result
     print(result and "✓ Apply positional effect handler test passed" or "✗ Apply positional effect handler test failed")
@@ -81,7 +81,7 @@ end
 -- Test 5: Check Positional Targeting Handler
 local function test_check_positional_targeting_handler()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local targetingMessage = {
         Action = "CheckPositionalTargeting",
         SourceIndex = "0",
@@ -92,9 +92,9 @@ local function test_check_positional_targeting_handler()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, targetingMessage)
-    
+
     local result = true
     testResults["test_check_positional_targeting_handler"] = result
     print(result and "✓ Check positional targeting handler test passed" or "✗ Check positional targeting handler test failed")
@@ -104,7 +104,7 @@ end
 -- Test 6: Process Positional Turn Effects Handler
 local function test_process_positional_turn_effects_handler()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local turnEffectsMessage = {
         Action = "ProcessPositionalTurnEffects",
         BattleId = "test_battle_3",
@@ -113,9 +113,9 @@ local function test_process_positional_turn_effects_handler()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, turnEffectsMessage)
-    
+
     local result = true
     testResults["test_process_positional_turn_effects_handler"] = result
     print(result and "✓ Process positional turn effects handler test passed" or "✗ Process positional turn effects handler test failed")
@@ -125,7 +125,7 @@ end
 -- Test 7: Update Battlefield Positions Handler
 local function test_update_battlefield_positions_handler()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local positionsMessage = {
         Action = "UpdateBattlefieldPositions",
         PositionData = '{"0":{"id":1,"hp":100,"maxHp":100},"2":{"id":2,"hp":80,"maxHp":100}}',
@@ -133,9 +133,9 @@ local function test_update_battlefield_positions_handler()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, positionsMessage)
-    
+
     local result = true
     testResults["test_update_battlefield_positions_handler"] = result
     print(result and "✓ Update battlefield positions handler test passed" or "✗ Update battlefield positions handler test failed")
@@ -145,16 +145,16 @@ end
 -- Test 8: Cleanup Battle Data Handler
 local function test_cleanup_battle_data_handler()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local cleanupMessage = {
         Action = "CleanupBattleData",
         BattleId = "test_battle_5",
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, cleanupMessage)
-    
+
     local result = true
     testResults["test_cleanup_battle_data_handler"] = result
     print(result and "✓ Cleanup battle data handler test passed" or "✗ Cleanup battle data handler test failed")
@@ -164,7 +164,7 @@ end
 -- Test 9: Error Handling
 local function test_error_handling()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local invalidMessage = {
         Action = "ApplyPositionalEffect",
         TagType = "INVALID_TYPE",
@@ -173,9 +173,9 @@ local function test_error_handling()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, invalidMessage)
-    
+
     local result = true
     testResults["test_error_handling"] = result
     print(result and "✓ Error handling test passed" or "✗ Error handling test failed")
@@ -185,9 +185,9 @@ end
 -- Test 10: Performance Requirements
 local function test_performance_requirements()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local startTime = os.clock()
-    
+
     for i = 1, 10 do
         local message = {
             Action = "CheckPositionalTargeting",
@@ -199,16 +199,16 @@ local function test_performance_requirements()
             Timestamp = 1234567890,
             From = "test-client"
         }
-        
+
         aolite.send(processId, message)
     end
-    
+
     local endTime = os.clock()
     local totalTime = (endTime - startTime) * 1000 -- Convert to ms
     local avgTime = totalTime / 10
-    
+
     print("Position targeting query response time: " .. string.format("%.2f", avgTime) .. "ms")
-    
+
     local result = avgTime < 50 -- Should be under 50ms average
     testResults["test_performance_requirements"] = result
     print(result and "✓ Performance requirements test passed" or "✗ Performance requirements test failed")
@@ -218,7 +218,7 @@ end
 -- Run all tests
 local function runAllTests()
     print("")
-    
+
     local tests = {
         {name = "test_process_initialization", func = test_process_initialization},
         {name = "test_adp_info_handler", func = test_adp_info_handler},
@@ -231,17 +231,17 @@ local function runAllTests()
         {name = "test_error_handling", func = test_error_handling},
         {name = "test_performance_requirements", func = test_performance_requirements}
     }
-    
+
     local passed = 0
     local total = #tests
-    
+
     for _, test in ipairs(tests) do
         print("Running: " .. test.name)
         if test.func() then
             passed = passed + 1
         end
     end
-    
+
     print("")
     print("==================================================")
     print("Test Results:")
@@ -249,13 +249,13 @@ local function runAllTests()
     print("  Failed: " .. (total - passed))
     print("  Total:  " .. total)
     print("")
-    
+
     if passed == total then
         print("🎉 All tests passed!")
     else
         print("❌ Some tests failed!")
     end
-    
+
     return passed == total
 end
 

@@ -26,14 +26,14 @@ local function sendMessage(action, tags, data, timeout)
         Data = data or "",
         Timestamp = os.time() * 1000
     }
-    
+
     -- Add additional tags
     if tags then
         for k, v in pairs(tags) do
             msg[k] = tostring(v)
         end
     end
-    
+
     return aolite.send(msg, timeout or TEST_TIMEOUT)
 end
 
@@ -41,16 +41,16 @@ local function assertSuccess(response, testName)
     if not response then
         error(testName .. ": No response received")
     end
-    
+
     if response.Error then
         error(testName .. ": " .. response.Error)
     end
-    
+
     local data = response.Data and json.decode(response.Data) or {}
     if not data.success then
         error(testName .. ": Operation failed - " .. (data.error or "unknown error"))
     end
-    
+
     return data
 end
 
@@ -58,16 +58,16 @@ local function assertError(response, testName, expectedError)
     if not response then
         error(testName .. ": Expected error but got no response")
     end
-    
+
     local data = response.Data and json.decode(response.Data) or {}
     if data.success then
         error(testName .. ": Expected error but operation succeeded")
     end
-    
+
     if expectedError and not string.find(data.error or "", expectedError) then
         error(testName .. ": Expected error '" .. expectedError .. "' but got '" .. (data.error or "no error") .. "'")
     end
-    
+
     return data
 end
 
@@ -142,7 +142,7 @@ print("✅ PASS: EV gain with valid constraints")
 print("\n📝 Test 6: EV Gain - Constraint Violation")
 local invalidEVs = {252, 252, 252, 0, 0, 0} -- Would exceed 510 total
 local evErrorResponse = sendMessage("GainEVs", {
-    PokemonId = "test_pokemon_3", 
+    PokemonId = "test_pokemon_3",
     EVYield = json.encode(invalidEVs),
     Multiplier = "1.0"
 })
@@ -205,7 +205,7 @@ print("✅ PASS: Critical hit stat stage bypass")
 print("\n📝 Test 10: Damage Calculation")
 local damageResponse = sendMessage("CalculateDamage", {
     AttackerId = "test_pokemon_6",
-    DefenderId = "test_pokemon_7", 
+    DefenderId = "test_pokemon_7",
     Move = "Thunderbolt",
     CriticalHit = "false"
 })
@@ -223,7 +223,7 @@ print("\n📝 Test 11: Critical Hit Damage")
 local critDamageResponse = sendMessage("CalculateDamage", {
     AttackerId = "test_pokemon_8",
     DefenderId = "test_pokemon_9",
-    Move = "Thunderbolt", 
+    Move = "Thunderbolt",
     CriticalHit = "true"
 })
 local critDamageData = assertSuccess(critDamageResponse, "CalculateDamage critical")
@@ -281,7 +281,7 @@ print("✅ PASS: Process state persistence across operations")
 print("\n🎉 All Aolite Tests Passed!")
 print("=" .. string.rep("=", 50))
 print("✅ ADP v1.0 Compliance: PASS")
-print("✅ IV Generation: PASS") 
+print("✅ IV Generation: PASS")
 print("✅ EV Constraints: PASS")
 print("✅ Stat Calculations: PASS")
 print("✅ Battle Modifications: PASS")

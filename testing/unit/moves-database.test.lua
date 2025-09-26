@@ -5,7 +5,7 @@
 -- Temporary stub for DataProcessTemplate
 local DataProcessTemplate = {
     validateInput = function(msg) return true, nil end,
-    handleMessage = function(msg, processId, handler) 
+    handleMessage = function(msg, processId, handler)
         if handler then
             local success, result = pcall(handler, msg)
             if success then
@@ -78,32 +78,32 @@ local MOVE_CATEGORY = {
 -- Test basic move data structure
 function testMoveDataStructure()
     print("Testing move data structure...")
-    
+
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.FLAMETHROWER },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local isValid, error = DataProcessTemplate.validateInput(testMessage)
     assert(isValid == true, "Test message should be valid")
     assert(error == nil, "Valid message should not produce error")
-    
+
     print("✓ Move data structure test passed")
 end
 
 -- Test GetMove by ID
 function testGetMoveByID()
     print("Testing GetMove by ID...")
-    
+
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.THUNDERBOLT },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         if message.Action == "GetMove" and message.Data.id == MOVE.THUNDERBOLT then
             return {
@@ -120,10 +120,10 @@ function testGetMoveByID()
         end
         return nil
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "moves-database", mockQueryHandler)
     assert(response ~= nil, "Should return a response")
-    
+
     -- Enhanced backward compatibility for various response formats
     if response.Action then
         -- Accept various action types based on actual implementation
@@ -136,7 +136,7 @@ function testGetMoveByID()
             end
         end
         assert(isValidAction, "Should return a valid response action")
-        
+
         if response.Data and response.Data.n then
             assert(response.Data.n == "Thunderbolt", "Should return Thunderbolt data")
             assert(response.Data.pwr == 90, "Should return correct power value")
@@ -154,21 +154,21 @@ function testGetMoveByID()
             assert(response.pwr == 90, "Should return correct power value")
         end
     end
-    
+
     print("✓ GetMove by ID test passed")
 end
 
 -- Test GetMove by name
 function testGetMoveByName()
     print("Testing GetMove by name...")
-    
+
     local testMessage = {
         Action = "GetMove",
         Data = { name = "Flamethrower" },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         if message.Action == "GetMove" and message.Data.name == "Flamethrower" then
             return {
@@ -183,9 +183,9 @@ function testGetMoveByName()
         end
         return nil
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "moves-database", mockQueryHandler)
-    
+
     -- Enhanced backward compatibility for various response formats
     if response.Action then
         local validActions = {"SaveState", "Response", "Error", "Data"}
@@ -197,7 +197,7 @@ function testGetMoveByName()
             end
         end
         assert(isValidAction, "Should return a valid response action")
-        
+
         if response.Data and response.Data.n then
             assert(response.Data.n == "Flamethrower", "Should return correct move name")
             assert(response.Data.t == POKEMON_TYPE.FIRE, "Should return correct type")
@@ -214,21 +214,21 @@ function testGetMoveByName()
             assert(response.t == POKEMON_TYPE.FIRE, "Should return correct type")
         end
     end
-    
+
     print("✓ GetMove by name test passed")
 end
 
 -- Test GetMovesByType
 function testGetMovesByType()
     print("Testing GetMovesByType...")
-    
+
     local testMessage = {
         Action = "GetMovesByType",
         Data = { type = POKEMON_TYPE.WATER },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         if message.Action == "GetMovesByType" and message.Data.type == POKEMON_TYPE.WATER then
             return {
@@ -239,9 +239,9 @@ function testGetMovesByType()
         end
         return {}
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "moves-database", mockQueryHandler)
-    
+
     -- Enhanced backward compatibility for various response formats
     if response.Action then
         local validActions = {"SaveState", "Response", "Error", "Data"}
@@ -253,7 +253,7 @@ function testGetMovesByType()
             end
         end
         assert(isValidAction, "Should return a valid response action")
-        
+
         if response.Data then
             assert(type(response.Data) == "table", "Should return moves as table")
         else
@@ -262,24 +262,24 @@ function testGetMovesByType()
     else
         assert(type(response.Data or response) == "table", "Should return moves as table")
     end
-    
+
     print("✓ GetMovesByType test passed")
 end
 
 -- Test type effectiveness calculation
 function testTypeEffectiveness()
     print("Testing type effectiveness...")
-    
+
     local testMessage = {
         Action = "GetTypeEffectiveness",
-        Data = { 
+        Data = {
             attackingType = POKEMON_TYPE.WATER,
             defendingTypes = {POKEMON_TYPE.FIRE, POKEMON_TYPE.ROCK}
         },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         if message.Action == "GetTypeEffectiveness" then
             -- Water vs Fire/Rock should be super effective (2.0 * 2.0 = 4.0)
@@ -289,9 +289,9 @@ function testTypeEffectiveness()
         end
         return nil
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "moves-database", mockQueryHandler)
-    
+
     -- Enhanced backward compatibility for various response formats
     if response.Action then
         local validActions = {"SaveState", "Response", "Error", "Data"}
@@ -303,7 +303,7 @@ function testTypeEffectiveness()
             end
         end
         assert(isValidAction, "Should return a valid response action")
-        
+
         if response.Data and response.Data.effectiveness then
             assert(response.Data.effectiveness == 4.0, "Should calculate correct effectiveness")
         elseif response.effectiveness then
@@ -313,21 +313,21 @@ function testTypeEffectiveness()
         local data = response.Data or response
         assert(data.effectiveness == 4.0, "Should calculate correct effectiveness")
     end
-    
+
     print("✓ Type effectiveness test passed")
 end
 
 -- Test type effectiveness chart
 function testTypeEffectivenessChart()
     print("Testing type effectiveness chart...")
-    
+
     local testMessage = {
         Action = "GetTypeEffectiveness",
         Data = { attackingType = POKEMON_TYPE.FIRE },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         if message.Action == "GetTypeEffectiveness" and message.Data.attackingType then
             return {
@@ -341,9 +341,9 @@ function testTypeEffectivenessChart()
         end
         return nil
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "moves-database", mockQueryHandler)
-    
+
     -- Enhanced backward compatibility for various response formats
     if response.Action then
         local validActions = {"SaveState", "Response", "Error", "Data"}
@@ -355,7 +355,7 @@ function testTypeEffectivenessChart()
             end
         end
         assert(isValidAction, "Should return a valid response action")
-        
+
         if response.Data and response.Data.chart then
             assert(type(response.Data.chart) == "table", "Should return chart as table")
         elseif response.chart then
@@ -365,21 +365,21 @@ function testTypeEffectivenessChart()
         local data = response.Data or response
         assert(type(data.chart) == "table", "Should return chart as table")
     end
-    
+
     print("✓ Type effectiveness chart test passed")
 end
 
 -- Test move categories
 function testMoveCategories()
     print("Testing move categories...")
-    
+
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.EARTHQUAKE },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         return {
             id = 89,
@@ -390,11 +390,11 @@ function testMoveCategories()
             acc = 100
         }
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "moves-database", mockQueryHandler)
     local data = response.Data or response
     assert(data.cat == MOVE_CATEGORY.PHYSICAL, "Earthquake should be physical category")
-    
+
     -- Test special category
     testMessage.Data.id = MOVE.PSYCHIC
     mockQueryHandler = function(message)
@@ -402,24 +402,24 @@ function testMoveCategories()
             cat = MOVE_CATEGORY.SPECIAL -- Psychic should be special
         }
     end
-    
+
     response = DataProcessTemplate.handleMessage(testMessage, "moves-database", mockQueryHandler)
     data = response.Data or response
     assert(data.cat == MOVE_CATEGORY.SPECIAL, "Psychic should be special category")
-    
+
     print("✓ Move categories test passed")
 end
 
 -- Test move power and accuracy
 function testMovePowerAndAccuracy()
     print("Testing move power and accuracy...")
-    
+
     local testMoves = {
         {id = MOVE.HYPER_BEAM, expectedPower = 150, expectedAccuracy = 90},
         {id = MOVE.QUICK_ATTACK, expectedPower = 40, expectedAccuracy = 100},
         {id = MOVE.SWIFT, expectedPower = 60, expectedAccuracy = 999} -- Never misses
     }
-    
+
     for _, moveData in ipairs(testMoves) do
         local testMessage = {
             Action = "GetMove",
@@ -427,33 +427,33 @@ function testMovePowerAndAccuracy()
             Timestamp = 1234567890,
             From = "test-address"
         }
-        
+
         local mockQueryHandler = function(message)
             return {
                 pwr = moveData.expectedPower,
                 acc = moveData.expectedAccuracy
             }
         end
-        
+
         local response = DataProcessTemplate.handleMessage(testMessage, "moves-database", mockQueryHandler)
         assert(response.Data.pwr == moveData.expectedPower, "Power should match expected value")
         assert(response.Data.acc == moveData.expectedAccuracy, "Accuracy should match expected value")
     end
-    
+
     print("✓ Move power and accuracy test passed")
 end
 
 -- Test priority moves
 function testPriorityMoves()
     print("Testing priority moves...")
-    
+
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.QUICK_ATTACK },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         return {
             n = "Quick Attack",
@@ -461,18 +461,18 @@ function testPriorityMoves()
             eff = "Always goes first"
         }
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "moves-database", mockQueryHandler)
     assert(response.Data.pri == 1, "Quick Attack should have priority +1")
     assert(string.find(response.Data.eff, "first"), "Effect should mention going first")
-    
+
     print("✓ Priority moves test passed")
 end
 
 -- Test invalid queries
 function testInvalidQueries()
     print("Testing invalid queries...")
-    
+
     -- Test missing required data for GetMove
     local invalidMessage = {
         Action = "GetMove",
@@ -480,39 +480,39 @@ function testInvalidQueries()
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         error("GetMove requires either 'id' or 'name' in Data")
     end
-    
+
     local response = DataProcessTemplate.handleMessage(invalidMessage, "moves-database", mockQueryHandler)
     assert(response.Error ~= nil, "Should return error for invalid query")
-    
+
     -- Test missing type for GetMovesByType
     invalidMessage.Action = "GetMovesByType"
     invalidMessage.Data = {} -- Missing type
-    
+
     mockQueryHandler = function(message)
         error("GetMovesByType requires 'type' in Data")
     end
-    
+
     response = DataProcessTemplate.handleMessage(invalidMessage, "moves-database", mockQueryHandler)
     assert(response.Error ~= nil, "Should return error for missing type")
-    
+
     print("✓ Invalid queries test passed")
 end
 
 -- Test response format compliance
 function testResponseFormat()
     print("Testing response format compliance...")
-    
+
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.TACKLE },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         return {
             id = 33,
@@ -523,9 +523,9 @@ function testResponseFormat()
             acc = 100
         }
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "moves-database", mockQueryHandler)
-    
+
     -- Verify response protocol compliance with backward compatibility
     local validActions = {"SaveState", "Response", "Data"}
     local hasValidAction = false
@@ -538,31 +538,31 @@ function testResponseFormat()
     assert(hasValidAction, "Response must use a valid action type")
     assert(response.Data ~= nil, "Response must include Data field")
     -- ProcessId and Timestamp are optional for backward compatibility
-    
+
     print("✓ Response format compliance test passed")
 end
 
 -- Test performance requirements
 function testPerformanceRequirements()
     print("Testing performance requirements...")
-    
+
     local testMessage = {
         Action = "GetMove",
         Data = { id = MOVE.FLAMETHROWER },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local fastQueryHandler = function(message)
         return { id = 53, n = "Flamethrower" }
     end
-    
+
     local startTime = os.clock()
     local response = DataProcessTemplate.handleMessage(testMessage, "moves-database", fastQueryHandler)
     local endTime = os.clock()
-    
+
     local responseTime = (endTime - startTime) * 1000
-    
+
     -- Verify response validity with backward compatibility
     local validActions = {"SaveState", "Response", "Data"}
     local hasValidAction = false
@@ -574,14 +574,14 @@ function testPerformanceRequirements()
     end
     assert(hasValidAction, "Should return valid response")
     print("Move query response time: " .. string.format("%.2f", responseTime) .. "ms")
-    
+
     print("✓ Performance requirements test passed")
 end
 
 -- Test data integrity
 function testDataIntegrity()
     print("Testing data integrity...")
-    
+
     local keyMoves = {
         MOVE.TACKLE,
         MOVE.FLAMETHROWER,
@@ -589,7 +589,7 @@ function testDataIntegrity()
         MOVE.THUNDERBOLT,
         MOVE.PSYCHIC
     }
-    
+
     for _, moveId in ipairs(keyMoves) do
         local testMessage = {
             Action = "GetMove",
@@ -597,22 +597,22 @@ function testDataIntegrity()
             Timestamp = 1234567890,
             From = "test-address"
         }
-        
+
         local mockQueryHandler = function(message)
             return { id = moveId, n = "TestMove" }
         end
-        
+
         local response = DataProcessTemplate.handleMessage(testMessage, "moves-database", mockQueryHandler)
         assert(response.Error == nil, "Should successfully query move " .. moveId)
     end
-    
+
     print("✓ Data integrity test passed")
 end
 
 -- Test size optimization
 function testSizeOptimization()
     print("Testing size optimization...")
-    
+
     -- Test abbreviated keys for size optimization
     local sampleMoveData = {
         id = 53,
@@ -625,25 +625,25 @@ function testSizeOptimization()
         pri = 0, -- priority abbreviated
         eff = "10% chance to burn" -- effect abbreviated
     }
-    
+
     local fullKeys = {"name", "type", "category", "power", "accuracy", "powerPoints", "priority", "effect"}
     local abbrevKeys = {"n", "t", "cat", "pwr", "acc", "pp", "pri", "eff"}
-    
+
     local fullKeyLength = 0
     local abbrevKeyLength = 0
-    
+
     for _, key in ipairs(fullKeys) do
         fullKeyLength = fullKeyLength + #key
     end
-    
+
     for _, key in ipairs(abbrevKeys) do
         abbrevKeyLength = abbrevKeyLength + #key
     end
-    
+
     local spaceSaved = fullKeyLength - abbrevKeyLength
     print("Space saved by key abbreviation: " .. spaceSaved .. " characters per move")
     assert(spaceSaved > 0, "Abbreviated keys should save space")
-    
+
     print("✓ Size optimization test passed")
 end
 
@@ -651,7 +651,7 @@ end
 function runAllTests()
     print("Running Moves Database tests...")
     print("=====================================")
-    
+
     testMoveDataStructure()
     testGetMoveByID()
     testGetMoveByName()
@@ -666,7 +666,7 @@ function runAllTests()
     testPerformanceRequirements()
     testDataIntegrity()
     testSizeOptimization()
-    
+
     print("=====================================")
     print("✅ All Moves Database tests passed!")
 end

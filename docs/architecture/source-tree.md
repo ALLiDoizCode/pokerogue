@@ -2,7 +2,7 @@
 
 ```plaintext
 pokerogue-ao-migration/
-├── ao-processes/                           # AO Process Implementation
+├── processes/                              # AO Process Implementation
 │   ├── main.lua                           # Primary AO process entry point
 │   ├── handlers/                          # AO Message Handlers
 │   │   ├── battle-handler.lua            # Battle resolution logic

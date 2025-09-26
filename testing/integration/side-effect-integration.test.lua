@@ -28,7 +28,7 @@ if not ao then
                 timestamp = os.time(),
                 message = msg
             })
-            
+
             _G.lastSentMessage = msg
             if msg.Success then
                 _G.lastTestSuccess = (msg.Success == "true")
@@ -66,13 +66,13 @@ local function createBattleMessage(action, tags, data, battleId)
         Timestamp = tostring(os.time()),
         BattleId = battleId or "integration_battle_001"
     }
-    
+
     if tags then
         for key, value in pairs(tags) do
             msg[key] = value
         end
     end
-    
+
     return msg
 end
 
@@ -80,7 +80,7 @@ local function resetIntegrationEnvironment()
     _G.lastSentMessage = nil
     _G.lastTestSuccess = nil
     _G.integrationMessages = {}
-    
+
     -- Reset side effect state
     _G.SideEffectState = {
         playerSideEffects = {},
@@ -91,15 +91,15 @@ end
 local function countActiveEffects()
     local playerCount = 0
     local enemyCount = 0
-    
+
     for _ in pairs(_G.SideEffectState.playerSideEffects) do
         playerCount = playerCount + 1
     end
-    
+
     for _ in pairs(_G.SideEffectState.enemySideEffects) do
         enemyCount = enemyCount + 1
     end
-    
+
     return playerCount, enemyCount
 end
 
@@ -128,7 +128,7 @@ assert(_G.lastTestSuccess == true, "Player Reflect should be applied")
 local enemyLightScreenMsg = createBattleMessage("ApplySideEffect", {
     EffectType = "LIGHT_SCREEN",
     Side = "ENEMY",
-    SourceId = "002", 
+    SourceId = "002",
     SourceMove = "LIGHT_SCREEN",
     IsDoubleBattle = "true",
     HasLightClay = "false",   -- Enemy doesn't have Light Clay
@@ -250,7 +250,7 @@ local infiltratorAttackMsg = createBattleMessage("CheckSideEffectProtection", {
     Side = "PLAYER",
     MoveCategory = "PHYSICAL",
     AttackerHasInfiltrator = "true",
-    IsDoubleBattle = "true", 
+    IsDoubleBattle = "true",
     BattleId = battleId
 })
 
@@ -303,7 +303,7 @@ assert(_G.SideEffectState.playerSideEffects.SAFEGUARD ~= nil, "Player Safeguard 
 print("✓ Brick Break move interaction test passed")
 
 -- Integration Test 5: Multi-Turn Effect Expiry
-print("Integration Test 5: Multi-Turn Effect Expiry") 
+print("Integration Test 5: Multi-Turn Effect Expiry")
 
 -- Simulate 4 more turns to test expiry patterns
 for turn = 2, 5 do
@@ -311,7 +311,7 @@ for turn = 2, 5 do
         Side = "BOTH",
         BattleId = battleId .. "_turn_" .. turn
     })
-    
+
     _G.handler_turn_decrement(turnDecrementMsg)
     assert(_G.lastTestSuccess == true, "Turn " .. turn .. " decrement should succeed")
 end
@@ -336,7 +336,7 @@ print("Integration Test 6: Defog Complete Field Reset")
 
 -- Add some new effects first
 local newReflectMsg = createBattleMessage("ApplySideEffect", {
-    EffectType = "LIGHT_SCREEN", 
+    EffectType = "LIGHT_SCREEN",
     Side = "ENEMY",
     SourceId = "005",
     SourceMove = "LIGHT_SCREEN",
@@ -394,7 +394,7 @@ for _, effect in ipairs(effectsToApply) do
         HasLightClay = tostring(effect.hasLightClay),
         BattleId = stateTestBattleId
     })
-    
+
     _G.handler_apply_side_effect(applyMsg)
     assert(_G.lastTestSuccess == true, "Effect " .. effect.effectType .. " should be applied")
 end
@@ -445,9 +445,9 @@ for i = 1, 50 do
         HasLightClay = tostring(i % 3 == 0),
         BattleId = performanceBattleId .. "_" .. i
     })
-    
+
     _G.handler_apply_side_effect(applyMsg)
-    
+
     -- Check protection
     local checkMsg = createBattleMessage("CheckSideEffectProtection", {
         Side = (i % 2 == 0) and "PLAYER" or "ENEMY",
@@ -456,7 +456,7 @@ for i = 1, 50 do
         IsDoubleBattle = tostring(i % 2 == 0),
         BattleId = performanceBattleId .. "_" .. i
     })
-    
+
     _G.handler_check_side_effect_protection(checkMsg)
 end
 
@@ -517,6 +517,6 @@ assert(_G.lastTestSuccess == true, "Battle should continue normally after error"
 print("✓ Error recovery and battle continuity test passed")
 
 print("\n🎉 All Side Effect Engine Integration Tests Passed!")
-print("Total integration tests: 9") 
+print("Total integration tests: 9")
 print("Coverage: Multi-effect battles, turn sequences, ability interactions, move effects, field resets, state management, performance, and error recovery")
 print("Total messages processed: " .. #_G.integrationMessages)

@@ -8,7 +8,7 @@ local json = require("json")
 local function createMockBattleData(playerAlive, enemyAlive)
     local playerParty = {}
     local enemyParty = {}
-    
+
     -- Create player party
     for i = 1, 2 do
         table.insert(playerParty, {
@@ -21,8 +21,8 @@ local function createMockBattleData(playerAlive, enemyAlive)
             exp = 2000
         })
     end
-    
-    -- Create enemy party  
+
+    -- Create enemy party
     for i = 1, 2 do
         table.insert(enemyParty, {
             id = "enemy_" .. i,
@@ -34,7 +34,7 @@ local function createMockBattleData(playerAlive, enemyAlive)
             defeated = not enemyAlive
         })
     end
-    
+
     return playerParty, enemyParty
 end
 
@@ -98,9 +98,9 @@ _G.json = {
 
 _G.ao = {
     id = "test-battle-resolution-process",
-    send = function(params) 
+    send = function(params)
         print("Mock ao.send:", json.encode(params))
-        return params 
+        return params
     end,
     env = {
         Process = {
@@ -115,7 +115,7 @@ dofile("processes/battle-resolution-manager.lua")
 -- Test functions
 local function test_info_handler()
     print("Testing Info handler...")
-    
+
     local infoMessage = {
         From = "test-sender",
         Action = "Info",
@@ -141,9 +141,9 @@ end
 
 local function test_detect_battle_outcome_victory()
     print("Testing DetectBattleOutcome victory...")
-    
+
     local playerParty, enemyParty = createMockBattleData(true, false) -- Player alive, enemy fainted
-    
+
     local battleMessage = {
         From = "test-sender",
         Action = "DetectBattleOutcome",
@@ -174,9 +174,9 @@ end
 
 local function test_detect_battle_outcome_defeat()
     print("Testing DetectBattleOutcome defeat...")
-    
+
     local playerParty, enemyParty = createMockBattleData(false, true) -- Player fainted, enemy alive
-    
+
     local battleMessage = {
         From = "test-sender",
         Action = "DetectBattleOutcome",
@@ -207,7 +207,7 @@ end
 
 local function test_ping_handler()
     print("Testing Ping handler...")
-    
+
     local pingMessage = {
         From = "test-sender",
         Action = "Ping",
@@ -234,27 +234,27 @@ end
 local function runAoliteTests()
     print("🧪 Running Battle Resolution Manager Aolite Tests")
     print(string.rep("=", 60))
-    
+
     local tests = {
         test_info_handler,
         test_detect_battle_outcome_victory,
         test_detect_battle_outcome_defeat,
         test_ping_handler
     }
-    
+
     local passed = 0
     local total = #tests
-    
+
     for _, testFunc in ipairs(tests) do
         local success = testFunc()
         if success then
             passed = passed + 1
         end
     end
-    
+
     print(string.rep("=", 60))
     print(string.format("📊 Test Results: %d/%d passed", passed, total))
-    
+
     if passed == total then
         print("✅ All tests passed!")
         return true

@@ -3,9 +3,9 @@
 
 -- Mock AO environment for testing
 local mockAO = {
-    send = function(msg) 
+    send = function(msg)
         print("Mock AO send:", msg.Action or "unknown")
-        return true 
+        return true
     end,
     id = "test-battle-engine-adp"
 }
@@ -42,7 +42,7 @@ local BattleEngineModule = require("processes.battle-engine-adp")
 
 -- Restore environment
 ao = originalAO
-Handlers = originalHandlers  
+Handlers = originalHandlers
 json = originalJson
 
 print("Running Battle Engine ADP Unit Tests...")
@@ -77,14 +77,14 @@ end)
 -- Test type effectiveness chart completeness
 test("type effectiveness completeness", function()
     local types = BattleEngineModule.TYPE_EFFECTIVENESS
-    
+
     -- Test key types are present
     assert(types.fire ~= nil, "Fire type missing")
     assert(types.water ~= nil, "Water type missing")
     assert(types.grass ~= nil, "Grass type missing")
     assert(types.electric ~= nil, "Electric type missing")
     assert(types.fairy ~= nil, "Fairy type missing")
-    
+
     -- Test specific effectiveness values
     assert(types.fire.water == 0.5, "Fire vs Water effectiveness incorrect")
     assert(types.water.fire == 2, "Water vs Fire effectiveness incorrect")
@@ -95,14 +95,14 @@ end)
 -- Test deterministic RNG
 test("deterministic RNG", function()
     local BattleEngine = BattleEngineModule.BattleEngine
-    
+
     -- Test type effectiveness calculation (deterministic)
     local effectiveness1 = BattleEngine.getTypeEffectiveness("fire", "grass", nil)
     local effectiveness2 = BattleEngine.getTypeEffectiveness("fire", "grass", nil)
-    
+
     assert(effectiveness1 == effectiveness2, "Type effectiveness should be deterministic")
     assert(effectiveness1 == 2, "Fire vs Grass should be 2x effective")
-    
+
     -- Test dual-type effectiveness
     local dualEffectiveness = BattleEngine.getTypeEffectiveness("fighting", "normal", "flying")
     assert(dualEffectiveness == 1.0, "Fighting vs Normal/Flying should be neutral (2x * 0.5x)")
@@ -111,7 +111,7 @@ end)
 -- Test damage calculation
 test("damage calculation", function()
     local BattleEngine = BattleEngineModule.BattleEngine
-    
+
     local attacker = {
         level = 50,
         type1 = "fire",
@@ -121,7 +121,7 @@ test("damage calculation", function()
             spAttack = 90
         }
     }
-    
+
     local defender = {
         type1 = "grass",
         type2 = nil,
@@ -130,19 +130,19 @@ test("damage calculation", function()
             spDefense = 85
         }
     }
-    
+
     local move = {
         type = "fire",
         category = "physical",
         power = 80,
         accuracy = 100
     }
-    
+
     local rngState = {seed = 54321, counter = 0}
     local battleConditions = {}
-    
+
     local result = BattleEngine.calculateDamage(attacker, defender, move, battleConditions, rngState)
-    
+
     assert(type(result.damage) == "number", "Damage should be a number")
     assert(result.damage > 0, "Damage should be positive")
     assert(result.effectiveness == 2, "Fire vs Grass should be super effective")
@@ -153,24 +153,24 @@ end)
 -- Test accuracy calculation
 test("accuracy calculation", function()
     local BattleEngine = BattleEngineModule.BattleEngine
-    
+
     local move = {accuracy = 90}
     local attacker = {statusEffect = nil}
     local defender = {}
     local battleConditions = {}
     local rngState = {seed = 11111, counter = 0}
-    
+
     -- Test normal accuracy
     local result = BattleEngine.checkAccuracy(move, attacker, defender, battleConditions, rngState)
     assert(type(result) == "boolean", "Accuracy result should be boolean")
-    
+
     -- Test paralysis prevention
     attacker.statusEffect = "paralysis"
     rngState = {seed = 1, counter = 0} -- Force paralysis proc
     local paralyzedResult = BattleEngine.checkAccuracy(move, attacker, defender, battleConditions, rngState)
     -- Result can be true or false depending on RNG, just verify it's boolean
     assert(type(paralyzedResult) == "boolean", "Paralyzed accuracy result should be boolean")
-    
+
     -- Test sleep prevention
     attacker.statusEffect = "sleep"
     local sleepResult = BattleEngine.checkAccuracy(move, attacker, defender, battleConditions, rngState)
@@ -180,14 +180,14 @@ end)
 -- Test critical hit calculation
 test("critical hit calculation", function()
     local BattleEngine = BattleEngineModule.BattleEngine
-    
+
     local attacker = {abilities = {}}
     local move = {highCritRatio = false}
     local rngState = {seed = 99999, counter = 0}
-    
+
     local critMultiplier = BattleEngine.calculateCriticalHit(attacker, move, rngState)
     assert(critMultiplier == 1.0 or critMultiplier == 2.0, "Critical hit multiplier should be 1.0 or 2.0")
-    
+
     -- Test high crit ratio move
     move.highCritRatio = true
     rngState = {seed = 1, counter = 0} -- Try to force crit
@@ -198,23 +198,23 @@ end)
 -- Test status effect damage
 test("status effect damage", function()
     local BattleEngine = BattleEngineModule.BattleEngine
-    
+
     local pokemon = {
         hp = 100,
         maxHp = 100,
         statusEffect = "burn"
     }
-    
+
     local result = BattleEngine.applyStatusEffectDamage(pokemon, 1)
     assert(result.hp < pokemon.hp, "Burn should cause damage")
     assert(result.hp >= 0, "HP should not go below 0")
-    
+
     -- Test poison
     pokemon.statusEffect = "poison"
     pokemon.hp = 100
     local poisonResult = BattleEngine.applyStatusEffectDamage(pokemon, 1)
     assert(poisonResult.hp < pokemon.hp, "Poison should cause damage")
-    
+
     -- Test faint when HP reaches 0
     pokemon.hp = 1
     pokemon.statusEffect = "burn"
@@ -226,7 +226,7 @@ end)
 -- Test battle turn processing
 test("battle turn processing", function()
     local BattleEngine = BattleEngineModule.BattleEngine
-    
+
     local gameState = {
         playerId = "test-player",
         timestamp = 1234567890,
@@ -249,22 +249,22 @@ test("battle turn processing", function()
                 hp = 80,
                 maxHp = 80,
                 level = 45,
-                type1 = "normal", 
+                type1 = "normal",
                 stats = {speed = 45, attack = 60, defense = 55, spAttack = 55, spDefense = 50}
             }},
             conditions = {}
         }
     }
-    
+
     local battleCommand = {
         action = "attack",
         moveId = 1
     }
-    
+
     local rngState = {seed = 12345, counter = 0}
-    
+
     local result = BattleEngine.processBattleTurn(gameState, battleCommand, rngState)
-    
+
     assert(type(result) == "table", "Battle turn result should be a table")
     assert(result.gameState ~= nil, "Result should contain updated game state")
     assert(result.turnResults ~= nil, "Result should contain turn results")
@@ -277,12 +277,12 @@ end)
 test("ADP operations schema", function()
     local metadata = BattleEngineModule.PROCESS_METADATA
     local ops = metadata.supportedOperations
-    
+
     -- Check required operations
     assert(ops.processBattleTurn ~= nil, "processBattleTurn operation missing")
     assert(ops.calculateDamage ~= nil, "calculateDamage operation missing")
     assert(ops.checkAccuracy ~= nil, "checkAccuracy operation missing")
-    
+
     -- Check operation schema structure
     local battleTurnOp = ops.processBattleTurn
     assert(battleTurnOp.description ~= nil, "Operation description missing")
@@ -293,14 +293,14 @@ end)
 -- Test status effects definitions
 test("status effects definitions", function()
     local statusEffects = BattleEngineModule.STATUS_EFFECTS
-    
+
     assert(statusEffects.burn ~= nil, "Burn status effect missing")
     assert(statusEffects.poison ~= nil, "Poison status effect missing")
     assert(statusEffects.paralysis ~= nil, "Paralysis status effect missing")
     assert(statusEffects.sleep ~= nil, "Sleep status effect missing")
     assert(statusEffects.freeze ~= nil, "Freeze status effect missing")
     assert(statusEffects.faint ~= nil, "Faint status effect missing")
-    
+
     -- Test damage functions
     assert(type(statusEffects.burn.damagePerTurn) == "function", "Burn damage function missing")
     assert(statusEffects.burn.attackMultiplier == 0.5, "Burn attack reduction incorrect")
@@ -310,13 +310,13 @@ end)
 -- Test error handling in operations
 test("error handling", function()
     local BattleEngine = BattleEngineModule.BattleEngine
-    
+
     -- Test missing parameters
     local success, error = pcall(function()
         BattleEngine.handleLogicOperation({}, "processBattleTurn", {}, {})
     end)
     assert(not success, "Should error with missing battleCommand")
-    
+
     -- Test invalid operation
     success, error = pcall(function()
         BattleEngine.handleLogicOperation({}, "invalidOperation", {}, {})

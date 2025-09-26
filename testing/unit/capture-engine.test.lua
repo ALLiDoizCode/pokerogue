@@ -447,19 +447,19 @@ end
 -- ADP v1.0 Compliance Tests
 function tests.testADPCompliance()
     print("Testing ADP v1.0 compliance...")
-    
+
     -- Test process metadata exists
     assert(CaptureEngineModule.PROCESS_METADATA, "Process metadata should exist")
     local metadata = CaptureEngineModule.PROCESS_METADATA
-    
+
     -- Test ADP version
     assert(metadata.adpVersion == "1.0", "Should be ADP v1.0 compliant")
-    
+
     -- Test required fields
     assert(metadata.name, "Should have process name")
     assert(metadata.capabilities, "Should have capabilities list")
     assert(metadata.messageSchemas, "Should have message schemas")
-    
+
     -- Test capabilities include expected operations
     local requiredCapabilities = {"calculateCaptureRate", "processCaptureAttempt", "validateCaptureConditions"}
     for _, capability in ipairs(requiredCapabilities) do
@@ -472,25 +472,25 @@ function tests.testADPCompliance()
         end
         assert(found, "Should have capability: " .. capability)
     end
-    
+
     -- Test message schemas structure
     assert(metadata.messageSchemas.ProcessLogic, "Should have ProcessLogic schema")
     assert(metadata.messageSchemas.HealthCheck, "Should have HealthCheck schema")
     assert(metadata.messageSchemas.Info, "Should have Info schema")
-    
+
     print("✓ ADP v1.0 compliance tests passed")
 end
 
 function tests.testInfoHandlerSchema()
     print("Testing Info handler schema structure...")
-    
+
     local metadata = CaptureEngineModule.PROCESS_METADATA
     local processLogicSchema = metadata.messageSchemas.ProcessLogic
-    
+
     -- Test required fields exist
     assert(processLogicSchema.required, "ProcessLogic should have required fields")
     assert(processLogicSchema.properties, "ProcessLogic should have properties")
-    
+
     -- Test required fields include essential ones
     local requiredFields = {"Action", "Data", "Timestamp"}
     for _, field in ipairs(requiredFields) do
@@ -503,7 +503,7 @@ function tests.testInfoHandlerSchema()
         end
         assert(found, "ProcessLogic should require field: " .. field)
     end
-    
+
     print("✓ Info handler schema tests passed")
 end
 
@@ -522,10 +522,10 @@ function tests.runAllTests()
     tests.testPokemonStorage()
     tests.testCaptureValidation()
     tests.testLogicOperationHandling()
-    
+
     print("=" .. string.rep("=", 50))
     print("Running ADP v1.0 Compliance tests...")
-    
+
     tests.testADPCompliance()
     tests.testInfoHandlerSchema()
 

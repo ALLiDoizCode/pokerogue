@@ -3,7 +3,7 @@ print("=== ADP v1.0 Compliance Validation ===")
 
 local processes = {
     "abilities-database-adp.lua",
-    "items-database-adp.lua", 
+    "items-database-adp.lua",
     "moves-database-adp.lua",
     "pokemon-species-db-adp.lua"
 }
@@ -13,19 +13,19 @@ local passedTests = 0
 
 for _, processFile in ipairs(processes) do
     print("\nValidating " .. processFile .. "...")
-    
+
     local filePath = "processes/" .. processFile
     local file = io.open(filePath, "r")
-    
+
     if not file then
         print("❌ File not found: " .. filePath)
         totalTests = totalTests + 1
         goto continue
     end
-    
+
     local content = file:read("*all")
     file:close()
-    
+
     -- Test 1: Check for Info handler
     totalTests = totalTests + 1
     if content:match('Handlers%.add%("info"') or content:match("hasMatchingTag.-Info") then
@@ -34,7 +34,7 @@ for _, processFile in ipairs(processes) do
     else
         print("❌ Info handler missing")
     end
-    
+
     -- Test 2: Check for ADP version reference
     totalTests = totalTests + 1
     if content:match('adpVersion.*1%.0') or content:match('ADP.*v1%.0') then
@@ -43,7 +43,7 @@ for _, processFile in ipairs(processes) do
     else
         print("❌ ADP v1.0 reference missing")
     end
-    
+
     -- Test 3: Check for messageSchemas
     totalTests = totalTests + 1
     if content:match("messageSchemas") then
@@ -52,7 +52,7 @@ for _, processFile in ipairs(processes) do
     else
         print("❌ messageSchemas missing")
     end
-    
+
     -- Test 4: Check for process metadata
     totalTests = totalTests + 1
     if content:match("PROCESS_INFO") or content:match("process.*=.*{") then
@@ -61,7 +61,7 @@ for _, processFile in ipairs(processes) do
     else
         print("❌ Process metadata structure missing")
     end
-    
+
     -- Test 5: Check for capabilities
     totalTests = totalTests + 1
     if content:match("capabilities") then
@@ -70,7 +70,7 @@ for _, processFile in ipairs(processes) do
     else
         print("❌ Capabilities field missing")
     end
-    
+
     ::continue::
 end
 

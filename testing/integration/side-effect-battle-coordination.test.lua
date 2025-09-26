@@ -29,7 +29,7 @@ if not ao then
                 _G.coordinationMessages = {}
             end
             table.insert(_G.coordinationMessages, msg)
-            
+
             -- Simulate battle coordinator response
             if msg.Target == "battle_coordinator" then
                 -- Process would receive acknowledgment from coordinator
@@ -64,7 +64,7 @@ local function testBattleCoordination()
     local testResults = {}
     local testsPassed = 0
     local testsTotal = 0
-    
+
     -- Test 1: Side effect applied during battle setup
     testsTotal = testsTotal + 1
     _G.coordinationMessages = {}
@@ -82,7 +82,7 @@ local function testBattleCoordination()
             Timestamp = "1234567890",
             From = "battle_coordinator"
         })
-        
+
         -- Verify response was sent back to coordinator
         local found = false
         for _, msg in ipairs(_G.coordinationMessages) do
@@ -91,7 +91,7 @@ local function testBattleCoordination()
                 break
             end
         end
-        
+
         if found then
             testsPassed = testsPassed + 1
             table.insert(testResults, "✓ Battle coordinator notification on effect application")
@@ -99,7 +99,7 @@ local function testBattleCoordination()
             table.insert(testResults, "✗ Failed to notify battle coordinator")
         end
     end
-    
+
     -- Test 2: Multi-process effect check request
     testsTotal = testsTotal + 1
     _G.coordinationMessages = {}
@@ -115,7 +115,7 @@ local function testBattleCoordination()
             Timestamp = "1234567891",
             From = "damage_calculator_process"
         })
-        
+
         -- Verify response was sent to requesting process
         local found = false
         for _, msg in ipairs(_G.coordinationMessages) do
@@ -124,7 +124,7 @@ local function testBattleCoordination()
                 break
             end
         end
-        
+
         if found then
             testsPassed = testsPassed + 1
             table.insert(testResults, "✓ Cross-process protection check response")
@@ -132,7 +132,7 @@ local function testBattleCoordination()
             table.insert(testResults, "✗ Failed to respond to damage calculator")
         end
     end
-    
+
     -- Test 3: Coordinated effect removal across battle state
     testsTotal = testsTotal + 1
     _G.coordinationMessages = {}
@@ -147,7 +147,7 @@ local function testBattleCoordination()
             Timestamp = "1234567892",
             From = "move_executor_process"
         })
-        
+
         -- Verify removal notification sent
         local found = false
         for _, msg in ipairs(_G.coordinationMessages) do
@@ -156,7 +156,7 @@ local function testBattleCoordination()
                 break
             end
         end
-        
+
         if found then
             testsPassed = testsPassed + 1
             table.insert(testResults, "✓ Coordinated effect removal notification")
@@ -164,7 +164,7 @@ local function testBattleCoordination()
             table.insert(testResults, "✗ Failed to notify move executor of removal")
         end
     end
-    
+
     -- Test 4: Turn end coordination via UpdateDurations handler
     testsTotal = testsTotal + 1
     _G.coordinationMessages = {}
@@ -177,7 +177,7 @@ local function testBattleCoordination()
             Timestamp = "1234567893",
             From = "turn_manager_process"
         })
-        
+
         -- Verify duration update response
         local found = false
         for _, msg in ipairs(_G.coordinationMessages) do
@@ -186,7 +186,7 @@ local function testBattleCoordination()
                 break
             end
         end
-        
+
         if found then
             testsPassed = testsPassed + 1
             table.insert(testResults, "✓ Turn-based duration coordination")
@@ -198,7 +198,7 @@ local function testBattleCoordination()
         testsPassed = testsPassed + 1
         table.insert(testResults, "✓ Turn duration handler not required (managed per-effect)")
     end
-    
+
     -- Print test results
     print("Side Effect Battle Coordination Test Results:")
     print("==========================================")
@@ -207,7 +207,7 @@ local function testBattleCoordination()
     end
     print("------------------------------------------")
     print("Tests Passed: " .. testsPassed .. "/" .. testsTotal)
-    
+
     return testsPassed == testsTotal
 end
 

@@ -21,10 +21,10 @@ end
 -- Mock AO environment for testing
 if not ao then
     ao = {
-        send = function(msg) 
+        send = function(msg)
             -- Store last sent message for test assertions
             _G.lastSentMessage = msg
-            
+
             -- Store success status for validation
             if msg.Success then
                 _G.lastTestSuccess = (msg.Success == "true")
@@ -61,14 +61,14 @@ local function createTestMessage(action, tags, data)
         Data = data or "",
         Timestamp = "1234567890"
     }
-    
+
     -- Add tag fields directly to message
     if tags then
         for key, value in pairs(tags) do
             msg[key] = value
         end
     end
-    
+
     return msg
 end
 
@@ -90,7 +90,7 @@ resetTestEnvironment()
 
 local reflectMsg = createTestMessage("ApplySideEffect", {
     EffectType = "REFLECT",
-    Side = "PLAYER", 
+    Side = "PLAYER",
     SourceId = "123",
     SourceMove = "REFLECT",
     IsDoubleBattle = "false",
@@ -120,7 +120,7 @@ resetTestEnvironment()
 local lightScreenMsg = createTestMessage("ApplySideEffect", {
     EffectType = "LIGHT_SCREEN",
     Side = "ENEMY",
-    SourceId = "456", 
+    SourceId = "456",
     SourceMove = "LIGHT_SCREEN",
     IsDoubleBattle = "true",
     HasLightClay = "true",
@@ -143,7 +143,7 @@ print("Test 3: Apply Safeguard Protection Effect")
 resetTestEnvironment()
 
 local safeguardMsg = createTestMessage("ApplySideEffect", {
-    EffectType = "SAFEGUARD", 
+    EffectType = "SAFEGUARD",
     Side = "PLAYER",
     SourceId = "789",
     SourceMove = "SAFEGUARD",
@@ -169,7 +169,7 @@ resetTestEnvironment()
 local mistMsg = createTestMessage("ApplySideEffect", {
     EffectType = "MIST",
     Side = "ENEMY",
-    SourceId = "101112", 
+    SourceId = "101112",
     SourceMove = "MIST",
     IsDoubleBattle = "false",
     HasLightClay = "false",
@@ -206,11 +206,11 @@ assert(_G.lastTestSuccess == true, "First application should succeed")
 
 -- Apply second Reflect with Light Clay (should overwrite)
 local secondReflectMsg = createTestMessage("ApplySideEffect", {
-    EffectType = "REFLECT", 
+    EffectType = "REFLECT",
     Side = "PLAYER",
     SourceId = "222",
     SourceMove = "REFLECT",
-    IsDoubleBattle = "false", 
+    IsDoubleBattle = "false",
     HasLightClay = "true",
     BattleId = "battle_005"
 })
@@ -259,7 +259,7 @@ assert(_G.lastTestSuccess == true, "Protection check should succeed")
 local checkInfiltratorMsg = createTestMessage("CheckSideEffectProtection", {
     EffectType = "REFLECT",
     Side = "PLAYER",
-    MoveCategory = "PHYSICAL", 
+    MoveCategory = "PHYSICAL",
     AttackerHasInfiltrator = "true",
     IsDoubleBattle = "false",
     BattleId = "battle_006"
@@ -313,7 +313,7 @@ _G.SideEffectState.playerSideEffects["REFLECT"] = {
 }
 
 _G.SideEffectState.playerSideEffects["LIGHT_SCREEN"] = {
-    effectType = "LIGHT_SCREEN", 
+    effectType = "LIGHT_SCREEN",
     side = "PLAYER",
     turnsRemaining = 4,
     sourceId = 888,
@@ -432,7 +432,7 @@ assert(_G.lastSentMessage.Action == "Error", "Should return error for missing ef
 local invalidSideMsg = createTestMessage("ApplySideEffect", {
     EffectType = "REFLECT",
     Side = "INVALID_SIDE",
-    SourceId = "123", 
+    SourceId = "123",
     BattleId = "battle_013"
 })
 

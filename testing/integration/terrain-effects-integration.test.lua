@@ -7,7 +7,7 @@ local json = {
         if type(obj) ~= "table" then
             return tostring(obj)
         end
-        
+
         local result = "{"
         local first = true
         for k, v in pairs(obj) do
@@ -15,13 +15,13 @@ local json = {
                 result = result .. ","
             end
             first = false
-            
+
             if type(k) == "string" then
                 result = result .. '"' .. k .. '":'
             else
                 result = result .. tostring(k) .. ":"
             end
-            
+
             if type(v) == "string" then
                 result = result .. '"' .. v .. '"'
             elseif type(v) == "table" then
@@ -33,7 +33,7 @@ local json = {
         result = result .. "}"
         return result
     end,
-    
+
     decode = function(str)
         if not str or str == "{}" then
             return {}
@@ -65,9 +65,9 @@ function IntegrationTest:mockAOEnvironment()
                 timestamp = os.time(),
                 message = msg
             })
-            print(string.format("[AO SEND] %s -> %s: %s", 
-                ao.id or "unknown", 
-                msg.Target, 
+            print(string.format("[AO SEND] %s -> %s: %s",
+                ao.id or "unknown",
+                msg.Target,
                 msg.Action or "unknown"))
         end,
         id = "terrain_system_process_" .. tostring(math.random(100000, 999999)),
@@ -77,7 +77,7 @@ function IntegrationTest:mockAOEnvironment()
             }
         }
     }
-    
+
     _G.Handlers = {
         utils = {
             hasMatchingTag = function(tag, value)
@@ -98,7 +98,7 @@ function IntegrationTest:mockAOEnvironment()
             print(string.format("[HANDLER] Registered: %s", name))
         end
     }
-    
+
     _G.json = json
 end
 
@@ -132,7 +132,7 @@ function IntegrationTest:createBattleScenario()
                         }
                     },
                     {
-                        id = "player_venusaur", 
+                        id = "player_venusaur",
                         name = "Venusaur",
                         types = {11, 3}, -- Grass/Poison
                         maxHP = 230,
@@ -146,7 +146,7 @@ function IntegrationTest:createBattleScenario()
                 enemyParty = {
                     {
                         id = "enemy_alakazam",
-                        name = "Alakazam", 
+                        name = "Alakazam",
                         types = {13}, -- Psychic
                         maxHP = 195,
                         currentHP = 195,
@@ -182,11 +182,11 @@ function IntegrationTest:sendMessage(action, data)
         Data = json.encode(data or {}),
         Timestamp = os.time()
     }
-    
+
     -- Map action names to handler names
     local handlerMap = {
         ["SetTerrain"] = "set-terrain",
-        ["ProcessTerrainTurn"] = "process-terrain-turn", 
+        ["ProcessTerrainTurn"] = "process-terrain-turn",
         ["ClearTerrain"] = "clear-terrain",
         ["GetTerrainInfo"] = "get-terrain-info",
         ["CheckMoveBlocking"] = "check-move-blocking",
@@ -194,7 +194,7 @@ function IntegrationTest:sendMessage(action, data)
         ["Info"] = "info",
         ["Ping"] = "ping"
     }
-    
+
     local handlerName = handlerMap[action]
     local handler = _G.testHandlers[handlerName]
     if handler then
@@ -217,15 +217,15 @@ end
 function IntegrationTest:assertResponse(expectedAction, expectedSuccess)
     local response = self:getLastResponse()
     assert(response ~= nil, "Expected response but got nil")
-    assert(response.Action == expectedAction, 
+    assert(response.Action == expectedAction,
         string.format("Expected action %s but got %s", expectedAction, response.Action))
-    
+
     if expectedAction == "SaveState" and expectedSuccess ~= nil then
         local data = json.decode(response.Data)
-        assert(data.success == expectedSuccess, 
+        assert(data.success == expectedSuccess,
             string.format("Expected success=%s but got %s", expectedSuccess, data.success))
     end
-    
+
     return response
 end
 
@@ -246,12 +246,12 @@ end
 local function testCompleteTerrainLifecycle()
     local test = IntegrationTest:new("Complete Terrain Lifecycle")
     test:run()
-    
+
     test:mockAOEnvironment()
     test:loadTerrainSystem()
-    
+
     local scenario = test:createBattleScenario()
-    
+
     -- Step 1: Set electric terrain
     test:sendMessage("SetTerrain", {
         parameters = {
@@ -260,37 +260,37 @@ local function testCompleteTerrainLifecycle()
             overwrite = true
         }
     })
-    
+
     local response = test:assertResponse("SaveState", true)
     local data = json.decode(response.Data)
     assert(data.terrain.terrainType == "ELECTRIC", "Should set electric terrain")
     assert(data.terrain.turnsLeft == 3, "Should set 3 turns duration")
     assert(#data.messages == 1, "Should have start message")
-    
-    -- Step 2: Process first terrain turn  
+
+    -- Step 2: Process first terrain turn
     test:sendMessage("ProcessTerrainTurn", scenario)
-    
+
     response = test:assertResponse("SaveState", true)
     data = json.decode(response.Data)
     assert(data.terrain.turnsLeft == 2, "Should decrement to 2 turns")
     assert(data.terrain.isActive == true, "Should still be active")
-    
+
     -- Step 3: Process second terrain turn
     test:sendMessage("ProcessTerrainTurn", scenario)
-    
+
     response = test:assertResponse("SaveState", true)
     data = json.decode(response.Data)
     assert(data.terrain.turnsLeft == 1, "Should decrement to 1 turn")
-    
+
     -- Step 4: Process final terrain turn (should expire)
     test:sendMessage("ProcessTerrainTurn", scenario)
-    
+
     response = test:assertResponse("SaveState", true)
     data = json.decode(response.Data)
     assert(data.terrain.turnsLeft == 0, "Should expire")
     assert(data.terrain.isActive == false, "Should become inactive")
     assert(data.terrain.terrainType == "NONE", "Should clear terrain")
-    
+
     return test:complete(true)
 end
 
@@ -298,12 +298,12 @@ end
 local function testGrassyTerrainHealingIntegration()
     local test = IntegrationTest:new("Grassy Terrain Healing Integration")
     test:run()
-    
+
     test:mockAOEnvironment()
     test:loadTerrainSystem()
-    
+
     local scenario = test:createBattleScenario()
-    
+
     -- Set grassy terrain
     test:sendMessage("SetTerrain", {
         parameters = {
@@ -311,20 +311,20 @@ local function testGrassyTerrainHealingIntegration()
             duration = 5
         }
     })
-    
+
     test:assertResponse("SaveState", true)
-    
+
     -- Process terrain turn with healing
     test:sendMessage("ProcessTerrainTurn", scenario)
-    
+
     local response = test:assertResponse("SaveState", true)
     local data = json.decode(response.Data)
-    
+
     -- Pikachu (Electric, damaged) should get healed if grounded
     -- Crobat (Poison/Flying) should not get healed due to Flying type
     local healingDealt = data.effects.healingDealt
     assert(#healingDealt >= 1, "Should heal at least one Pokemon")
-    
+
     local pikachuHealing = nil
     for _, healing in ipairs(healingDealt) do
         if healing.pokemonId == "player_pikachu" then
@@ -332,10 +332,10 @@ local function testGrassyTerrainHealingIntegration()
             break
         end
     end
-    
+
     assert(pikachuHealing ~= nil, "Pikachu should receive Grassy terrain healing")
     assert(pikachuHealing.healAmount == 12, "Should heal 1/16 max HP (200/16=12.5, floored=12)")
-    
+
     return test:complete(true)
 end
 
@@ -343,10 +343,10 @@ end
 local function testTerrainOverwriteScenarios()
     local test = IntegrationTest:new("Terrain Overwrite Scenarios")
     test:run()
-    
+
     test:mockAOEnvironment()
     test:loadTerrainSystem()
-    
+
     -- Set initial electric terrain
     test:sendMessage("SetTerrain", {
         parameters = {
@@ -354,9 +354,9 @@ local function testTerrainOverwriteScenarios()
             duration = 5
         }
     })
-    
+
     test:assertResponse("SaveState", true)
-    
+
     -- Try to set grassy terrain without overwrite (should fail)
     test:sendMessage("SetTerrain", {
         parameters = {
@@ -365,11 +365,11 @@ local function testTerrainOverwriteScenarios()
             overwrite = false
         }
     })
-    
+
     local response = test:assertResponse("SaveState", false)
     local data = json.decode(response.Data)
     assert(data.success == false, "Should fail without overwrite")
-    
+
     -- Now set grassy terrain with overwrite (should succeed)
     test:sendMessage("SetTerrain", {
         parameters = {
@@ -378,12 +378,12 @@ local function testTerrainOverwriteScenarios()
             overwrite = true
         }
     })
-    
+
     response = test:assertResponse("SaveState", true)
     data = json.decode(response.Data)
     assert(data.terrain.terrainType == "GRASSY", "Should overwrite with grassy terrain")
     assert(data.terrain.turnsLeft == 3, "Should set new duration")
-    
+
     return test:complete(true)
 end
 
@@ -391,10 +391,10 @@ end
 local function testMoveTypeMultiplierIntegration()
     local test = IntegrationTest:new("Move Type Multiplier Integration")
     test:run()
-    
+
     test:mockAOEnvironment()
     test:loadTerrainSystem()
-    
+
     -- Set electric terrain
     test:sendMessage("SetTerrain", {
         parameters = {
@@ -402,9 +402,9 @@ local function testMoveTypeMultiplierIntegration()
             duration = 5
         }
     })
-    
+
     test:assertResponse("SaveState", true)
-    
+
     -- Check Electric move on Electric terrain (should be boosted)
     test:sendMessage("CalculateTypeMultiplier", {
         parameters = {
@@ -416,12 +416,12 @@ local function testMoveTypeMultiplierIntegration()
             }
         }
     })
-    
+
     local response = test:assertResponse("SaveState", true)
     local data = json.decode(response.Data)
     assert(data.typeMultiplier == 1.3, "Electric moves should get 1.3x on Electric terrain")
     assert(data.boostMessage ~= "", "Should have boost message")
-    
+
     -- Check same move with Flying Pokemon (should not be boosted)
     test:sendMessage("CalculateTypeMultiplier", {
         parameters = {
@@ -433,11 +433,11 @@ local function testMoveTypeMultiplierIntegration()
             }
         }
     })
-    
+
     response = test:assertResponse("SaveState", true)
     data = json.decode(response.Data)
     assert(data.typeMultiplier == 1.0, "Flying Pokemon should not get terrain multipliers")
-    
+
     return test:complete(true)
 end
 
@@ -445,10 +445,10 @@ end
 local function testPsychicTerrainMoveBlocking()
     local test = IntegrationTest:new("Psychic Terrain Move Blocking")
     test:run()
-    
+
     test:mockAOEnvironment()
     test:loadTerrainSystem()
-    
+
     -- Set psychic terrain
     test:sendMessage("SetTerrain", {
         parameters = {
@@ -456,9 +456,9 @@ local function testPsychicTerrainMoveBlocking()
             duration = 5
         }
     })
-    
+
     test:assertResponse("SaveState", true)
-    
+
     -- Test priority move against grounded Pokemon (should be blocked)
     test:sendMessage("CheckMoveBlocking", {
         parameters = {
@@ -474,12 +474,12 @@ local function testPsychicTerrainMoveBlocking()
             }
         }
     })
-    
+
     local response = test:assertResponse("SaveState", true)
     local data = json.decode(response.Data)
     assert(data.moveBlocked == true, "Priority moves should be blocked on Psychic terrain")
     assert(data.blockMessage ~= "", "Should have block message")
-    
+
     -- Test priority move against Flying Pokemon (should not be blocked)
     test:sendMessage("CheckMoveBlocking", {
         parameters = {
@@ -495,11 +495,11 @@ local function testPsychicTerrainMoveBlocking()
             }
         }
     })
-    
+
     response = test:assertResponse("SaveState", true)
     data = json.decode(response.Data)
     assert(data.moveBlocked == false, "Flying Pokemon should not be affected by terrain blocking")
-    
+
     -- Test normal priority move (should not be blocked)
     test:sendMessage("CheckMoveBlocking", {
         parameters = {
@@ -515,11 +515,11 @@ local function testPsychicTerrainMoveBlocking()
             }
         }
     })
-    
+
     response = test:assertResponse("SaveState", true)
     data = json.decode(response.Data)
     assert(data.moveBlocked == false, "Normal priority moves should not be blocked")
-    
+
     return test:complete(true)
 end
 
@@ -527,10 +527,10 @@ end
 local function testMistyTerrainStatusPrevention()
     local test = IntegrationTest:new("Misty Terrain Status Prevention")
     test:run()
-    
+
     test:mockAOEnvironment()
     test:loadTerrainSystem()
-    
+
     -- Set misty terrain
     test:sendMessage("SetTerrain", {
         parameters = {
@@ -538,9 +538,9 @@ local function testMistyTerrainStatusPrevention()
             duration = 5
         }
     })
-    
+
     test:assertResponse("SaveState", true)
-    
+
     -- Check status prevention for grounded Pokemon
     test:sendMessage("GetTerrainInfo", {
         parameters = {
@@ -552,12 +552,12 @@ local function testMistyTerrainStatusPrevention()
             }
         }
     })
-    
+
     local response = test:assertResponse("SaveState", true)
     local data = json.decode(response.Data)
     assert(data.effects.statusPrevented == true, "Misty terrain should prevent sleep on grounded Pokemon")
     assert(data.effects.preventMessage ~= "", "Should have prevent message")
-    
+
     -- Check status prevention for Flying Pokemon (should not be prevented)
     test:sendMessage("GetTerrainInfo", {
         parameters = {
@@ -569,11 +569,11 @@ local function testMistyTerrainStatusPrevention()
             }
         }
     })
-    
+
     response = test:assertResponse("SaveState", true)
     data = json.decode(response.Data)
     assert(data.effects.statusPrevented == false, "Flying Pokemon should not be protected by Misty terrain")
-    
+
     return test:complete(true)
 end
 
@@ -581,10 +581,10 @@ end
 local function testMultiTerrainTypes()
     local test = IntegrationTest:new("Multi-Terrain Type Testing")
     test:run()
-    
+
     test:mockAOEnvironment()
     test:loadTerrainSystem()
-    
+
     local terrainTypes = {"ELECTRIC", "GRASSY", "MISTY", "PSYCHIC"}
     local expectedMultipliers = {
         ELECTRIC = {ELECTRIC = 1.3, FIRE = 1.0},
@@ -592,7 +592,7 @@ local function testMultiTerrainTypes()
         MISTY = {ELECTRIC = 1.0, FIRE = 1.0}, -- No multipliers
         PSYCHIC = {PSYCHIC = 1.3, FIRE = 1.0}
     }
-    
+
     for _, terrainType in ipairs(terrainTypes) do
         -- Set terrain
         test:sendMessage("SetTerrain", {
@@ -601,9 +601,9 @@ local function testMultiTerrainTypes()
                 duration = 5
             }
         })
-        
+
         test:assertResponse("SaveState", true)
-        
+
         -- Test type multipliers for this terrain
         local multipliers = expectedMultipliers[terrainType]
         for moveType, expectedMultiplier in pairs(multipliers) do
@@ -617,31 +617,31 @@ local function testMultiTerrainTypes()
                     }
                 }
             })
-            
+
             local response = test:assertResponse("SaveState", true)
             local data = json.decode(response.Data)
-            assert(data.typeMultiplier == expectedMultiplier, 
+            assert(data.typeMultiplier == expectedMultiplier,
                 string.format("%s moves should get %sx on %s terrain", moveType, expectedMultiplier, terrainType))
         end
     end
-    
+
     return test:complete(true)
 end
 
 -- Test 8: ADP Protocol Compliance
 local function testADPProtocolCompliance()
-    local test = IntegrationTest:new("ADP Protocol Compliance")  
+    local test = IntegrationTest:new("ADP Protocol Compliance")
     test:run()
-    
+
     test:mockAOEnvironment()
     test:loadTerrainSystem()
-    
+
     -- Test Info handler
     test:sendMessage("Info", {})
-    
+
     local response = test:getLastResponse()
     assert(response ~= nil, "Should respond to Info request")
-    
+
     local data = json.decode(response.Data)
     assert(data.Name == "Terrain Effects Engine", "Should have correct process name")
     assert(data.protocolVersion == "1.0", "Should be ADP v1.0 compliant")
@@ -650,15 +650,15 @@ local function testADPProtocolCompliance()
     assert(type(data.capabilities) == "table", "Should have capabilities")
     assert(type(data.terrainTypes) == "table", "Should list terrain types")
     assert(#data.terrainTypes == 5, "Should support all 5 terrain types (including NONE)")
-    
+
     -- Test Ping handler
     test:sendMessage("Ping", {})
-    
+
     response = test:getLastResponse()
     assert(response ~= nil, "Should respond to Ping")
     assert(response.Action == "Pong", "Should send Pong response")
     assert(response.Data == "pong", "Should have pong data")
-    
+
     return test:complete(true)
 end
 
@@ -666,7 +666,7 @@ end
 local function runIntegrationTests()
     print("🔗 Running Terrain Effects Integration Tests...")
     print("=" .. string.rep("=", 70))
-    
+
     local tests = {
         testCompleteTerrainLifecycle,
         testGrassyTerrainHealingIntegration,
@@ -677,10 +677,10 @@ local function runIntegrationTests()
         testMultiTerrainTypes,
         testADPProtocolCompliance
     }
-    
+
     local passed = 0
     local failed = 0
-    
+
     for _, testFunc in ipairs(tests) do
         local success, err = pcall(testFunc)
         if success and err then
@@ -692,10 +692,10 @@ local function runIntegrationTests()
             end
         end
     end
-    
+
     print("=" .. string.rep("=", 70))
     print(string.format("📊 Integration Test Results: %d passed, %d failed", passed, failed))
-    
+
     if failed == 0 then
         print("🎉 All integration tests passed! Terrain Effects ready for production.")
         return true

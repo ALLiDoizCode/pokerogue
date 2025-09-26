@@ -18,7 +18,9 @@
 - `statusEffect`: string|nil - Current status condition
 - `abilities`: table - Available abilities and current selection
 - `heldItem`: string|nil - Currently held item identifier
-- `battleData`: table - Temporary battle-specific data
+- `friendship`: number - Current friendship value (0-255 range)
+- `happiness`: number - Alias for friendship (maintained for compatibility)
+- `battleData`: table - Temporary battle-specific data and friendship modifiers
 
 **Relationships:**
 - Belongs to Player (via party roster)
@@ -38,9 +40,9 @@
 - `battleSeed`: string - Deterministic RNG seed
 - `playerParty`: table - Player's active Pokemon
 - `enemyParty`: table - Enemy Pokemon data
-- `turnCommands`: table - Queued player commands
+- `turnCommands`: table - Queued player commands and actions affecting friendship
 - `battleState`: string - Current battle phase
-- `conditions`: table - Active field conditions and effects
+- `conditions`: table - Active field conditions that may affect friendship calculations
 
 **Relationships:**
 - Contains Pokemon instances (player and enemy parties)
@@ -56,11 +58,11 @@
 - `playerId`: string - Player wallet address (AO identity)
 - `gameVersion`: string - Save data version for migration compatibility
 - `progression`: table - Game progression state
-- `party`: table - Current Pokemon party (up to 6)
+- `party`: table - Current Pokemon party (up to 6) with individual friendship tracking
 - `pcStorage`: table - PC Pokemon storage system
-- `inventory`: table - Items, money, and resources
+- `inventory`: table - Items, money, resources, and friendship-affecting items (berries, vitamins, medicines)
 - `pokedex`: table - Species seen/caught tracking
-- `gameStats`: table - Battle wins, losses, playtime
+- `gameStats`: table - Battle wins, losses, playtime, and friendship-related statistics for progression tracking
 - `settings`: table - Game preferences and options
 
 **Relationships:**

@@ -105,7 +105,7 @@ local passedCount = 0
 local function runTest(name, testFunc)
     testCount = testCount + 1
     print("Running test " .. testCount .. ": " .. name)
-    
+
     local success, result = pcall(testFunc)
     if success and result then
         passedCount = passedCount + 1
@@ -132,29 +132,29 @@ end
 tests.applyBurnStatusEffect = function()
     local pokemon = deepCopy(mockHealthyPokemon)
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.applyStatusEffect(pokemon, "burn", rngState)
-    
+
     assert(result.success, "Burn application should succeed")
     assert(result.statusEffect == "burn", "Pokemon should have burn status")
     assert(result.statusTurns == -1, "Burn should have permanent duration")
     assert(result.statusData.severity, "Burn should have severity data")
-    
+
     return true
 end
 
--- Test 2: Apply Poison Status Effect  
+-- Test 2: Apply Poison Status Effect
 tests.applyPoisonStatusEffect = function()
     local pokemon = deepCopy(mockHealthyPokemon)
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.applyStatusEffect(pokemon, "poison", rngState)
-    
+
     assert(result.success, "Poison application should succeed")
     assert(result.statusEffect == "poison", "Pokemon should have poison status")
     assert(result.statusTurns == -1, "Poison should have permanent duration")
     assert(result.statusData.severity, "Poison should have severity data")
-    
+
     return true
 end
 
@@ -162,13 +162,13 @@ end
 tests.applySleepStatusEffect = function()
     local pokemon = deepCopy(mockHealthyPokemon)
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.applyStatusEffect(pokemon, "sleep", rngState)
-    
+
     assert(result.success, "Sleep application should succeed")
     assert(result.statusEffect == "sleep", "Pokemon should have sleep status")
     assert(result.statusTurns >= 1 and result.statusTurns <= 4, "Sleep should have 1-4 turn duration")
-    
+
     return true
 end
 
@@ -177,13 +177,13 @@ tests.testStatusImmunity = function()
     local pokemon = deepCopy(mockBurnedPokemon) -- Fire type
     pokemon.statusEffect = "none"
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.applyStatusEffect(pokemon, "burn", rngState)
-    
+
     -- Fire types should be immune to burn
     assert(not result.success, "Fire type should be immune to burn")
     assert(result.reason and string.find(result.reason, "immune"), "Should indicate immunity")
-    
+
     return true
 end
 
@@ -191,16 +191,16 @@ end
 tests.processBurnTurnDamage = function()
     local pokemon = deepCopy(mockBurnedPokemon)
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.processStatusTurn(pokemon, rngState, "none", 1)
-    
+
     assert(result.success, "Burn turn processing should succeed")
     assert(result.damageDealt > 0, "Burn should deal damage")
     -- Burn should deal 1/16 max HP damage
     local expectedDamage = math.floor(pokemon.maxHp / 16)
     assert(result.damageDealt == expectedDamage, "Burn damage should be 1/16 max HP")
     assert(result.newHp < pokemon.hp, "HP should decrease")
-    
+
     return true
 end
 
@@ -208,16 +208,16 @@ end
 tests.processPoisonTurnDamage = function()
     local pokemon = deepCopy(mockPoisonedPokemon)
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.processStatusTurn(pokemon, rngState, "none", 1)
-    
+
     assert(result.success, "Poison turn processing should succeed")
     assert(result.damageDealt > 0, "Poison should deal damage")
     -- Poison should deal 1/8 max HP damage
     local expectedDamage = math.floor(pokemon.maxHp / 8)
     assert(result.damageDealt == expectedDamage, "Poison damage should be 1/8 max HP")
     assert(result.newHp < pokemon.hp, "HP should decrease")
-    
+
     return true
 end
 
@@ -225,13 +225,13 @@ end
 tests.removeStatusEffect = function()
     local pokemon = deepCopy(mockBurnedPokemon)
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.removeStatusEffect(pokemon, "heal", rngState)
-    
+
     assert(result.success, "Status removal should succeed")
     assert(result.statusEffect == "none", "Pokemon should have no status effect")
     assert(result.statusTurns == 0, "Status turns should be reset")
-    
+
     return true
 end
 
@@ -239,13 +239,13 @@ end
 tests.checkStatusInteractions = function()
     local pokemon = deepCopy(mockHealthyPokemon)
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.checkStatusInteractions(pokemon, "burn", "none", rngState)
-    
+
     assert(result.success, "Status interaction check should succeed")
     assert(result.canApply ~= nil, "Should indicate if status can be applied")
     assert(result.interactions, "Should provide interaction details")
-    
+
     return true
 end
 
@@ -253,13 +253,13 @@ end
 tests.validateStatusImmunity = function()
     local pokemon = deepCopy(mockBurnedPokemon) -- Fire type
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.validateStatusImmunity(pokemon, "burn", rngState)
-    
+
     assert(result.success, "Immunity validation should succeed")
     assert(result.isImmune, "Fire type should be immune to burn")
     assert(result.immunityType, "Should specify immunity type")
-    
+
     return true
 end
 
@@ -267,13 +267,13 @@ end
 tests.calculateStatusDamage = function()
     local pokemon = deepCopy(mockBurnedPokemon)
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.calculateStatusDamage(pokemon, "burn", 1, rngState)
-    
+
     assert(result.success, "Damage calculation should succeed")
     assert(result.damage > 0, "Should calculate positive damage")
     assert(result.damage == math.floor(pokemon.maxHp / 16), "Burn damage should be 1/16 max HP")
-    
+
     return true
 end
 
@@ -283,15 +283,15 @@ tests.processSleepTurns = function()
     pokemon.statusEffect = "sleep"
     pokemon.statusTurns = 1
     pokemon.statusData = {turnsRemaining = 1}
-    
+
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.processStatusTurn(pokemon, rngState, "none", 1)
-    
+
     assert(result.success, "Sleep turn processing should succeed")
     assert(result.statusEffect == "none", "Pokemon should wake up when turns remaining is 1")
     assert(result.statusTurns == 0, "Status turns should be reset")
-    
+
     return true
 end
 
@@ -299,12 +299,12 @@ end
 tests.processEnvironmentalEffects = function()
     local pokemon = deepCopy(mockBurnedPokemon)
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.processEnvironmentalEffects(pokemon, "rain", rngState)
-    
+
     assert(result.success, "Environmental effects processing should succeed")
     assert(result.effects, "Should provide environmental effects data")
-    
+
     return true
 end
 
@@ -313,15 +313,15 @@ tests.checkMoveRestrictions = function()
     local pokemon = deepCopy(mockHealthyPokemon)
     pokemon.statusEffect = "sleep"
     pokemon.statusData = {turnsRemaining = 2}
-    
+
     local mockMove = {name = "Tackle", type = "normal"}
     local rngState = {seed = 12345, counter = 1}
-    
+
     local result = StatusEffectsEngine.checkMoveRestrictions(pokemon, mockMove, rngState)
-    
+
     assert(result.success, "Move restriction check should succeed")
     assert(result.canUseMove ~= nil, "Should indicate if move can be used")
-    
+
     return true
 end
 
@@ -336,25 +336,25 @@ adpTests.testInfoHandler = function()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     -- In a real test environment, we would test the actual handler
     -- For now, we validate the metadata structure exists
     local metadata = StatusEffectsEngineModule.PROCESS_METADATA
-    
+
     assert(metadata, "Process metadata should exist")
     assert(metadata.adpVersion == "1.0", "Should be ADP v1.0 compliant")
     assert(metadata.name, "Should have process name")
     assert(metadata.capabilities, "Should have capabilities list")
     assert(metadata.messageSchemas, "Should have message schemas")
-    
+
     -- Validate required capabilities
     local requiredCapabilities = {
         "applyStatusEffect",
-        "processStatusTurn", 
+        "processStatusTurn",
         "removeStatusEffect",
         "checkStatusInteractions"
     }
-    
+
     for _, capability in ipairs(requiredCapabilities) do
         local found = false
         for _, existing in ipairs(metadata.capabilities) do
@@ -365,7 +365,7 @@ adpTests.testInfoHandler = function()
         end
         assert(found, "Should have capability: " .. capability)
     end
-    
+
     return true
 end
 
@@ -373,16 +373,16 @@ end
 adpTests.testMessageSchemas = function()
     local metadata = StatusEffectsEngineModule.PROCESS_METADATA
     local schemas = metadata.messageSchemas
-    
+
     assert(schemas.ProcessLogic, "Should have ProcessLogic schema")
     assert(schemas.HealthCheck, "Should have HealthCheck schema")
     assert(schemas.Info, "Should have Info schema")
-    
+
     -- Validate ProcessLogic schema structure
     local processLogicSchema = schemas.ProcessLogic
     assert(processLogicSchema.required, "ProcessLogic should have required fields")
     assert(processLogicSchema.properties, "ProcessLogic should have properties")
-    
+
     -- Check required fields
     local requiredFields = {"Action", "Data", "Timestamp"}
     for _, field in ipairs(requiredFields) do
@@ -395,7 +395,7 @@ adpTests.testMessageSchemas = function()
         end
         assert(found, "ProcessLogic should require field: " .. field)
     end
-    
+
     return true
 end
 

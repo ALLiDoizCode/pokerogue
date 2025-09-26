@@ -74,7 +74,7 @@ dofile("processes/pokemon-species-db.lua")
 -- Helper function to test handler
 local function testHandler(handlerName, message)
     testMessages = {} -- Clear previous messages
-    
+
     if testHandlers[handlerName] then
         local handler = testHandlers[handlerName].handler
         handler(message)
@@ -108,7 +108,7 @@ end
 
 print("\n=== Test 2: SpeciesName='Pikachu' ===")
 responses = testHandler("get-species", {
-    From = "test-client", 
+    From = "test-client",
     Action = "GetSpecies",
     SpeciesName = "Pikachu"
 })
@@ -130,7 +130,7 @@ end
 print("\n=== Test 3: SpeciesName='bulbasaur' (lowercase) ===")
 responses = testHandler("get-species", {
     From = "test-client",
-    Action = "GetSpecies", 
+    Action = "GetSpecies",
     SpeciesName = "bulbasaur"
 })
 

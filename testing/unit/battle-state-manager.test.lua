@@ -12,8 +12,8 @@ local json = {
             local parts = {}
             for k, v in pairs(obj) do
                 local key = type(k) == "string" and '"' .. k .. '"' or tostring(k)
-                local value = type(v) == "string" and '"' .. v .. '"' or 
-                             type(v) == "table" and json.encode(v) or 
+                local value = type(v) == "string" and '"' .. v .. '"' or
+                             type(v) == "table" and json.encode(v) or
                              tostring(v)
                 table.insert(parts, key .. ":" .. value)
             end
@@ -50,22 +50,22 @@ local process = nil
 local function setup()
     -- Create a new process instance
     process = aolite.spawnProcess()
-    
+
     -- Load the battle state manager process code
     local processCode = io.open("/Users/jonathangreen/Documents/pokerogue/processes/battle-state-manager.lua", "r")
     if not processCode then
         error("Could not load battle-state-manager.lua")
     end
-    
+
     local code = processCode:read("*all")
     processCode:close()
-    
+
     -- Evaluate the process code
     local success, err = aolite.eval(process, code)
     if not success then
         error("Failed to load process: " .. tostring(err))
     end
-    
+
     print("Battle State Manager process loaded successfully")
     return process
 end
@@ -73,10 +73,10 @@ end
 -- Test Pokemon State Management
 local function testPokemonStateManagement()
     print("\n=== Testing Pokemon State Management with Aolite ===")
-    
+
     local testBattleId = "battle_" .. tostring(os.time())
     local testPokemonId = "pikachu_001"
-    
+
     -- Test 1: Update Pokemon State
     local pokemonStateData = {
         id = testPokemonId,
@@ -108,7 +108,7 @@ local function testPokemonStateManagement()
             {id = "double_team", pp = 15, maxPP = 15}
         }
     }
-    
+
     local updateMessage = {
         Action = "UpdatePokemonState",
         From = "test_trainer",
@@ -117,16 +117,16 @@ local function testPokemonStateManagement()
         Data = json.encode(pokemonStateData),
         Timestamp = tostring(os.time())
     }
-    
+
     print("Sending Pokemon state update...")
     local responses = aolite.send(process, updateMessage)
-    
+
     -- Verify response
     if #responses > 0 then
         local response = responses[1]
         print("Response Action:", response.Action)
         print("Response Success:", response.Success)
-        
+
         if response.Success == "true" then
             local responseData = json.decode(response.Data)
             if responseData and responseData.success then
@@ -143,11 +143,11 @@ local function testPokemonStateManagement()
     else
         print("✗ No response received for Pokemon state update")
     end
-    
+
     -- Test 2: Update Pokemon HP (damage scenario)
     pokemonStateData.hp = 45
     pokemonStateData.battleData.turnsInBattle = 6
-    
+
     local damageMessage = {
         Action = "UpdatePokemonState",
         From = "test_trainer",
@@ -156,10 +156,10 @@ local function testPokemonStateManagement()
         Data = json.encode(pokemonStateData),
         Timestamp = tostring(os.time())
     }
-    
+
     print("\nSending Pokemon damage update...")
     local damageResponses = aolite.send(process, damageMessage)
-    
+
     if #damageResponses > 0 then
         local response = damageResponses[1]
         if response.Success == "true" then
@@ -178,9 +178,9 @@ end
 -- Test Field Condition Management
 local function testFieldConditionManagement()
     print("\n=== Testing Field Condition Management with Aolite ===")
-    
+
     local testBattleId = "battle_" .. tostring(os.time())
-    
+
     -- Test weather and terrain setup
     local fieldData = {
         weather = {
@@ -206,7 +206,7 @@ local function testFieldConditionManagement()
             auroraVeil = {turnsRemaining = 0, side = "opponent"}
         }
     }
-    
+
     local conditionMessage = {
         Action = "ManageFieldConditions",
         From = "test_battle_system",
@@ -215,10 +215,10 @@ local function testFieldConditionManagement()
         TurnNumber = "8",
         Timestamp = tostring(os.time())
     }
-    
+
     print("Setting up field conditions...")
     local responses = aolite.send(process, conditionMessage)
-    
+
     if #responses > 0 then
         local response = responses[1]
         if response.Success == "true" then
@@ -239,9 +239,9 @@ end
 -- Test Battle Participant Management
 local function testBattleParticipantManagement()
     print("\n=== Testing Battle Participant Management with Aolite ===")
-    
+
     local testBattleId = "battle_" .. tostring(os.time())
-    
+
     -- Test party setup
     local participantData = {
         active = {
@@ -261,7 +261,7 @@ local function testBattleParticipantManagement()
             opponent = {id = "rival", name = "Gary"}
         }
     }
-    
+
     local participantMessage = {
         Action = "ManageBattleParticipants",
         From = "test_battle_system",
@@ -270,10 +270,10 @@ local function testBattleParticipantManagement()
         Operation = "update",
         Timestamp = tostring(os.time())
     }
-    
+
     print("Setting up battle participants...")
     local responses = aolite.send(process, participantMessage)
-    
+
     if #responses > 0 then
         local response = responses[1]
         if response.Success == "true" then
@@ -288,14 +288,14 @@ local function testBattleParticipantManagement()
             print("✗ Battle participant setup failed:", response.Error)
         end
     end
-    
+
     -- Test switching
     print("\nTesting Pokemon switching...")
     local switchData = {
         switchOut = {id = "charizard_001", position = 1},
         switchIn = {id = "pikachu_001", position = 1, hp = 95, maxHp = 100}
     }
-    
+
     local switchMessage = {
         Action = "ManageBattleParticipants",
         From = "test_battle_system",
@@ -304,7 +304,7 @@ local function testBattleParticipantManagement()
         Operation = "switch",
         Timestamp = tostring(os.time())
     }
-    
+
     local switchResponses = aolite.send(process, switchMessage)
     if #switchResponses > 0 then
         local response = switchResponses[1]
@@ -319,9 +319,9 @@ end
 -- Test Move History and Event Logging
 local function testMoveHistoryAndEventLogging()
     print("\n=== Testing Move History and Event Logging with Aolite ===")
-    
+
     local testBattleId = "battle_" .. tostring(os.time())
-    
+
     -- Test move usage tracking
     local moveData = {
         pokemonId = "pikachu_001",
@@ -332,7 +332,7 @@ local function testMoveHistoryAndEventLogging()
         ppUsed = 1,
         maxPP = 15
     }
-    
+
     local moveMessage = {
         Action = "TrackMoveHistory",
         From = "test_battle_system",
@@ -341,10 +341,10 @@ local function testMoveHistoryAndEventLogging()
         TurnNumber = "5",
         Timestamp = tostring(os.time())
     }
-    
+
     print("Tracking move usage...")
     local moveResponses = aolite.send(process, moveMessage)
-    
+
     if #moveResponses > 0 then
         local response = moveResponses[1]
         if response.Success == "true" then
@@ -358,7 +358,7 @@ local function testMoveHistoryAndEventLogging()
             print("✗ Move tracking failed:", response.Error)
         end
     end
-    
+
     -- Test battle event logging
     print("\nTesting battle event logging...")
     local eventData = {
@@ -381,7 +381,7 @@ local function testMoveHistoryAndEventLogging()
             randomFactor = 0.92
         }
     }
-    
+
     local eventMessage = {
         Action = "LogBattleEvents",
         From = "test_battle_system",
@@ -390,9 +390,9 @@ local function testMoveHistoryAndEventLogging()
         Data = json.encode(eventData),
         Timestamp = tostring(os.time())
     }
-    
+
     local eventResponses = aolite.send(process, eventMessage)
-    
+
     if #eventResponses > 0 then
         local response = eventResponses[1]
         if response.Success == "true" then
@@ -411,12 +411,12 @@ end
 -- Test State Serialization
 local function testStateSerialization()
     print("\n=== Testing State Serialization with Aolite ===")
-    
+
     local testBattleId = "battle_" .. tostring(os.time())
-    
+
     -- First populate some state data by running previous tests on same battle
     -- ... (would use the same battle ID in real integration)
-    
+
     -- Test serialization
     local serializeMessage = {
         Action = "SerializeBattleState",
@@ -425,10 +425,10 @@ local function testStateSerialization()
         IncludeHistory = "true",
         Timestamp = tostring(os.time())
     }
-    
+
     print("Serializing battle state...")
     local serializeResponses = aolite.send(process, serializeMessage)
-    
+
     if #serializeResponses > 0 then
         local response = serializeResponses[1]
         if response.Success == "true" then
@@ -439,7 +439,7 @@ local function testStateSerialization()
                 print("  Size:", responseData.size, "bytes")
                 print("  Version:", responseData.version)
                 print("  Include history:", responseData.includeHistory)
-                
+
                 -- Test deserialization
                 local deserializeMessage = {
                     Action = "DeserializeBattleState",
@@ -449,10 +449,10 @@ local function testStateSerialization()
                     Checksum = responseData.checksum,
                     Timestamp = tostring(os.time())
                 }
-                
+
                 print("\nDeserializing battle state...")
                 local deserializeResponses = aolite.send(process, deserializeMessage)
-                
+
                 if #deserializeResponses > 0 then
                     local deserializeResponse = deserializeResponses[1]
                     if deserializeResponse.Success == "true" then
@@ -478,7 +478,7 @@ end
 -- Test Memory Management
 local function testMemoryManagement()
     print("\n=== Testing Memory Management with Aolite ===")
-    
+
     -- Test cleanup operation
     local cleanupMessage = {
         Action = "ManageMemory",
@@ -486,10 +486,10 @@ local function testMemoryManagement()
         Operation = "cleanup",
         Timestamp = tostring(os.time())
     }
-    
+
     print("Running memory cleanup...")
     local cleanupResponses = aolite.send(process, cleanupMessage)
-    
+
     if #cleanupResponses > 0 then
         local response = cleanupResponses[1]
         if response.Success == "true" then
@@ -504,7 +504,7 @@ local function testMemoryManagement()
             print("✗ Memory cleanup failed:", response.Error)
         end
     end
-    
+
     -- Test state validation
     local validateMessage = {
         Action = "ManageMemory",
@@ -512,10 +512,10 @@ local function testMemoryManagement()
         Operation = "validate",
         Timestamp = tostring(os.time())
     }
-    
+
     print("\nRunning state validation...")
     local validateResponses = aolite.send(process, validateMessage)
-    
+
     if #validateResponses > 0 then
         local response = validateResponses[1]
         if response.Success == "true" then
@@ -533,15 +533,15 @@ end
 -- Test ADP Compliance
 local function testADPCompliance()
     print("\n=== Testing ADP Compliance with Aolite ===")
-    
+
     local infoMessage = {
         Action = "Info",
         From = "test_system"
     }
-    
+
     print("Requesting process info...")
     local infoResponses = aolite.send(process, infoMessage)
-    
+
     if #infoResponses > 0 then
         local response = infoResponses[1]
         if response.Action == "InfoResponse" then
@@ -568,10 +568,10 @@ end
 local function runAllTests()
     print("Starting Aolite Unit Tests for Battle State Manager")
     print("=" .. string.rep("=", 60))
-    
+
     -- Setup the process
     setup()
-    
+
     -- Run all test suites
     testPokemonStateManagement()
     testFieldConditionManagement()
@@ -580,10 +580,10 @@ local function runAllTests()
     testStateSerialization()
     testMemoryManagement()
     testADPCompliance()
-    
+
     print("\n" .. string.rep("=", 60))
     print("Aolite Battle State Manager Unit Tests Complete")
-    
+
     -- Clean up
     if process then
         aolite.close(process)

@@ -254,14 +254,27 @@ local function calculateTypeEffectiveness(moveType, defenderTypes)
     return effectiveness
 end
 
--- Calculate base damage using TypeScript formula
-local function calculateBaseDamage(level, power, attack, defense)
+-- Calculate base damage using TypeScript formula with variance
+local function calculateBaseDamage(level, power, attack, defense, battleSeed)
     -- CRITICAL FIX: Exact TypeScript formula: (levelMultiplier * power * attack) / defense / 50 + 2
     -- TypeScript: (levelMultiplier * power * sourceAtk.value) / targetDef.value / 50 + 2
-    local levelMultiplier = (2 * level + 10) / 5 + 2  -- FIXED: TypeScript uses /5 not /250
+    local levelMultiplier = (2 * level) / 5 + 2  -- FIXED: Exact TypeScript formula
     local baseDamage = (levelMultiplier * power * attack) / defense / 50 + 2
     
-    return baseDamage
+    -- CRITICAL FIX: Apply variance during base damage calculation (like TypeScript)
+    -- TypeScript: Math.floor(baseDamage * damageRoll) where damageRoll = 0.85 default
+    local damageRoll = 0.85  -- Default variance (85%)
+    if battleSeed and battleSeed ~= "" then
+        -- Use seed for random variance (85-100%)
+        local seedNum = 0
+        for i = 1, #battleSeed do
+            seedNum = seedNum + string.byte(battleSeed, i)
+        end
+        math.randomseed(seedNum)
+        damageRoll = (85 + math.random(0, 15)) / 100  -- 85-100%
+    end
+    
+    return math.floor(baseDamage * damageRoll)
 end
 
 -- Calculate critical hit probability and multiplier
@@ -332,9 +345,27 @@ end
 
 -- Generate random damage variance (85-100%)
 local function calculateDamageVariance(baseDamage, battleSeed)
-    -- In real implementation, this would use AO crypto module with battle seed
-    -- For now, returning middle of range for consistency
-    local variance = 0.925 -- Middle of 85-100% range
+    -- CRITICAL FIX: Use seed-based deterministic variance matching TypeScript
+    -- TypeScript uses: Math.floor(baseDamage * (85 + Math.random() * 16) / 100)
+    -- For deterministic parity, use seed to generate consistent variance
+    
+    if not battleSeed or battleSeed == "" then
+        -- No seed provided, use deterministic value for parity tests
+        -- FIXED: Use 85% (0.85 damageRoll) to match TypeScript reference behavior
+        return math.floor(baseDamage * 0.85)
+    end
+    
+    -- Convert battleSeed to number for consistent RNG
+    local seedNum = 0
+    for i = 1, #battleSeed do
+        seedNum = seedNum + string.byte(battleSeed, i)
+    end
+    
+    -- Generate variance between 85-100% using seed
+    math.randomseed(seedNum)
+    local variancePercent = 85 + math.random(0, 15) -- 85-100%
+    local variance = variancePercent / 100
+    
     return math.floor(baseDamage * variance)
 end
 
@@ -410,7 +441,8 @@ Handlers.add(
             params.attackerLevel,
             params.movePower,
             params.attackStat,
-            params.defenseStat
+            params.defenseStat,
+            params.battleSeed
         )
         
         -- Calculate type effectiveness
@@ -425,13 +457,8 @@ Handlers.add(
         -- Calculate weather/terrain modifier
         local weatherModifier = calculateWeatherModifier(params.moveType, params.weather, params.terrain)
         
-        -- Apply all multipliers
+        -- Apply all multipliers (variance already applied in base damage)
         local finalDamage = baseDamage * typeEffectiveness * critMultiplier * stabMultiplier * weatherModifier
-        
-        -- Apply damage variance
-        if not params.simulated then
-            finalDamage = calculateDamageVariance(finalDamage, params.battleSeed)
-        end
         
         -- Ensure minimum 1 damage if move is not completely ineffective
         if finalDamage > 0 and finalDamage < 1 then
@@ -485,7 +512,7 @@ Handlers.add(
             return
         end
         
-        local baseDamage = calculateBaseDamage(level, power, attack, defense)
+        local baseDamage = calculateBaseDamage(level, power, attack, defense, params.battleSeed)
         
         local result = {
             success = true,

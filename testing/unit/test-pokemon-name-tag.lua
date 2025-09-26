@@ -74,7 +74,7 @@ dofile("processes/pokemon-species-db.lua")
 -- Helper function to test handler
 local function testHandler(handlerName, message)
     testMessages = {} -- Clear previous messages
-    
+
     if testHandlers[handlerName] then
         local handler = testHandlers[handlerName].handler
         handler(message)

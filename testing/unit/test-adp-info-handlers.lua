@@ -9,13 +9,13 @@ local processes = {
         expected_capabilities = {"GetAbility", "GetAbilitiesByTrigger", "GetAbilityActivation", "HealthCheck", "Info"}
     },
     {
-        name = "items-database-adp", 
+        name = "items-database-adp",
         file = "processes/items-database-adp.lua",
         expected_capabilities = {"GetItem", "GetItemsByCategory", "GetBerryEffect", "GetItemEffect", "HealthCheck", "Info"}
     },
     {
         name = "moves-database-adp",
-        file = "processes/moves-database-adp.lua", 
+        file = "processes/moves-database-adp.lua",
         expected_capabilities = {"GetMove", "GetMovesByType", "GetTypeEffectiveness", "HealthCheck", "Info"}
     },
     {
@@ -31,10 +31,10 @@ local results = {}
 -- Test each process
 for _, process in ipairs(processes) do
     print("Testing " .. process.name .. "...")
-    
+
     -- Load and spawn the process
     local processId = aolite.spawnProcess(process.file)
-    
+
     -- Test Info handler
     local infoMessage = {
         Action = "Info",
@@ -42,21 +42,21 @@ for _, process in ipairs(processes) do
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, infoMessage)
     aolite.runScheduler()
-    
+
     -- Get response messages
     local messages = aolite.getAllMsgs(processId)
     local infoResponse = nil
-    
+
     for _, msg in ipairs(messages) do
         if msg.Action == "SaveState" and msg.Data and msg.Data.process then
             infoResponse = msg
             break
         end
     end
-    
+
     -- Validate response
     local testResult = {
         process = process.name,
@@ -64,24 +64,24 @@ for _, process in ipairs(processes) do
         errors = {},
         response = infoResponse
     }
-    
+
     if not infoResponse then
         table.insert(testResult.errors, "No Info response received")
     else
         local data = infoResponse.Data
-        
+
         -- Check ADP v1.0 compliance
         if not data.process then
             table.insert(testResult.errors, "Missing process metadata")
         elseif data.process.adpVersion ~= "1.0" then
             table.insert(testResult.errors, "Invalid adpVersion: " .. tostring(data.process.adpVersion))
         end
-        
+
         -- Check required fields
         if not data.process.name then
             table.insert(testResult.errors, "Missing process name")
         end
-        
+
         if not data.process.capabilities then
             table.insert(testResult.errors, "Missing capabilities list")
         else
@@ -99,27 +99,27 @@ for _, process in ipairs(processes) do
                 end
             end
         end
-        
+
         if not data.process.messageSchemas then
             table.insert(testResult.errors, "Missing messageSchemas")
         end
-        
+
         if not data.handlers then
             table.insert(testResult.errors, "Missing handlers list")
         end
-        
+
         if not data.documentation then
             table.insert(testResult.errors, "Missing documentation")
         elseif data.documentation.adpCompliance ~= "v1.0" then
             table.insert(testResult.errors, "Invalid adpCompliance: " .. tostring(data.documentation.adpCompliance))
         end
-        
+
         -- Mark success if no errors
         if #testResult.errors == 0 then
             testResult.success = true
         end
     end
-    
+
     table.insert(results, testResult)
     print("  Result: " .. (testResult.success and "PASS" or "FAIL"))
     if not testResult.success then

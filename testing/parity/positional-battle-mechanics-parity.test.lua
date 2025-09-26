@@ -18,7 +18,7 @@ local TypeScriptReference = {
         ENEMY = 2,
         ENEMY_2 = 3
     },
-    
+
     DelayedAttack = {
         FUTURE_SIGHT = {
             basePower = 120,
@@ -28,12 +28,12 @@ local TypeScriptReference = {
         },
         DOOM_DESIRE = {
             basePower = 140,
-            type = "STEEL", 
+            type = "STEEL",
             turnDelay = 2,
             canMiss = false
         }
     },
-    
+
     Wish = {
         turnDelay = 2,
         healingFormula = function(userMaxHp)
@@ -45,16 +45,16 @@ local TypeScriptReference = {
 -- Test 1: BattlerIndex Enum Parity
 local function test_battler_index_parity()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     -- Test Info handler to get process capabilities
     local infoMessage = {
         Action = "Info",
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, infoMessage)
-    
+
     -- Test each BattlerIndex value against TypeScript reference
     local indices = {
         {name = "ATTACKER", value = -1},
@@ -63,7 +63,7 @@ local function test_battler_index_parity()
         {name = "ENEMY", value = 2},
         {name = "ENEMY_2", value = 3}
     }
-    
+
     local allMatch = true
     for _, index in ipairs(indices) do
         if TypeScriptReference.BattlerIndex[index.name] ~= index.value then
@@ -71,7 +71,7 @@ local function test_battler_index_parity()
             break
         end
     end
-    
+
     local result = allMatch
     testResults["test_battler_index_parity"] = result
     print(result and "✓ BattlerIndex enum parity test passed" or "✗ BattlerIndex enum parity test failed")
@@ -81,7 +81,7 @@ end
 -- Test 2: Future Sight Delayed Attack Parity
 local function test_future_sight_parity()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local futureSightMessage = {
         Action = "ApplyPositionalEffect",
         TagType = "DELAYED_ATTACK",
@@ -94,9 +94,9 @@ local function test_future_sight_parity()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, futureSightMessage)
-    
+
     local result = true -- Mock always succeeds in test environment
     testResults["test_future_sight_parity"] = result
     print(result and "✓ Future Sight parity test passed" or "✗ Future Sight parity test failed")
@@ -106,7 +106,7 @@ end
 -- Test 3: Doom Desire Delayed Attack Parity
 local function test_doom_desire_parity()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local doomDesireMessage = {
         Action = "ApplyPositionalEffect",
         TagType = "DELAYED_ATTACK",
@@ -119,9 +119,9 @@ local function test_doom_desire_parity()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, doomDesireMessage)
-    
+
     local result = true
     testResults["test_doom_desire_parity"] = result
     print(result and "✓ Doom Desire parity test passed" or "✗ Doom Desire parity test failed")
@@ -131,10 +131,10 @@ end
 -- Test 4: Wish Healing Amount Parity
 local function test_wish_healing_parity()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local userMaxHp = 200
     local expectedHealing = TypeScriptReference.Wish.healingFormula(userMaxHp) -- 100
-    
+
     local wishMessage = {
         Action = "ApplyPositionalEffect",
         TagType = "WISH",
@@ -146,9 +146,9 @@ local function test_wish_healing_parity()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, wishMessage)
-    
+
     local result = true
     testResults["test_wish_healing_parity"] = result
     print(result and "✓ Wish healing parity test passed" or "✗ Wish healing parity test failed")
@@ -158,7 +158,7 @@ end
 -- Test 5: Position Targeting Range Calculations
 local function test_position_targeting_parity()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     -- Test ALL range type (should target all opponents)
     local allRangeMessage = {
         Action = "CheckPositionalTargeting",
@@ -170,9 +170,9 @@ local function test_position_targeting_parity()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, allRangeMessage)
-    
+
     local result = true
     testResults["test_position_targeting_parity"] = result
     print(result and "✓ Position targeting parity test passed" or "✗ Position targeting parity test failed")
@@ -182,7 +182,7 @@ end
 -- Test 6: Turn Processing Order Parity
 local function test_turn_processing_parity()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local turnProcessingMessage = {
         Action = "ProcessPositionalTurnEffects",
         BattleId = "parity_test_turn_order",
@@ -191,9 +191,9 @@ local function test_turn_processing_parity()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, turnProcessingMessage)
-    
+
     local result = true
     testResults["test_turn_processing_parity"] = result
     print(result and "✓ Turn processing parity test passed" or "✗ Turn processing parity test failed")
@@ -203,14 +203,14 @@ end
 -- Test 7: Position State Persistence Parity
 local function test_position_state_parity()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     local positionData = {
         ["0"] = {id = 1, hp = 100, maxHp = 100, fainted = false}, -- PLAYER
         ["1"] = {id = 2, hp = 80, maxHp = 120, fainted = false},   -- PLAYER_2
         ["2"] = {id = 3, hp = 90, maxHp = 110, fainted = false},   -- ENEMY
         ["3"] = {id = 4, hp = 60, maxHp = 100, fainted = false}    -- ENEMY_2
     }
-    
+
     local positionMessage = {
         Action = "UpdateBattlefieldPositions",
         PositionData = '{"0":{"id":1,"hp":100,"maxHp":100},"2":{"id":3,"hp":90,"maxHp":110}}',
@@ -218,9 +218,9 @@ local function test_position_state_parity()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, positionMessage)
-    
+
     local result = true
     testResults["test_position_state_parity"] = result
     print(result and "✓ Position state parity test passed" or "✗ Position state parity test failed")
@@ -230,7 +230,7 @@ end
 -- Test 8: Tag Activation Sequencing Parity
 local function test_tag_activation_parity()
     local processId = aolite.spawnProcess("processes/positional-battle-mechanics-engine.lua")
-    
+
     -- Apply multiple effects to test activation order
     local effect1 = {
         Action = "ApplyPositionalEffect",
@@ -243,9 +243,9 @@ local function test_tag_activation_parity()
         Timestamp = 1234567890,
         From = "test-client"
     }
-    
+
     aolite.send(processId, effect1)
-    
+
     local result = true
     testResults["test_tag_activation_parity"] = result
     print(result and "✓ Tag activation parity test passed" or "✗ Tag activation parity test failed")
@@ -255,7 +255,7 @@ end
 -- Run all parity tests
 local function runAllTests()
     print("")
-    
+
     local tests = {
         {name = "test_battler_index_parity", func = test_battler_index_parity},
         {name = "test_future_sight_parity", func = test_future_sight_parity},
@@ -266,17 +266,17 @@ local function runAllTests()
         {name = "test_position_state_parity", func = test_position_state_parity},
         {name = "test_tag_activation_parity", func = test_tag_activation_parity}
     }
-    
+
     local passed = 0
     local total = #tests
-    
+
     for _, test in ipairs(tests) do
         print("Running: " .. test.name)
         if test.func() then
             passed = passed + 1
         end
     end
-    
+
     print("")
     print("==================================================")
     print("Parity Test Results:")
@@ -285,14 +285,14 @@ local function runAllTests()
     print("  Total:  " .. total)
     print("  Success Rate: " .. string.format("%.1f", (passed / total) * 100) .. "%")
     print("")
-    
+
     if passed == total then
         print("🎉 100% TypeScript behavioral parity achieved!")
     else
         print("⚠️  Parity gaps detected - achieving " .. string.format("%.1f", (passed / total) * 100) .. "% match rate")
         print("🎯 Target: 100% success rate required for production")
     end
-    
+
     return passed == total
 end
 

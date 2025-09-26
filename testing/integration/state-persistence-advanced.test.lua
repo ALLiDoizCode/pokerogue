@@ -30,10 +30,10 @@ local StatePersistenceTests = {}
 
 function StatePersistenceTests.testLargeStateSerializationPerformance()
   print("💾 Testing large state serialization performance")
-  
+
   -- Create large game state
   local largeGameState = StateManagement.createEmptyWorld()
-  
+
   -- Populate with extensive data
   for i = 1, 1000 do
     largeGameState.entities[string.format("pokemon_%d", i)] = {
@@ -60,7 +60,7 @@ function StatePersistenceTests.testLargeStateSerializationPerformance()
       }
     }
   end
-  
+
   -- Add battle data
   for i = 1, 100 do
     largeGameState.entities[string.format("battle_%d", i)] = {
@@ -78,9 +78,9 @@ function StatePersistenceTests.testLargeStateSerializationPerformance()
       battleLog = {}
     }
   end
-  
+
   largeGameState.metadata.entityCount = 1100
-  
+
   -- Test serialization performance
   local serializationResults = AdvancedBenchmarks.benchmarkFunction(
     "largeStateSerialization",
@@ -89,7 +89,7 @@ function StatePersistenceTests.testLargeStateSerializationPerformance()
     end,
     {iterations = 10, warmup = 2}
   )
-  
+
   -- Test checksum calculation performance
   local checksumResults = AdvancedBenchmarks.benchmarkFunction(
     "largeStateChecksum",
@@ -98,10 +98,10 @@ function StatePersistenceTests.testLargeStateSerializationPerformance()
     end,
     {iterations = 50, warmup = 10}
   )
-  
+
   -- Test memory usage estimation
   local memoryUsage = StateManagement.estimateMemoryUsage(largeGameState)
-  
+
   -- Test snapshot creation performance
   local snapshotResults = AdvancedBenchmarks.benchmarkFunction(
     "largeStateSnapshot",
@@ -110,26 +110,26 @@ function StatePersistenceTests.testLargeStateSerializationPerformance()
     end,
     {iterations = 5, warmup = 1}
   )
-  
+
   local serializationTime = serializationResults.statistics.mean * 1000 -- ms
   local checksumTime = checksumResults.statistics.mean * 1000 -- ms
   local snapshotTime = snapshotResults.statistics.mean * 1000 -- ms
-  
+
   print(string.format("  📊 Large State Performance Results:"))
   print(string.format("    Entities: %d", largeGameState.metadata.entityCount))
   print(string.format("    Memory usage: %.2f KB", memoryUsage / 1024))
   print(string.format("    Serialization time: %.2fms", serializationTime))
   print(string.format("    Checksum time: %.2fms", checksumTime))
   print(string.format("    Snapshot time: %.2fms", snapshotTime))
-  
+
   -- Performance thresholds
   local serializationAcceptable = serializationTime < 100 -- 100ms threshold
   local checksumAcceptable = checksumTime < 10 -- 10ms threshold
   local snapshotAcceptable = snapshotTime < 150 -- 150ms threshold
-  
-  print(string.format("    Performance: %s", 
+
+  print(string.format("    Performance: %s",
     (serializationAcceptable and checksumAcceptable and snapshotAcceptable) and "✅ Acceptable" or "❌ Too Slow"))
-  
+
   return {
     success = serializationAcceptable and checksumAcceptable and snapshotAcceptable,
     entityCount = largeGameState.metadata.entityCount,
@@ -147,10 +147,10 @@ end
 
 function StatePersistenceTests.testStateCorruptionRecovery()
   print("🔧 Testing state corruption recovery")
-  
+
   -- Create initial clean state
   local cleanState = StateManagement.createEmptyWorld()
-  
+
   -- Add test data
   for i = 1, 50 do
     cleanState.entities[string.format("entity_%d", i)] = {
@@ -163,10 +163,10 @@ function StatePersistenceTests.testStateCorruptionRecovery()
       }
     }
   end
-  
+
   local cleanChecksum = StateManagement.calculateChecksum(cleanState)
   local cleanSnapshot = StateManagement.createSnapshot(cleanState, "clean_state")
-  
+
   -- Simulate various corruption scenarios
   local corruptionScenarios = {
     {
@@ -205,38 +205,38 @@ function StatePersistenceTests.testStateCorruptionRecovery()
       end
     }
   }
-  
+
   local recoveryResults = {}
-  
+
   for _, scenario in ipairs(corruptionScenarios) do
     print(string.format("  Testing corruption scenario: %s", scenario.name))
-    
+
     -- Create corrupted state
     local corruptedState = StateManagement.deepCopy(cleanState)
     corruptedState = scenario.corrupt(corruptedState)
-    
+
     local corruptedChecksum = StateManagement.calculateChecksum(corruptedState)
-    
+
     -- Test corruption detection
     local corruptionDetected = corruptedChecksum ~= cleanChecksum
-    
+
     -- Test recovery process
     local recoveryStart = os.clock()
-    
+
     local recoverySuccess = false
     local recoveredState = nil
-    
+
     if corruptionDetected then
       -- Simulate recovery from clean snapshot
       recoveredState = StateManagement.deepCopy(cleanSnapshot.state)
-      
+
       -- Validate recovered state
       local recoveredChecksum = StateManagement.calculateChecksum(recoveredState)
       recoverySuccess = recoveredChecksum == cleanChecksum
     end
-    
+
     local recoveryTime = (os.clock() - recoveryStart) * 1000 -- ms
-    
+
     recoveryResults[scenario.name] = {
       corruptionDetected = corruptionDetected,
       recoverySuccess = recoverySuccess,
@@ -244,18 +244,18 @@ function StatePersistenceTests.testStateCorruptionRecovery()
       corruptedChecksum = corruptedChecksum,
       recoveredChecksum = recoveredState and StateManagement.calculateChecksum(recoveredState) or nil
     }
-    
+
     print(string.format("    Corruption detected: %s", corruptionDetected and "✅ Yes" or "❌ No"))
     print(string.format("    Recovery successful: %s", recoverySuccess and "✅ Yes" or "❌ No"))
     print(string.format("    Recovery time: %.2fms", recoveryTime))
   end
-  
+
   -- Calculate overall recovery statistics
   local totalScenarios = #corruptionScenarios
   local detectionsSuccessful = 0
   local recoveriesSuccessful = 0
   local totalRecoveryTime = 0
-  
+
   for _, result in pairs(recoveryResults) do
     if result.corruptionDetected then
       detectionsSuccessful = detectionsSuccessful + 1
@@ -265,16 +265,16 @@ function StatePersistenceTests.testStateCorruptionRecovery()
     end
     totalRecoveryTime = totalRecoveryTime + result.recoveryTime
   end
-  
+
   local detectionRate = detectionsSuccessful / totalScenarios
   local recoveryRate = recoveriesSuccessful / totalScenarios
   local avgRecoveryTime = totalRecoveryTime / totalScenarios
-  
+
   print(string.format("  📊 Corruption Recovery Summary:"))
   print(string.format("    Detection rate: %.2f%% (%d/%d)", detectionRate * 100, detectionsSuccessful, totalScenarios))
   print(string.format("    Recovery rate: %.2f%% (%d/%d)", recoveryRate * 100, recoveriesSuccessful, totalScenarios))
   print(string.format("    Avg recovery time: %.2fms", avgRecoveryTime))
-  
+
   return {
     success = detectionRate >= 0.8 and recoveryRate >= 0.8,
     totalScenarios = totalScenarios,
@@ -289,10 +289,10 @@ end
 
 function StatePersistenceTests.testMultiProcessStateSynchronization()
   print("🔄 Testing multi-process state synchronization")
-  
+
   -- Create initial shared state
   local sharedState = StateManagement.createEmptyWorld()
-  
+
   -- Add shared entities
   for i = 1, 20 do
     sharedState.entities[string.format("shared_%d", i)] = {
@@ -306,11 +306,11 @@ function StatePersistenceTests.testMultiProcessStateSynchronization()
       }
     }
   end
-  
+
   -- Create multiple processes with state copies
   local processes = {}
   local processCount = 5
-  
+
   for i = 1, processCount do
     processes[string.format("sync_process_%d", i)] = {
       id = string.format("sync_process_%d", i),
@@ -319,7 +319,7 @@ function StatePersistenceTests.testMultiProcessStateSynchronization()
       lastSync = os.time()
     }
   end
-  
+
   -- Simulate concurrent state modifications
   local updateOperations = {
     {
@@ -370,17 +370,17 @@ function StatePersistenceTests.testMultiProcessStateSynchronization()
       data = {type = "despawn", entityId = "shared_3"}
     }
   }
-  
+
   -- Apply updates and test synchronization
   local syncResult = StateManagement.testStateSynchronization(processes, updateOperations)
-  
+
   -- Test conflict resolution
   local conflictResolutionResults = {}
-  
+
   -- Simulate conflict scenario where multiple processes modify the same entity
   local conflictEntity = "shared_1"
   local conflictVersions = {}
-  
+
   for processName, process in pairs(processes) do
     if process.state.entities[conflictEntity] then
       conflictVersions[processName] = {
@@ -391,18 +391,18 @@ function StatePersistenceTests.testMultiProcessStateSynchronization()
       }
     end
   end
-  
+
   -- Resolve conflicts using last-write-wins strategy
   local latestVersion = 0
   local winningProcess = nil
-  
+
   for processName, version in pairs(conflictVersions) do
     if version.version > latestVersion then
       latestVersion = version.version
       winningProcess = processName
     end
   end
-  
+
   conflictResolutionResults = {
     conflictEntity = conflictEntity,
     conflictingProcesses = 0,
@@ -410,21 +410,21 @@ function StatePersistenceTests.testMultiProcessStateSynchronization()
     winningVersion = latestVersion,
     resolutionStrategy = "last_write_wins"
   }
-  
+
   for _ in pairs(conflictVersions) do
     conflictResolutionResults.conflictingProcesses = conflictResolutionResults.conflictingProcesses + 1
   end
-  
+
   print(string.format("  📊 Multi-Process Synchronization Results:"))
   print(string.format("    Processes: %d", processCount))
   print(string.format("    Update operations: %d", #updateOperations))
-  print(string.format("    Synchronization successful: %s", 
+  print(string.format("    Synchronization successful: %s",
     syncResult.synchronizationSuccessful and "✅ Yes" or "❌ No"))
   print(string.format("    Unique final states: %d", syncResult.uniqueStates))
   print(string.format("    Conflicts detected: %d", syncResult.conflicts and #syncResult.conflicts or 0))
-  print(string.format("    Conflict resolution: %s (%s)", 
+  print(string.format("    Conflict resolution: %s (%s)",
     winningProcess or "None", conflictResolutionResults.resolutionStrategy))
-  
+
   return {
     success = syncResult.synchronizationSuccessful or syncResult.uniqueStates <= 2, -- Allow minor conflicts
     processCount = processCount,
@@ -439,10 +439,10 @@ end
 
 function StatePersistenceTests.testStateVersioningAndRollback()
   print("⏪ Testing state versioning and rollback")
-  
+
   -- Create initial state
   local initialState = StateManagement.createEmptyWorld()
-  
+
   -- Add initial entities
   for i = 1, 10 do
     initialState.entities[string.format("versioned_%d", i)] = {
@@ -450,23 +450,23 @@ function StatePersistenceTests.testStateVersioningAndRollback()
       data = {value = i * 10, version = 1}
     }
   end
-  
+
   local stateVersions = {}
   local currentState = StateManagement.deepCopy(initialState)
-  
+
   -- Create multiple state versions through incremental changes
   for version = 1, StatePersistenceConfig.stateVersions do
     -- Create snapshot
     local snapshot = StateManagement.createSnapshot(currentState, string.format("version_%d", version))
     stateVersions[version] = snapshot
-    
+
     -- Apply modifications for next version
     if version < StatePersistenceConfig.stateVersions then
       for entityId, entity in pairs(currentState.entities) do
         entity.data.value = entity.data.value + version
         entity.data.version = version + 1
       end
-      
+
       -- Add new entity in some versions
       if version % 3 == 0 then
         currentState.entities[string.format("dynamic_%d", version)] = {
@@ -476,7 +476,7 @@ function StatePersistenceTests.testStateVersioningAndRollback()
       end
     end
   end
-  
+
   -- Test rollback scenarios
   local rollbackTests = {
     {
@@ -495,19 +495,19 @@ function StatePersistenceTests.testStateVersioningAndRollback()
       description = "Rollback to initial version"
     }
   }
-  
+
   local rollbackResults = {}
-  
+
   for _, test in ipairs(rollbackTests) do
     print(string.format("  Testing %s (version %d)", test.description, test.targetVersion))
-    
+
     local rollbackStart = os.clock()
-    
+
     -- Perform rollback
     local targetSnapshot = stateVersions[test.targetVersion]
     if targetSnapshot then
       local rolledBackState = StateManagement.deepCopy(targetSnapshot.state)
-      
+
       -- Test rollback function
       local rollbackTestResult = StateManagement.testStateRollback(
         StateManagement.deepCopy(currentState),
@@ -523,9 +523,9 @@ function StatePersistenceTests.testStateVersioningAndRollback()
           end
         end
       )
-      
+
       local rollbackTime = (os.clock() - rollbackStart) * 1000 -- ms
-      
+
       rollbackResults[test.name] = {
         targetVersion = test.targetVersion,
         rollbackSuccessful = rollbackTestResult.stateRestored,
@@ -533,15 +533,15 @@ function StatePersistenceTests.testStateVersioningAndRollback()
         entitiesRestored = 0,
         checksumMatch = targetSnapshot.checksum == StateManagement.calculateChecksum(rolledBackState)
       }
-      
+
       -- Count restored entities
       for entityId, _ in pairs(rolledBackState.entities) do
         if targetSnapshot.state.entities[entityId] then
           rollbackResults[test.name].entitiesRestored = rollbackResults[test.name].entitiesRestored + 1
         end
       end
-      
-      print(string.format("    Rollback successful: %s", 
+
+      print(string.format("    Rollback successful: %s",
         rollbackTestResult.stateRestored and "✅ Yes" or "❌ No"))
       print(string.format("    Rollback time: %.2fms", rollbackTime))
       print(string.format("    Entities restored: %d", rollbackResults[test.name].entitiesRestored))
@@ -554,28 +554,28 @@ function StatePersistenceTests.testStateVersioningAndRollback()
       }
     end
   end
-  
+
   -- Calculate overall rollback statistics
   local successfulRollbacks = 0
   local totalRollbackTime = 0
-  
+
   for _, result in pairs(rollbackResults) do
     if result.rollbackSuccessful then
       successfulRollbacks = successfulRollbacks + 1
     end
     totalRollbackTime = totalRollbackTime + result.rollbackTime
   end
-  
+
   local rollbackSuccessRate = successfulRollbacks / #rollbackTests
   local avgRollbackTime = totalRollbackTime / #rollbackTests
-  
+
   print(string.format("  📊 State Versioning and Rollback Summary:"))
   print(string.format("    State versions created: %d", StatePersistenceConfig.stateVersions))
   print(string.format("    Rollback tests: %d", #rollbackTests))
   print(string.format("    Successful rollbacks: %d/%d", successfulRollbacks, #rollbackTests))
   print(string.format("    Rollback success rate: %.2f%%", rollbackSuccessRate * 100))
   print(string.format("    Average rollback time: %.2fms", avgRollbackTime))
-  
+
   return {
     success = rollbackSuccessRate >= 0.8,
     stateVersionsCreated = StatePersistenceConfig.stateVersions,
@@ -592,46 +592,46 @@ end
 local function runStatePersistenceTests()
   print("💾 Running Advanced State Persistence and Recovery Tests")
   print(string.rep("=", 60))
-  
+
   local results = {}
-  
+
   -- Large state serialization performance
   print("\n⚡ Large State Serialization Performance")
   results.serializationPerformance = StatePersistenceTests.testLargeStateSerializationPerformance()
-  
+
   -- State corruption recovery
   print("\n🔧 State Corruption Recovery")
   results.corruptionRecovery = StatePersistenceTests.testStateCorruptionRecovery()
-  
+
   -- Multi-process state synchronization
   print("\n🔄 Multi-Process State Synchronization")
   results.stateSynchronization = StatePersistenceTests.testMultiProcessStateSynchronization()
-  
+
   -- State versioning and rollback
   print("\n⏪ State Versioning and Rollback")
   results.versioningAndRollback = StatePersistenceTests.testStateVersioningAndRollback()
-  
+
   -- Generate summary
   local totalTests = 0
   local passedTests = 0
-  
+
   for testName, result in pairs(results) do
     totalTests = totalTests + 1
     if result.success then
       passedTests = passedTests + 1
     end
   end
-  
+
   print(string.rep("=", 60))
-  print(string.format("📊 State Persistence Testing Summary: %d/%d tests passed", 
+  print(string.format("📊 State Persistence Testing Summary: %d/%d tests passed",
     passedTests, totalTests))
-  
+
   if passedTests == totalTests then
     print("🎉 All state persistence tests passed!")
   else
     print("⚠️  Some state persistence tests failed - check thresholds")
   end
-  
+
   return results
 end
 

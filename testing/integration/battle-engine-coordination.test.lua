@@ -42,7 +42,7 @@ local function createBattleEngineProcess()
           local data = json.decode(msg.Data)
           local gameState = data.gameState
           local battleCommand = data.battleCommand
-          
+
           -- Process battle turn logic
           local turnResult = {
             success = true,
@@ -51,18 +51,18 @@ local function createBattleEngineProcess()
             timestamp = os.time(),
             processId = ao.id
           }
-          
+
           if battleCommand.action == "attack" then
             turnResult.damageDealt = math.random(50, 100)
             turnResult.accuracy = true
             turnResult.criticalHit = math.random() < 0.0625
             turnResult.effectiveness = 1.0
           end
-          
+
           -- Update game state
           gameState.battle.turn = turnResult.turnNumber
           gameState.battle.lastAction = turnResult
-          
+
           ao.send({
             Target = msg.From,
             Action = "SaveState",
@@ -74,7 +74,7 @@ local function createBattleEngineProcess()
           })
         end
       },
-      
+
       CalculateDamage = {
         matcher = function(msg)
           return msg.Tags and msg.Tags.Action == "CalculateDamage"
@@ -85,14 +85,14 @@ local function createBattleEngineProcess()
           local defender = data.defender
           local move = data.move
           local conditions = data.conditions or {}
-          
+
           -- Damage calculation formula (simplified)
           local baseDamage = math.floor(
-            ((2 * attacker.level + 10) / 250) * 
-            (attacker.attack / defender.defense) * 
+            ((2 * attacker.level + 10) / 250) *
+            (attacker.attack / defender.defense) *
             move.power + 2
           )
-          
+
           -- Apply type effectiveness
           local effectiveness = 1.0
           if move.type == "Electric" and defender.types[1] == "Water" then
@@ -100,9 +100,9 @@ local function createBattleEngineProcess()
           elseif move.type == "Electric" and defender.types[1] == "Ground" then
             effectiveness = 0.0 -- No effect
           end
-          
+
           local finalDamage = math.floor(baseDamage * effectiveness)
-          
+
           ao.send({
             Target = msg.From,
             Action = "SaveState",
@@ -116,7 +116,7 @@ local function createBattleEngineProcess()
           })
         end
       },
-      
+
       CheckAccuracy = {
         matcher = function(msg)
           return msg.Tags and msg.Tags.Action == "CheckAccuracy"
@@ -126,17 +126,17 @@ local function createBattleEngineProcess()
           local move = data.move
           local attacker = data.attacker
           local defender = data.defender
-          
+
           -- Accuracy calculation
           local moveAccuracy = move.accuracy or 100
           local accuracyStage = attacker.accuracyStage or 0
           local evasionStage = defender.evasionStage or 0
-          
+
           local stageMultiplier = math.max(1, accuracyStage - evasionStage + 3) / 3
           local finalAccuracy = moveAccuracy * stageMultiplier
-          
+
           local hit = math.random(1, 100) <= finalAccuracy
-          
+
           ao.send({
             Target = msg.From,
             Action = "SaveState",
@@ -169,16 +169,16 @@ local function createMoveDatabaseProcess()
         handler = function(msg)
           local data = json.decode(msg.Data)
           local moveId = data.id
-          
+
           -- Mock move data
           local moves = {
             [85] = {id = 85, name = "Thunderbolt", type = "Electric", power = 90, accuracy = 100, category = "special"},
             [34] = {id = 34, name = "Normal Attack", type = "Normal", power = 80, accuracy = 100, category = "physical"},
             [98] = {id = 98, name = "Quick Attack", type = "Normal", power = 40, accuracy = 100, category = "physical", priority = 1}
           }
-          
+
           local move = moves[moveId] or {id = moveId, name = "Unknown", type = "Normal", power = 50, accuracy = 100, category = "physical"}
-          
+
           ao.send({
             Target = msg.From,
             Action = "SaveState",
@@ -216,7 +216,7 @@ function BattleCoordinationTests.testBasicBattleTurnCoordination()
       }
     }}
   }
-  
+
   local messages = {
     {
       from = "battleEngine",
@@ -227,7 +227,7 @@ function BattleCoordinationTests.testBasicBattleTurnCoordination()
     },
     {
       from = "battleEngine",
-      to = "pokemonDB", 
+      to = "pokemonDB",
       action = "GetSpecies",
       data = {id = 25}, -- Pikachu
       tags = {Action = "GetSpecies"}
@@ -253,7 +253,7 @@ function BattleCoordinationTests.testBasicBattleTurnCoordination()
       tags = {Action = "ProcessBattleTurn"}
     }
   }
-  
+
   local validations = {
     function(processes, messageLog)
       -- Verify battle turn was processed
@@ -261,27 +261,27 @@ function BattleCoordinationTests.testBasicBattleTurnCoordination()
       for _, msg in ipairs(messageLog) do
         if msg.Action == "ProcessBattleTurn" then hasBattleTurn = true end
       end
-      
+
       assert(hasBattleTurn, "Should process battle turn")
       return true
     end,
-    
+
     function(processes, messageLog)
       -- Verify data dependencies were resolved
       local hasMove = false
       local hasSpecies = false
-      
+
       for _, msg in ipairs(messageLog) do
         if msg.Action == "GetMove" then hasMove = true end
         if msg.Action == "GetSpecies" then hasSpecies = true end
       end
-      
+
       assert(hasMove, "Should retrieve move data")
       assert(hasSpecies, "Should retrieve species data")
       return true
     end
   }
-  
+
   return CoordinationTesting.testCoordinationScenario(
     "basicBattleTurnCoordination",
     processes,
@@ -309,7 +309,7 @@ function BattleCoordinationTests.testDamageCalculationCoordination()
       }
     }}
   }
-  
+
   local messages = {
     {
       from = "battleEngine",
@@ -345,24 +345,24 @@ function BattleCoordinationTests.testDamageCalculationCoordination()
       tags = {Action = "CalculateDamage"}
     }
   }
-  
+
   local validations = {
     function(processes, messageLog)
       -- Verify damage calculation coordination
       local hasStatCalc = false
       local hasDamageCalc = false
-      
+
       for _, msg in ipairs(messageLog) do
         if msg.Action == "CalculateStats" then hasStatCalc = true end
         if msg.Action == "CalculateDamage" then hasDamageCalc = true end
       end
-      
+
       assert(hasStatCalc, "Should calculate stats before damage")
       assert(hasDamageCalc, "Should calculate damage")
       return true
     end
   }
-  
+
   return CoordinationTesting.testCoordinationScenario(
     "damageCalculationCoordination",
     processes,
@@ -379,7 +379,7 @@ function BattleCoordinationTests.testStatusEffectCoordination()
         matcher = function(msg) return msg.Tags and msg.Tags.Action == "ApplyStatusEffect" end,
         handler = function(msg)
           local data = json.decode(msg.Data)
-          
+
           ao.send({
             Target = msg.From,
             Action = "SaveState",
@@ -399,7 +399,7 @@ function BattleCoordinationTests.testStatusEffectCoordination()
         handler = function(msg)
           ao.send({
             Target = msg.From,
-            Action = "SaveState", 
+            Action = "SaveState",
             Data = json.encode({
               success = true,
               damage = 25, -- Poison damage
@@ -410,7 +410,7 @@ function BattleCoordinationTests.testStatusEffectCoordination()
       }
     }}
   }
-  
+
   local messages = {
     {
       from = "battleEngine",
@@ -434,24 +434,24 @@ function BattleCoordinationTests.testStatusEffectCoordination()
       tags = {Action = "ProcessStatusDamage"}
     }
   }
-  
+
   local validations = {
     function(processes, messageLog)
       -- Verify status effect coordination
       local hasApplyStatus = false
       local hasProcessDamage = false
-      
+
       for _, msg in ipairs(messageLog) do
         if msg.Action == "ApplyStatusEffect" then hasApplyStatus = true end
         if msg.Action == "ProcessStatusDamage" then hasProcessDamage = true end
       end
-      
+
       assert(hasApplyStatus, "Should apply status effect")
       assert(hasProcessDamage, "Should process status damage")
       return true
     end
   }
-  
+
   return CoordinationTesting.testCoordinationScenario(
     "statusEffectCoordination",
     processes,
@@ -463,7 +463,7 @@ end
 -- Complex battle scenario testing
 function BattleCoordinationTests.testComplexBattleScenario()
   local scenario = AdvancedPokemonData.battleScenarios.typeEffectivenessScenario
-  
+
   local processes = {
     {name = "battleEngine", type = "battle-engine", config = {}, handlers = createBattleEngineProcess().handlers},
     {name = "coordinator", type = "coordinator", config = {}, handlers = {
@@ -483,7 +483,7 @@ function BattleCoordinationTests.testComplexBattleScenario()
       }
     }}
   }
-  
+
   local messages = {
     {
       from = "coordinator",
@@ -507,7 +507,7 @@ function BattleCoordinationTests.testComplexBattleScenario()
       tags = {Action = "OrchestrateBattle"}
     }
   }
-  
+
   local validations = {
     function(processes, messageLog)
       -- Verify complex scenario handling
@@ -515,7 +515,7 @@ function BattleCoordinationTests.testComplexBattleScenario()
       return true
     end
   }
-  
+
   return CoordinationTesting.testCoordinationScenario(
     "complexBattleScenario",
     processes,
@@ -527,14 +527,14 @@ end
 -- Performance testing for battle coordination
 function BattleCoordinationTests.benchmarkBattleCoordination()
   print("⏱️  Benchmarking battle coordination performance")
-  
+
   local function battleCoordinationTest()
     local processes = {
       battleEngine = CoordinationTesting.spawnProcess("battle-engine", {}),
       movesDB = CoordinationTesting.spawnProcess("moves-database", {}),
       statCalc = CoordinationTesting.spawnProcess("stat-calculator", {})
     }
-    
+
     -- Simulate battle turn coordination
     for i = 1, 10 do
       CoordinationTesting.routeMessage(processes.battleEngine.id, {
@@ -543,7 +543,7 @@ function BattleCoordinationTests.benchmarkBattleCoordination()
         Data = json.encode({id = 85}),
         Tags = {Action = "GetMove"}
       })
-      
+
       CoordinationTesting.routeMessage(processes.battleEngine.id, {
         Target = processes.statCalc.id,
         Action = "CalculateStats",
@@ -552,7 +552,7 @@ function BattleCoordinationTests.benchmarkBattleCoordination()
       })
     end
   end
-  
+
   return AdvancedBenchmarks.benchmarkFunction(
     "battleCoordination",
     battleCoordinationTest,
@@ -573,31 +573,31 @@ function BattleCoordinationTests.testBattleStateManagement()
       status = "active"
     }
   }
-  
+
   local stateUpdates = {
     {
       processId = "battleEngine",
       operation = function(state, data)
         state.battle.turn = state.battle.turn + 1
-        state.battle.participants.player1.pokemon.hp = 
+        state.battle.participants.player1.pokemon.hp =
           state.battle.participants.player1.pokemon.hp - 50
       end,
       data = {damage = 50, target = "player1"}
     },
     {
-      processId = "statusEngine", 
+      processId = "statusEngine",
       operation = function(state, data)
         state.battle.participants.player1.pokemon.status = "poisoned"
       end,
       data = {statusEffect = "poison"}
     }
   }
-  
+
   local processes = {
     battleEngine = {state = initialBattleState},
     statusEngine = {state = initialBattleState}
   }
-  
+
   return StateManagement.testStateSynchronization(processes, stateUpdates)
 end
 
@@ -605,45 +605,45 @@ end
 local function runBattleEngineCoordinationTests()
   print("⚔️  Running Battle Engine Coordination Tests")
   print(string.rep("=", 60))
-  
+
   local results = {}
-  
+
   -- Basic coordination tests
   print("\n🎮 Basic Battle Coordination")
   results.basicTurnCoordination = BattleCoordinationTests.testBasicBattleTurnCoordination()
-  
+
   print("\n💥 Damage Calculation Coordination")
   results.damageCoordination = BattleCoordinationTests.testDamageCalculationCoordination()
-  
+
   print("\n🩹 Status Effect Coordination")
   results.statusCoordination = BattleCoordinationTests.testStatusEffectCoordination()
-  
+
   print("\n🌟 Complex Battle Scenario")
   results.complexScenario = BattleCoordinationTests.testComplexBattleScenario()
-  
+
   -- Performance benchmarks
   print("\n⚡ Performance Benchmarks")
   results.performanceBenchmark = BattleCoordinationTests.benchmarkBattleCoordination()
-  
+
   -- State management testing
   print("\n🏛️  Battle State Management")
   results.stateManagement = BattleCoordinationTests.testBattleStateManagement()
-  
+
   -- Generate summary
   local totalTests = 0
   local passedTests = 0
-  
+
   for testName, result in pairs(results) do
     totalTests = totalTests + 1
     if result.success or result.passed or result.synchronizationSuccessful then
       passedTests = passedTests + 1
     end
   end
-  
+
   print(string.rep("=", 60))
-  print(string.format("📊 Battle Engine Coordination Summary: %d/%d tests passed", 
+  print(string.format("📊 Battle Engine Coordination Summary: %d/%d tests passed",
     passedTests, totalTests))
-  
+
   return results
 end
 

@@ -26,14 +26,14 @@ local function sendMessage(action, tags, data, timeout)
         Data = data or "",
         Timestamp = os.time() * 1000
     }
-    
+
     -- Add additional tags
     if tags then
         for k, v in pairs(tags) do
             msg[k] = tostring(v)
         end
     end
-    
+
     return aolite.send(msg, timeout or TEST_TIMEOUT)
 end
 
@@ -41,16 +41,16 @@ local function assertSuccess(response, testName)
     if not response then
         error(testName .. ": No response received")
     end
-    
+
     if response.Error then
         error(testName .. ": " .. response.Error)
     end
-    
+
     local data = response.Data and json.decode(response.Data) or {}
     if not data.success then
         error(testName .. ": Expected success=true, got " .. tostring(data.success))
     end
-    
+
     return data
 end
 
@@ -141,7 +141,7 @@ else
     error("❌ Neutral nature test failed - expected 1.0, got " .. tostring(neutralData.multiplier))
 end
 
--- Test 8: Decreased Stat Nature Test  
+-- Test 8: Decreased Stat Nature Test
 print("📝 Test 8: Decreased Stat Nature Test")
 local decreaseResponse = sendMessage("CalculateNatureMultiplier", {
     Nature = "Adamant",

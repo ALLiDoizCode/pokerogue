@@ -11,7 +11,7 @@ json.encode = function(obj)
         local first = true
         for k, v in pairs(obj) do
             if not first then result = result .. "," end
-            result = result .. '"' .. tostring(k) .. '":' 
+            result = result .. '"' .. tostring(k) .. '":'
             if type(v) == "table" then
                 result = result .. json.encode(v)
             elseif type(v) == "string" then
@@ -45,7 +45,7 @@ local function setupTestEnvironment()
     -- Mock AO environment
     if not ao then
         ao = {
-            send = function(msg) 
+            send = function(msg)
                 -- Store sent messages for testing
                 if not _G.testMessages then
                     _G.testMessages = {}
@@ -55,7 +55,7 @@ local function setupTestEnvironment()
             id = "test_entry_hazard_process_id"
         }
     end
-    
+
     if not Handlers then
         Handlers = {
             add = function(name, matcher, handler)
@@ -77,7 +77,7 @@ local function setupTestEnvironment()
             }
         }
     end
-    
+
     -- Clear test data
     _G.testMessages = {}
     _G.testHandlers = {}
@@ -230,7 +230,7 @@ print("Test 3: Flying Pokemon Immunity")
 
 local activateMsg2 = {
     From = "test_sender",
-    Action = "ActivateEntryHazards", 
+    Action = "ActivateEntryHazards",
     PokemonData = json.encode(mockPokemonFlying),
     Side = "PLAYER",
     BattleId = "test_battle_1",
@@ -311,7 +311,7 @@ local activateToxicSpikes1 = {
     From = "test_sender",
     Action = "ActivateEntryHazards",
     PokemonData = json.encode(mockPokemon),
-    Side = "PLAYER", 
+    Side = "PLAYER",
     BattleId = "test_battle_3",
     Timestamp = "1234567890"
 }
@@ -330,7 +330,7 @@ clearMessages()
 callHandler("place-entry-hazard", toxicSpikesMsg)
 
 -- Test 2 layer activation (badly poisoned)
-clearMessages() 
+clearMessages()
 callHandler("activate-entry-hazards", activateToxicSpikes1)
 local toxicSpikesResponse2 = getLastMessage()
 local toxicSpikesData2 = json.decode(toxicSpikesResponse2.Data)
@@ -362,7 +362,7 @@ assert(poisonData.activationResult.activatedHazards[1].immuneReason == "Poison-t
 print("✓ Poison-type neutralization test passed")
 
 -- Test 7: Sticky Web Implementation
-print("Test 7: Sticky Web Implementation") 
+print("Test 7: Sticky Web Implementation")
 
 -- Place Sticky Web
 local stickyWebMsg = {
@@ -385,7 +385,7 @@ local activateStickyWeb = {
     Action = "ActivateEntryHazards",
     PokemonData = json.encode(mockPokemon),
     Side = "ENEMY",
-    BattleId = "test_battle_4", 
+    BattleId = "test_battle_4",
     Timestamp = "1234567890"
 }
 
@@ -402,13 +402,13 @@ print("✓ Sticky Web test passed")
 -- Test 8: Magic Guard Immunity
 print("Test 8: Magic Guard Immunity")
 
--- Set up spikes again for Magic Guard test  
+-- Set up spikes again for Magic Guard test
 local spikesForMagicGuard = {
     From = "test_sender",
     Action = "PlaceEntryHazard",
     HazardType = "SPIKES",
     Side = "PLAYER",
-    BattleId = "test_battle_magic_guard", 
+    BattleId = "test_battle_magic_guard",
     SourceId = "999",
     SourceMove = "SPIKES",
     Timestamp = "1234567890"
@@ -466,7 +466,7 @@ print("Test 10: Defog Removal")
 clearMessages()
 callHandler("place-entry-hazard", {
     From = "test_sender",
-    Action = "PlaceEntryHazard", 
+    Action = "PlaceEntryHazard",
     HazardType = "SPIKES",
     Side = "PLAYER",
     BattleId = "test_battle_defog",
@@ -478,7 +478,7 @@ callHandler("place-entry-hazard", {
 callHandler("place-entry-hazard", {
     From = "test_sender",
     Action = "PlaceEntryHazard",
-    HazardType = "STEALTH_ROCK", 
+    HazardType = "STEALTH_ROCK",
     Side = "ENEMY",
     BattleId = "test_battle_defog",
     SourceId = "222",
@@ -488,7 +488,7 @@ callHandler("place-entry-hazard", {
 
 -- Test Defog
 local defogMsg = {
-    From = "test_sender", 
+    From = "test_sender",
     Action = "RemoveEntryHazards",
     RemovalType = "DEFOG",
     Side = "BOTH",
@@ -565,13 +565,13 @@ print("\n🎉 All Entry Hazard Engine Unit Tests PASSED! ✅")
 print("Total tests completed: 12")
 print("✓ Spikes placement and stacking")
 print("✓ Spikes damage calculation (1/8, 1/6, 1/4)")
-print("✓ Flying-type immunity")  
+print("✓ Flying-type immunity")
 print("✓ Stealth Rock type effectiveness")
 print("✓ Toxic Spikes status effects")
 print("✓ Poison-type neutralization")
 print("✓ Sticky Web stat reduction")
 print("✓ Magic Guard immunity")
 print("✓ Rapid Spin removal")
-print("✓ Defog removal") 
+print("✓ Defog removal")
 print("✓ Error handling")
 print("✓ ADP v1.0 compliance")

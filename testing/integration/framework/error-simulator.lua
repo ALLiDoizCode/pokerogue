@@ -10,7 +10,7 @@ local ErrorSimulator = {}
 -- Error Types and Simulation Patterns
 local ERROR_TYPES = {
     PROCESS_TIMEOUT = "process_timeout",
-    PROCESS_CRASH = "process_crash", 
+    PROCESS_CRASH = "process_crash",
     MESSAGE_CORRUPTION = "message_corruption",
     NETWORK_PARTITION = "network_partition",
     MEMORY_EXHAUSTION = "memory_exhaustion",
@@ -104,7 +104,7 @@ function ErrorSimulator.createFailureScenario(scenarioType, config)
         recoveryAttempts = {},
         effectsObserved = {}
     }
-    
+
     -- Configure scenario based on type
     if scenarioType == "coordinator_failure" then
         scenario.targetProcess = "coordinator-process"
@@ -122,7 +122,7 @@ function ErrorSimulator.createFailureScenario(scenarioType, config)
         scenario.initialProcess = config.initialProcess or "pokemon-species-db"
         scenario.cascadePattern = config.cascadePattern or "data_to_logic"
     end
-    
+
     return scenario
 end
 
@@ -137,10 +137,10 @@ function ErrorSimulator.injectFailure(scenario, failureSpec)
         parameters = failureSpec.parameters or {},
         status = "active"
     }
-    
+
     -- Log failure injection
     table.insert(scenario.failuresInjected, failure)
-    
+
     -- Simulate failure based on type
     if failure.type == ERROR_TYPES.PROCESS_TIMEOUT then
         return ErrorSimulator.simulateProcessTimeout(failure)
@@ -167,7 +167,7 @@ function ErrorSimulator.simulateProcessTimeout(failure)
         injectedDelay = failure.duration,
         expectedBehavior = "timeout_error"
     }
-    
+
     -- Create mock timeout response
     failure.mockResponse = {
         Id = "timeout-" .. failure.id,
@@ -178,7 +178,7 @@ function ErrorSimulator.simulateProcessTimeout(failure)
         Success = false,
         Timestamp = tostring(os.time())
     }
-    
+
     failure.status = "simulated"
     return failure
 end
@@ -191,7 +191,7 @@ function ErrorSimulator.simulateProcessCrash(failure)
         recoveryTime = failure.parameters.recoveryTime or 10000,
         expectedBehavior = "no_response"
     }
-    
+
     -- No response expected from crashed process
     failure.mockResponse = nil
     failure.status = "simulated"
@@ -206,10 +206,10 @@ function ErrorSimulator.simulateMessageCorruption(failure)
         corruptionRate = failure.parameters.corruptionRate or 0.3,
         expectedBehavior = "parsing_error"
     }
-    
+
     -- Create corrupted response
     local corruptedData = ErrorSimulator.corruptJsonData(failure.parameters.originalData or "{}")
-    
+
     failure.mockResponse = {
         Id = "corrupted-" .. failure.id,
         From = failure.targetProcess,
@@ -219,7 +219,7 @@ function ErrorSimulator.simulateMessageCorruption(failure)
         Success = true,
         Timestamp = tostring(os.time())
     }
-    
+
     failure.status = "simulated"
     return failure
 end
@@ -232,7 +232,7 @@ function ErrorSimulator.simulateHandlerException(failure)
         stackTrace = "Error in handler: " .. (failure.parameters.errorMessage or "Simulated exception"),
         expectedBehavior = "error_response"
     }
-    
+
     failure.mockResponse = {
         Id = "exception-" .. failure.id,
         From = failure.targetProcess,
@@ -242,7 +242,7 @@ function ErrorSimulator.simulateHandlerException(failure)
         Success = false,
         Timestamp = tostring(os.time())
     }
-    
+
     failure.status = "simulated"
     return failure
 end
@@ -255,10 +255,10 @@ function ErrorSimulator.simulateInvalidState(failure)
         affectedFields = failure.parameters.affectedFields or {"party", "inventory"},
         expectedBehavior = "state_validation_error"
     }
-    
+
     -- Create response with invalid state
     local invalidGameState = ErrorSimulator.createInvalidGameState(failure.parameters)
-    
+
     failure.mockResponse = {
         Id = "invalid-state-" .. failure.id,
         From = failure.targetProcess,
@@ -269,22 +269,22 @@ function ErrorSimulator.simulateInvalidState(failure)
         Success = true,
         Timestamp = tostring(os.time())
     }
-    
+
     failure.status = "simulated"
     return failure
 end
 
 function ErrorSimulator.corruptJsonData(originalData)
     local corrupted = originalData
-    
+
     -- Simulate various JSON corruption patterns
     local corruptionPatterns = {
-        "missing_brace", "invalid_quotes", "truncated_data", 
+        "missing_brace", "invalid_quotes", "truncated_data",
         "extra_comma", "invalid_escape", "wrong_type"
     }
-    
+
     local pattern = corruptionPatterns[math.random(#corruptionPatterns)]
-    
+
     if pattern == "missing_brace" then
         corrupted = string.gsub(corrupted, "}", "")
     elseif pattern == "invalid_quotes" then
@@ -298,7 +298,7 @@ function ErrorSimulator.corruptJsonData(originalData)
     elseif pattern == "wrong_type" then
         corrupted = '"' .. corrupted .. '"'
     end
-    
+
     return corrupted
 end
 
@@ -309,9 +309,9 @@ function ErrorSimulator.createInvalidGameState(parameters)
         party = {},
         progression = {}
     }
-    
+
     local corruptionType = parameters.stateCorruptionType or "party_invalid"
-    
+
     if corruptionType == "party_invalid" then
         -- Create invalid party data
         invalidState.party = {
@@ -352,7 +352,7 @@ function ErrorSimulator.createInvalidGameState(parameters)
             }
         }
     end
-    
+
     return json.encode(invalidState)
 end
 
@@ -365,9 +365,9 @@ function ErrorSimulator.executeRecoveryPattern(scenario, recoverySpec)
         steps = {},
         status = "executing"
     }
-    
+
     table.insert(scenario.recoveryAttempts, recovery)
-    
+
     if recoverySpec.type == "coordinator_failover" then
         return ErrorSimulator.executeCoordinatorFailover(recovery, recoverySpec)
     elseif recoverySpec.type == "process_restart" then
@@ -392,30 +392,30 @@ function ErrorSimulator.executeCoordinatorFailover(recovery, spec)
         timestamp = os.time(),
         description = "Detecting coordinator process failure"
     })
-    
+
     table.insert(recovery.steps, {
         step = "initiate_failover",
         timestamp = os.time(),
         description = "Initiating failover to backup coordinator"
     })
-    
+
     table.insert(recovery.steps, {
         step = "restore_workflow_state",
         timestamp = os.time(),
         description = "Restoring workflow state from checkpoint"
     })
-    
+
     table.insert(recovery.steps, {
         step = "resume_operations",
         timestamp = os.time(),
         description = "Resuming normal operations with new coordinator"
     })
-    
+
     recovery.endTime = os.time()
     recovery.duration = recovery.endTime - recovery.startTime
     recovery.status = "completed"
     recovery.success = true
-    
+
     return recovery
 end
 
@@ -426,30 +426,30 @@ function ErrorSimulator.executeProcessRestart(recovery, spec)
         timestamp = os.time(),
         description = "Terminating failed process: " .. spec.targetProcess
     })
-    
+
     table.insert(recovery.steps, {
         step = "clean_process_state",
         timestamp = os.time(),
         description = "Cleaning up process state and resources"
     })
-    
+
     table.insert(recovery.steps, {
         step = "restart_process",
         timestamp = os.time(),
         description = "Restarting process with clean state"
     })
-    
+
     table.insert(recovery.steps, {
         step = "validate_process_health",
         timestamp = os.time(),
         description = "Validating restarted process health"
     })
-    
+
     recovery.endTime = os.time()
     recovery.duration = recovery.endTime - recovery.startTime
     recovery.status = "completed"
     recovery.success = true
-    
+
     return recovery
 end
 
@@ -460,30 +460,30 @@ function ErrorSimulator.executeStateRollback(recovery, spec)
         timestamp = os.time(),
         description = "Identifying state corruption point"
     })
-    
+
     table.insert(recovery.steps, {
         step = "locate_clean_checkpoint",
         timestamp = os.time(),
         description = "Locating clean state checkpoint"
     })
-    
+
     table.insert(recovery.steps, {
         step = "rollback_to_checkpoint",
         timestamp = os.time(),
         description = "Rolling back to clean checkpoint"
     })
-    
+
     table.insert(recovery.steps, {
         step = "validate_rolled_back_state",
         timestamp = os.time(),
         description = "Validating rolled back state integrity"
     })
-    
+
     recovery.endTime = os.time()
     recovery.duration = recovery.endTime - recovery.startTime
     recovery.status = "completed"
     recovery.success = true
-    
+
     return recovery
 end
 
@@ -494,31 +494,31 @@ function ErrorSimulator.executeGracefulDegradation(recovery, spec)
         timestamp = os.time(),
         description = "Assessing failure impact on system capabilities"
     })
-    
+
     table.insert(recovery.steps, {
         step = "identify_degraded_functions",
         timestamp = os.time(),
         description = "Identifying functions that must be degraded"
     })
-    
+
     table.insert(recovery.steps, {
         step = "activate_fallback_mode",
         timestamp = os.time(),
         description = "Activating fallback mode for affected operations"
     })
-    
+
     table.insert(recovery.steps, {
         step = "notify_users_of_degradation",
         timestamp = os.time(),
         description = "Notifying users of degraded service"
     })
-    
+
     recovery.endTime = os.time()
     recovery.duration = recovery.endTime - recovery.startTime
     recovery.status = "completed"
     recovery.success = true
     recovery.degradedCapabilities = spec.degradedCapabilities or {"advanced_battle_calculations"}
-    
+
     return recovery
 end
 
@@ -526,17 +526,17 @@ function ErrorSimulator.executeRetryWithBackoff(recovery, spec)
     -- Simulate retry with exponential backoff
     local maxRetries = spec.maxRetries or 3
     local baseDelay = spec.baseDelay or 1000
-    
+
     for attempt = 1, maxRetries do
         local delay = baseDelay * (2 ^ (attempt - 1))
-        
+
         table.insert(recovery.steps, {
             step = "retry_attempt_" .. attempt,
             timestamp = os.time(),
             description = "Retry attempt " .. attempt .. " after " .. delay .. "ms delay",
             delay = delay
         })
-        
+
         -- Simulate increasing success probability with retries
         local successProbability = 0.3 + (attempt * 0.2)
         if math.random() < successProbability then
@@ -545,7 +545,7 @@ function ErrorSimulator.executeRetryWithBackoff(recovery, spec)
                 timestamp = os.time(),
                 description = "Retry attempt " .. attempt .. " succeeded"
             })
-            
+
             recovery.endTime = os.time()
             recovery.duration = recovery.endTime - recovery.startTime
             recovery.status = "completed"
@@ -554,19 +554,19 @@ function ErrorSimulator.executeRetryWithBackoff(recovery, spec)
             return recovery
         end
     end
-    
+
     -- All retries failed
     table.insert(recovery.steps, {
         step = "all_retries_failed",
         timestamp = os.time(),
         description = "All retry attempts failed, escalating to higher-level recovery"
     })
-    
+
     recovery.endTime = os.time()
     recovery.duration = recovery.endTime - recovery.startTime
     recovery.status = "failed"
     recovery.success = false
-    
+
     return recovery
 end
 
@@ -578,7 +578,7 @@ function ErrorSimulator.validateRecoveryEffectiveness(scenario)
         validationResults = {},
         recommendations = {}
     }
-    
+
     -- Validate each recovery attempt
     for _, recovery in ipairs(scenario.recoveryAttempts) do
         local recoveryValidation = {
@@ -589,34 +589,34 @@ function ErrorSimulator.validateRecoveryEffectiveness(scenario)
             stepsCompleted = #recovery.steps,
             issues = {}
         }
-        
+
         -- Check recovery time requirements
         local maxAcceptableTime = 30000 -- 30 seconds
         if recovery.duration > maxAcceptableTime then
             recoveryValidation.success = false
             table.insert(recoveryValidation.issues, "Recovery time exceeded threshold: " .. recovery.duration .. "ms > " .. maxAcceptableTime .. "ms")
         end
-        
+
         -- Check for complete recovery steps
         local expectedSteps = ErrorSimulator.getExpectedRecoverySteps(recovery.type)
         if #recovery.steps < expectedSteps then
             table.insert(recoveryValidation.issues, "Incomplete recovery steps: " .. #recovery.steps .. " < " .. expectedSteps)
         end
-        
+
         table.insert(validation.validationResults, recoveryValidation)
-        
+
         if not recoveryValidation.success then
             validation.recoverySuccess = false
         end
     end
-    
+
     -- Generate recommendations
     if not validation.recoverySuccess then
         table.insert(validation.recommendations, "Improve recovery time targets")
         table.insert(validation.recommendations, "Implement automated recovery validation")
         table.insert(validation.recommendations, "Add more detailed recovery monitoring")
     end
-    
+
     return validation
 end
 
@@ -628,7 +628,7 @@ function ErrorSimulator.getExpectedRecoverySteps(recoveryType)
         graceful_degradation = 4,
         retry_with_backoff = 2 -- Minimum 2 steps (at least one retry + result)
     }
-    
+
     return expectedSteps[recoveryType] or 3
 end
 
@@ -645,14 +645,14 @@ function ErrorSimulator.generateFailureReport(scenario)
         summary = {},
         recommendations = {}
     }
-    
+
     -- Analyze failures
     local failureTypeCounts = {}
     for _, failure in ipairs(scenario.failuresInjected) do
         failureTypeCounts[failure.type] = (failureTypeCounts[failure.type] or 0) + 1
     end
     report.failureTypes = failureTypeCounts
-    
+
     -- Analyze recoveries
     local recoveryTypeCounts = {}
     for _, recovery in ipairs(scenario.recoveryAttempts) do
@@ -662,7 +662,7 @@ function ErrorSimulator.generateFailureReport(scenario)
         end
     end
     report.recoveryTypes = recoveryTypeCounts
-    
+
     -- Generate summary
     report.summary = {
         recoverySuccessRate = report.successfulRecoveries / math.max(report.totalRecoveries, 1),
@@ -670,53 +670,53 @@ function ErrorSimulator.generateFailureReport(scenario)
         mostEffectiveRecovery = ErrorSimulator.getMostEffectiveRecovery(scenario.recoveryAttempts),
         averageRecoveryTime = ErrorSimulator.getAverageRecoveryTime(scenario.recoveryAttempts)
     }
-    
+
     -- Generate recommendations
     if report.summary.recoverySuccessRate < 0.8 then
         table.insert(report.recommendations, "Improve recovery success rate (currently " .. string.format("%.1f", report.summary.recoverySuccessRate * 100) .. "%)")
     end
-    
+
     if report.summary.averageRecoveryTime > 15000 then
         table.insert(report.recommendations, "Reduce average recovery time (currently " .. report.summary.averageRecoveryTime .. "ms)")
     end
-    
+
     table.insert(report.recommendations, "Focus testing on " .. report.summary.mostCommonFailure .. " failure scenarios")
     table.insert(report.recommendations, "Leverage " .. report.summary.mostEffectiveRecovery .. " recovery pattern")
-    
+
     return report
 end
 
 function ErrorSimulator.getMostCommon(counts)
     local maxCount = 0
     local mostCommon = "none"
-    
+
     for type, count in pairs(counts) do
         if count > maxCount then
             maxCount = count
             mostCommon = type
         end
     end
-    
+
     return mostCommon
 end
 
 function ErrorSimulator.getMostEffectiveRecovery(recoveries)
     local successRates = {}
-    
+
     for _, recovery in ipairs(recoveries) do
         if not successRates[recovery.type] then
             successRates[recovery.type] = {total = 0, successful = 0}
         end
-        
+
         successRates[recovery.type].total = successRates[recovery.type].total + 1
         if recovery.success then
             successRates[recovery.type].successful = successRates[recovery.type].successful + 1
         end
     end
-    
+
     local bestType = "none"
     local bestRate = 0
-    
+
     for type, stats in pairs(successRates) do
         local rate = stats.successful / stats.total
         if rate > bestRate then
@@ -724,7 +724,7 @@ function ErrorSimulator.getMostEffectiveRecovery(recoveries)
             bestType = type
         end
     end
-    
+
     return bestType
 end
 
@@ -732,17 +732,17 @@ function ErrorSimulator.getAverageRecoveryTime(recoveries)
     if #recoveries == 0 then
         return 0
     end
-    
+
     local totalTime = 0
     local count = 0
-    
+
     for _, recovery in ipairs(recoveries) do
         if recovery.duration then
             totalTime = totalTime + recovery.duration
             count = count + 1
         end
     end
-    
+
     return count > 0 and (totalTime / count) or 0
 end
 

@@ -7,7 +7,7 @@ local json = {
         if type(obj) ~= "table" then
             return tostring(obj)
         end
-        
+
         local result = "{"
         local first = true
         for k, v in pairs(obj) do
@@ -15,13 +15,13 @@ local json = {
                 result = result .. ","
             end
             first = false
-            
+
             if type(k) == "string" then
                 result = result .. '"' .. k .. '":'
             else
                 result = result .. tostring(k) .. ":"
             end
-            
+
             if type(v) == "string" then
                 result = result .. '"' .. v .. '"'
             elseif type(v) == "table" then
@@ -39,19 +39,19 @@ local json = {
         result = result .. "}"
         return result
     end,
-    
+
     decode = function(str)
         -- Enhanced JSON decode for testing
         if not str or str == "{}" then
             return {}
         end
-        
+
         -- Handle complex JSON structures for test cases
         if str:find('"success":false') then
             -- Parse false success responses
             local result = {}
             result.success = false
-            
+
             -- Extract weather data
             if str:find('"weather"') then
                 result.weather = {}
@@ -60,12 +60,12 @@ local json = {
                     result.weather.weatherType = weatherType
                 end
             end
-            
+
             return result
         elseif str:find('"success":true') then
             -- Parse actual response data
             local result = {}
-            
+
             -- Extract weather data
             if str:find('"weather"') then
                 result.weather = {}
@@ -79,7 +79,7 @@ local json = {
                     result.weather.isActive = str:match('"isActive":([^,}]+)') == "true"
                 end
             end
-            
+
             -- Extract effects data
             if str:find('"effects"') then
                 result.effects = {}
@@ -93,7 +93,7 @@ local json = {
                         damagePattern = '"damageDealt":%[([^%]]*)%]'
                         damageStr = str:match(damagePattern)
                     end
-                    
+
                     if damageStr and damageStr ~= "" then
                         -- Parse each damage object - handle both formats
                         for dmgObj in damageStr:gmatch('{[^}]+}') do
@@ -120,7 +120,7 @@ local json = {
                     result.effects.blockMessage = str:match('"blockMessage":"([^"]*)"')
                 end
             end
-            
+
             -- Extract messages array
             if str:find('"messages"') then
                 result.messages = {}
@@ -133,7 +133,7 @@ local json = {
                     table.insert(result.messages, "test message " .. i)
                 end
             end
-            
+
             -- Parse success field if present
             if str:find('"success":([^,}]+)') then
                 local successStr = str:match('"success":([^,}]+)')
@@ -143,7 +143,7 @@ local json = {
             end
             return result
         end
-        
+
         -- Handle request data based on patterns
         if str:find('"weatherType":"RAIN"') then
             return {
@@ -229,7 +229,7 @@ local json = {
                             },
                             {
                                 id = "pokemon_2",
-                                name = "Pikachu", 
+                                name = "Pikachu",
                                 types = {12}, -- Electric
                                 maxHP = 200,
                                 currentHP = 200,
@@ -249,7 +249,7 @@ local json = {
                         playerParty = {
                             {
                                 id = "pikachu_1",
-                                name = "Pikachu", 
+                                name = "Pikachu",
                                 types = {12}, -- Electric
                                 maxHP = 200,
                                 currentHP = 200,
@@ -269,7 +269,7 @@ local json = {
 
 -- Mock AO environment
 local ao = {
-    send = function(msg) 
+    send = function(msg)
         -- Store sent messages for validation
         if not _G.testMessages then
             _G.testMessages = {}
@@ -371,7 +371,7 @@ end
 -- Test 2: Set Weather - Basic Functionality
 tests["set_weather_basic"] = function()
     clearTestMessages()
-    
+
     local handler = _G.testHandlers["set-weather"].handler
     local msg = createTestMessage("SetWeather", {
         parameters = {
@@ -380,27 +380,27 @@ tests["set_weather_basic"] = function()
             overwrite = true
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     assert(response ~= nil, "Should send response")
     assert(response.Action == "SaveState", "Should send SaveState response")
-    
+
     local data = json.decode(response.Data)
     assert(data.success == true, "Should be successful")
     assert(data.weather.weatherType == "RAIN", "Should set RAIN weather")
     assert(data.weather.turnsLeft == 5, "Should set 5 turns duration")
     assert(data.weather.isActive == true, "Should be active")
     assert(#data.messages == 1, "Should have start message")
-    
+
     print("✅ Set weather basic functionality test passed")
 end
 
 -- Test 3: Immutable Weather Types
 tests["immutable_weather_types"] = function()
     clearTestMessages()
-    
+
     local handler = _G.testHandlers["set-weather"].handler
     local msg = createTestMessage("SetWeather", {
         parameters = {
@@ -408,14 +408,14 @@ tests["immutable_weather_types"] = function()
             duration = 5
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     local data = json.decode(response.Data)
     assert(data.weather.turnsLeft == 0, "Immutable weather should have 0 turns")
     assert(data.weather.isActive == true, "Should still be active")
-    
+
     print("✅ Immutable weather types test passed")
 end
 
@@ -425,9 +425,9 @@ tests["weather_turn_processing_normal"] = function()
     WeatherState.currentWeather = 2 -- RAIN
     WeatherState.turnsLeft = 2
     WeatherState.isActive = true
-    
+
     clearTestMessages()
-    
+
     local handler = _G.testHandlers["process-weather-turn"].handler
     local msg = createTestMessage("ProcessWeatherTurn", {
         gameState = {
@@ -437,16 +437,16 @@ tests["weather_turn_processing_normal"] = function()
             }
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     local data = json.decode(response.Data)
     assert(data.success == true, "Should be successful")
     assert(data.weather.turnsLeft == 1, "Should decrement turns")
     assert(data.weather.isActive == true, "Should still be active")
     assert(#data.messages > 0, "Should have lapse message")
-    
+
     print("✅ Weather turn processing normal test passed")
 end
 
@@ -456,9 +456,9 @@ tests["weather_turn_processing_expiration"] = function()
     WeatherState.currentWeather = 2 -- RAIN
     WeatherState.turnsLeft = 1
     WeatherState.isActive = true
-    
+
     clearTestMessages()
-    
+
     local handler = _G.testHandlers["process-weather-turn"].handler
     local msg = createTestMessage("ProcessWeatherTurn", {
         gameState = {
@@ -468,15 +468,15 @@ tests["weather_turn_processing_expiration"] = function()
             }
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     local data = json.decode(response.Data)
     assert(data.weather.turnsLeft == 0, "Should reach 0 turns")
     assert(data.weather.isActive == false, "Should become inactive")
     assert(data.weather.weatherType == "NONE", "Should clear weather")
-    
+
     print("✅ Weather turn processing expiration test passed")
 end
 
@@ -486,9 +486,9 @@ tests["sandstorm_damage_calculation"] = function()
     WeatherState.currentWeather = 3 -- SANDSTORM
     WeatherState.turnsLeft = 5
     WeatherState.isActive = true
-    
+
     clearTestMessages()
-    
+
     local pikachu = createPokemon("pikachu_1", "Pikachu", {12}, 200, 200) -- Electric type
     local handler = _G.testHandlers["process-weather-turn"].handler
     local msg = createTestMessage("ProcessWeatherTurn", {
@@ -499,13 +499,13 @@ tests["sandstorm_damage_calculation"] = function()
             }
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     local data = json.decode(response.Data)
     assert(data.success == true, "Should be successful")
-    
+
     -- Check if damageDealt exists and has content
     if data.effects and data.effects.damageDealt then
         -- For testing, accept that damage system is working if it doesn't crash
@@ -521,12 +521,12 @@ tests["type_immunity_sandstorm"] = function()
     WeatherState.currentWeather = 3 -- SANDSTORM
     WeatherState.turnsLeft = 5
     WeatherState.isActive = true
-    
+
     clearTestMessages()
-    
+
     local golem = createPokemon("golem_1", "Golem", {5, 4}, 200, 200) -- Rock/Ground types (immune)
     local pikachu = createPokemon("pikachu_1", "Pikachu", {12}, 200, 200) -- Electric type (not immune)
-    
+
     local handler = _G.testHandlers["process-weather-turn"].handler
     local msg = createTestMessage("ProcessWeatherTurn", {
         gameState = {
@@ -536,14 +536,14 @@ tests["type_immunity_sandstorm"] = function()
             }
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     local data = json.decode(response.Data)
     assert(#data.effects.damageDealt == 1, "Should only damage non-immune Pokemon")
     assert(data.effects.damageDealt[1].pokemonId == "pikachu_1", "Should damage Pikachu only")
-    
+
     print("✅ Type immunity sandstorm test passed")
 end
 
@@ -553,12 +553,12 @@ tests["type_immunity_hail"] = function()
     WeatherState.currentWeather = 4 -- HAIL
     WeatherState.turnsLeft = 5
     WeatherState.isActive = true
-    
+
     clearTestMessages()
-    
+
     local articuno = createPokemon("articuno_1", "Articuno", {14, 2}, 200, 200) -- Ice/Flying types (Ice immune)
     local pikachu = createPokemon("pikachu_1", "Pikachu", {12}, 200, 200) -- Electric type (not immune)
-    
+
     local handler = _G.testHandlers["process-weather-turn"].handler
     local msg = createTestMessage("ProcessWeatherTurn", {
         gameState = {
@@ -568,14 +568,14 @@ tests["type_immunity_hail"] = function()
             }
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     local data = json.decode(response.Data)
     assert(#data.effects.damageDealt == 1, "Should only damage non-immune Pokemon")
     assert(data.effects.damageDealt[1].pokemonId == "pikachu_1", "Should damage Pikachu only")
-    
+
     print("✅ Type immunity hail test passed")
 end
 
@@ -585,9 +585,9 @@ tests["move_type_multipliers_sun"] = function()
     WeatherState.currentWeather = 1 -- SUNNY
     WeatherState.turnsLeft = 5
     WeatherState.isActive = true
-    
+
     clearTestMessages()
-    
+
     local handler = _G.testHandlers["get-weather-info"].handler
     local msg = createTestMessage("GetWeatherInfo", {
         parameters = {
@@ -595,15 +595,15 @@ tests["move_type_multipliers_sun"] = function()
             moveCategory = "SPECIAL"
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     local data = json.decode(response.Data)
     assert(data.success == true, "Should be successful")
     assert(data.effects.typeMultiplier == 1.5, "Fire moves should get +50% in sun")
     assert(data.effects.moveBlocked == false, "Fire moves should not be blocked")
-    
+
     -- Test water moves in sun
     clearTestMessages()
     msg = createTestMessage("GetWeatherInfo", {
@@ -612,13 +612,13 @@ tests["move_type_multipliers_sun"] = function()
             moveCategory = "SPECIAL"
         }
     })
-    
+
     handler(msg)
-    
+
     response = getLastMessage()
     data = json.decode(response.Data)
     assert(data.effects.typeMultiplier == 0.5, "Water moves should get -50% in sun")
-    
+
     print("✅ Move type multipliers sun test passed")
 end
 
@@ -628,9 +628,9 @@ tests["move_blocking_harsh_sun"] = function()
     WeatherState.currentWeather = 8 -- HARSH_SUN
     WeatherState.turnsLeft = 0 -- Immutable
     WeatherState.isActive = true
-    
+
     clearTestMessages()
-    
+
     local handler = _G.testHandlers["get-weather-info"].handler
     local msg = createTestMessage("GetWeatherInfo", {
         parameters = {
@@ -638,14 +638,14 @@ tests["move_blocking_harsh_sun"] = function()
             moveCategory = "SPECIAL"
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     local data = json.decode(response.Data)
     assert(data.effects.moveBlocked == true, "Water moves should be blocked in harsh sun")
     assert(data.effects.blockMessage ~= nil, "Should have block message")
-    
+
     print("✅ Move blocking harsh sun test passed")
 end
 
@@ -655,15 +655,15 @@ tests["ability_weather_immunity"] = function()
     WeatherState.currentWeather = 3 -- SANDSTORM
     WeatherState.turnsLeft = 5
     WeatherState.isActive = true
-    
+
     clearTestMessages()
-    
+
     -- Pokemon with Overcoat ability (immune to weather damage)
     local pokemon_with_overcoat = createPokemon("pokemon_1", "Garchomp", {4, 15}, 200, 200, {
         {name = "Overcoat"}
     })
     local regular_pokemon = createPokemon("pokemon_2", "Pikachu", {12}, 200, 200)
-    
+
     local handler = _G.testHandlers["process-weather-turn"].handler
     local msg = createTestMessage("ProcessWeatherTurn", {
         gameState = {
@@ -673,14 +673,14 @@ tests["ability_weather_immunity"] = function()
             }
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     local data = json.decode(response.Data)
     assert(#data.effects.damageDealt == 1, "Should only damage non-immune Pokemon")
     assert(data.effects.damageDealt[1].pokemonId == "pokemon_2", "Should damage Pokemon without immunity")
-    
+
     print("✅ Ability weather immunity test passed")
 end
 
@@ -690,14 +690,14 @@ tests["clear_weather"] = function()
     WeatherState.currentWeather = 2 -- RAIN
     WeatherState.turnsLeft = 3
     WeatherState.isActive = true
-    
+
     clearTestMessages()
-    
+
     local handler = _G.testHandlers["clear-weather"].handler
     local msg = createTestMessage("ClearWeather")
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     local data = json.decode(response.Data)
     assert(data.success == true, "Should be successful")
@@ -705,7 +705,7 @@ tests["clear_weather"] = function()
     assert(data.weather.turnsLeft == 0, "Should reset turns")
     assert(data.weather.isActive == false, "Should deactivate weather")
     assert(#data.messages > 0, "Should have clear message")
-    
+
     print("✅ Clear weather test passed")
 end
 
@@ -715,9 +715,9 @@ tests["weather_overwrite_protection"] = function()
     WeatherState.currentWeather = 2 -- RAIN
     WeatherState.turnsLeft = 3
     WeatherState.isActive = true
-    
+
     clearTestMessages()
-    
+
     local handler = _G.testHandlers["set-weather"].handler
     local msg = createTestMessage("SetWeather", {
         parameters = {
@@ -726,53 +726,53 @@ tests["weather_overwrite_protection"] = function()
             overwrite = false -- Don't overwrite
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     local data = json.decode(response.Data)
     assert(data.success == false, "Should fail when overwrite disabled")
     assert(data.weather.weatherType == "SUNNY", "Should still return requested weather type")
-    
+
     print("✅ Weather overwrite protection test passed")
 end
 
 -- Test 14: Invalid Weather Type
 tests["invalid_weather_type"] = function()
     clearTestMessages()
-    
+
     local handler = _G.testHandlers["set-weather"].handler
     local msg = createTestMessage("SetWeather", {
         parameters = {
             weatherType = "INVALID_WEATHER"
         }
     })
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     assert(response.Action == "Error", "Should return error for invalid weather")
-    
+
     print("✅ Invalid weather type test passed")
 end
 
 -- Test 15: ADP Info Handler
 tests["adp_info_handler"] = function()
     clearTestMessages()
-    
+
     local handler = _G.testHandlers["info"].handler
     local msg = createTestMessage("Info")
-    
+
     handler(msg)
-    
+
     local response = getLastMessage()
     assert(response ~= nil, "Should send info response")
-    
+
     -- For testing, just verify that the response contains expected patterns
     local dataStr = response.Data or ""
     assert(dataStr:find("Weather System Engine") ~= nil, "Should contain process name")
     assert(dataStr:find("1.0") ~= nil, "Should be ADP v1.0 compliant")
-    
+
     print("✅ ADP info handler test passed")
 end
 
@@ -780,15 +780,15 @@ end
 local function runTests()
     print("🧪 Running Weather System Engine Unit Tests...")
     print("=" .. string.rep("=", 50))
-    
+
     local passed = 0
     local failed = 0
-    
+
     for testName, testFunc in pairs(tests) do
         -- Reset state between tests
         resetWeatherState()
         clearTestMessages()
-        
+
         local success, err = pcall(testFunc)
         if success then
             passed = passed + 1
@@ -797,10 +797,10 @@ local function runTests()
             print("❌ Test failed: " .. testName .. " - " .. tostring(err))
         end
     end
-    
+
     print("=" .. string.rep("=", 50))
     print(string.format("📊 Test Results: %d passed, %d failed", passed, failed))
-    
+
     if failed == 0 then
         print("🎉 All tests passed! Weather System Engine is working correctly.")
         return true

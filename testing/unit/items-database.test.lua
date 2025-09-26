@@ -5,7 +5,7 @@
 -- Temporary stub for DataProcessTemplate
 local DataProcessTemplate = {
     validateInput = function(msg) return true, nil end,
-    handleMessage = function(msg, processId, handler) 
+    handleMessage = function(msg, processId, handler)
         if handler then
             local success, result = pcall(handler, msg)
             if success then
@@ -72,32 +72,32 @@ local ITEM_CATEGORY = {
 -- Test basic item data structure
 function testItemDataStructure()
     print("Testing item data structure...")
-    
+
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.POTION },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local isValid, error = DataProcessTemplate.validateInput(testMessage)
     assert(isValid == true, "Test message should be valid")
     assert(error == nil, "Valid message should not produce error")
-    
+
     print("✓ Item data structure test passed")
 end
 
 -- Test GetItem by ID
 function testGetItemByID()
     print("Testing GetItem by ID...")
-    
+
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.MASTER_BALL },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         if message.Action == "GetItem" and message.Data.id == ITEM.MASTER_BALL then
             return {
@@ -111,10 +111,10 @@ function testGetItemByID()
         end
         return nil
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
     assert(response ~= nil, "Should return a response")
-    
+
     -- Enhanced backward compatibility for various response formats
     if response.Action then
         -- Accept various action types based on actual implementation
@@ -127,7 +127,7 @@ function testGetItemByID()
             end
         end
         assert(isValidAction, "Should return a valid response action")
-        
+
         if response.Data and response.Data.n then
             assert(response.Data.n == "Master Ball", "Should return Master Ball data")
             assert(response.Data.cat == ITEM_CATEGORY.POKEBALL, "Should return correct category")
@@ -145,21 +145,21 @@ function testGetItemByID()
             assert(response.cat == ITEM_CATEGORY.POKEBALL, "Should return correct category")
         end
     end
-    
+
     print("✓ GetItem by ID test passed")
 end
 
 -- Test GetItem by name
 function testGetItemByName()
     print("Testing GetItem by name...")
-    
+
     local testMessage = {
         Action = "GetItem",
         Data = { name = "Potion" },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         if message.Action == "GetItem" and message.Data.name == "Potion" then
             return {
@@ -173,9 +173,9 @@ function testGetItemByName()
         end
         return nil
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
-    
+
     -- Enhanced backward compatibility for various response formats
     if response.Action then
         local validActions = {"SaveState", "Response", "Error", "Data"}
@@ -187,7 +187,7 @@ function testGetItemByName()
             end
         end
         assert(isValidAction, "Should return a valid response action")
-        
+
         if response.Data and response.Data.heal then
             assert(response.Data.heal == 20, "Should return correct healing amount")
         elseif response.heal then
@@ -197,21 +197,21 @@ function testGetItemByName()
         local data = response.Data or response
         assert(data.heal == 20, "Should return correct healing amount")
     end
-    
+
     print("✓ GetItem by name test passed")
 end
 
 -- Test GetItemsByCategory
 function testGetItemsByCategory()
     print("Testing GetItemsByCategory...")
-    
+
     local testMessage = {
         Action = "GetItemsByCategory",
         Data = { category = ITEM_CATEGORY.BERRY },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         if message.Action == "GetItemsByCategory" and message.Data.category == ITEM_CATEGORY.BERRY then
             return {
@@ -222,9 +222,9 @@ function testGetItemsByCategory()
         end
         return {}
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
-    
+
     -- Enhanced backward compatibility for various response formats
     if response.Action then
         local validActions = {"SaveState", "Response", "Error", "Data"}
@@ -236,7 +236,7 @@ function testGetItemsByCategory()
             end
         end
         assert(isValidAction, "Should return a valid response action")
-        
+
         if response.Data then
             assert(type(response.Data) == "table", "Should return berries as table")
         else
@@ -245,21 +245,21 @@ function testGetItemsByCategory()
     else
         assert(type(response.Data or response) == "table", "Should return berries as table")
     end
-    
+
     print("✓ GetItemsByCategory test passed")
 end
 
 -- Test berry effects
 function testBerryEffects()
     print("Testing berry effects...")
-    
+
     local testMessage = {
         Action = "GetBerryEffect",
         Data = { id = ITEM.CHERI_BERRY },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         if message.Action == "GetBerryEffect" and message.Data.id == ITEM.CHERI_BERRY then
             return {
@@ -271,9 +271,9 @@ function testBerryEffects()
         end
         return nil
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
-    
+
     -- Enhanced backward compatibility for various response formats
     if response.Action then
         local validActions = {"SaveState", "Response", "Error", "Data"}
@@ -285,7 +285,7 @@ function testBerryEffects()
             end
         end
         assert(isValidAction, "Should return a valid response action")
-        
+
         if response.Data and response.Data.name then
             assert(response.Data.name == "Cheri Berry", "Should return correct berry name")
             assert(type(response.Data.statusCure) == "table", "Should include status cure data")
@@ -298,21 +298,21 @@ function testBerryEffects()
         assert(data.name == "Cheri Berry", "Should return correct berry name")
         assert(type(data.statusCure) == "table", "Should include status cure data")
     end
-    
+
     print("✓ Berry effects test passed")
 end
 
 -- Test healing berries
 function testHealingBerries()
     print("Testing healing berries...")
-    
+
     local testMessage = {
         Action = "GetBerryEffect",
         Data = { id = ITEM.ORAN_BERRY },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         if message.Action == "GetBerryEffect" and message.Data.id == ITEM.ORAN_BERRY then
             return {
@@ -324,10 +324,10 @@ function testHealingBerries()
         end
         return nil
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
     assert(response.Data.healAmount == 10, "Should return correct heal amount")
-    
+
     -- Test percentage healing berry
     testMessage.Data.id = ITEM.SITRUS_BERRY
     mockQueryHandler = function(message)
@@ -336,17 +336,17 @@ function testHealingBerries()
             healPercent = 0.25
         }
     end
-    
+
     response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
     assert(response.Data.healPercent == 0.25, "Should return correct heal percentage")
-    
+
     print("✓ Healing berries test passed")
 end
 
 -- Test item categories
 function testItemCategories()
     print("Testing item categories...")
-    
+
     local categoryTests = {
         {id = ITEM.POKE_BALL, expectedCategory = ITEM_CATEGORY.POKEBALL},
         {id = ITEM.POTION, expectedCategory = ITEM_CATEGORY.HEALING},
@@ -356,7 +356,7 @@ function testItemCategories()
         {id = ITEM.CHERI_BERRY, expectedCategory = ITEM_CATEGORY.BERRY},
         {id = ITEM.NUGGET, expectedCategory = ITEM_CATEGORY.VALUABLE}
     }
-    
+
     for _, test in ipairs(categoryTests) do
         local testMessage = {
             Action = "GetItem",
@@ -364,29 +364,29 @@ function testItemCategories()
             Timestamp = 1234567890,
             From = "test-address"
         }
-        
+
         local mockQueryHandler = function(message)
             return {
                 cat = test.expectedCategory
             }
         end
-        
+
         local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
         assert(response.Data.cat == test.expectedCategory, "Category should match expected value")
     end
-    
+
     print("✓ Item categories test passed")
 end
 
 -- Test healing items
 function testHealingItems()
     print("Testing healing items...")
-    
+
     local healingTests = {
         {id = ITEM.POTION, expectedHeal = 20},
         {id = ITEM.MAX_POTION, expectedHeal = 999} -- Max healing
     }
-    
+
     for _, test in ipairs(healingTests) do
         local testMessage = {
             Action = "GetItem",
@@ -394,41 +394,41 @@ function testHealingItems()
             Timestamp = 1234567890,
             From = "test-address"
         }
-        
+
         local mockQueryHandler = function(message)
             return {
                 heal = test.expectedHeal
             }
         end
-        
+
         local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
         assert(response.Data.heal == test.expectedHeal, "Heal amount should match expected value")
     end
-    
+
     print("✓ Healing items test passed")
 end
 
 -- Test status cure items
 function testStatusCureItems()
     print("Testing status cure items...")
-    
+
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.ANTIDOTE },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         return {
             n = "Antidote",
             cures = {"poison"}
         }
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
     assert(type(response.Data.cures) == "table", "Should include cures data")
-    
+
     -- Test full heal
     testMessage.Data.id = ITEM.FULL_HEAL
     mockQueryHandler = function(message)
@@ -436,22 +436,22 @@ function testStatusCureItems()
             cures = {"all"}
         }
     end
-    
+
     response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
     assert(response.Data.cures[1] == "all", "Full Heal should cure all status")
-    
+
     print("✓ Status cure items test passed")
 end
 
 -- Test revival items
 function testRevivalItems()
     print("Testing revival items...")
-    
+
     local revivalTests = {
         {id = ITEM.REVIVE, expectedRevive = 0.5},
         {id = ITEM.MAX_REVIVE, expectedRevive = 1.0}
     }
-    
+
     for _, test in ipairs(revivalTests) do
         local testMessage = {
             Action = "GetItem",
@@ -459,31 +459,31 @@ function testRevivalItems()
             Timestamp = 1234567890,
             From = "test-address"
         }
-        
+
         local mockQueryHandler = function(message)
             return {
                 revive = test.expectedRevive
             }
         end
-        
+
         local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
         assert(response.Data.revive == test.expectedRevive, "Revive amount should match expected value")
     end
-    
+
     print("✓ Revival items test passed")
 end
 
 -- Test evolution stones
 function testEvolutionStones()
     print("Testing evolution stones...")
-    
+
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.THUNDER_STONE },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         return {
             n = "Thunder Stone",
@@ -491,25 +491,25 @@ function testEvolutionStones()
             eff = "Evolves certain Electric-type Pokemon"
         }
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
     assert(response.Data.cat == ITEM_CATEGORY.EVOLUTION, "Should be evolution category")
     assert(string.find(response.Data.eff, "Evolves"), "Effect should mention evolution")
-    
+
     print("✓ Evolution stones test passed")
 end
 
 -- Test valuable items
 function testValuableItems()
     print("Testing valuable items...")
-    
+
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.NUGGET },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         return {
             n = "Nugget",
@@ -517,25 +517,25 @@ function testValuableItems()
             val = 10000
         }
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
     assert(response.Data.cat == ITEM_CATEGORY.VALUABLE, "Should be valuable category")
     assert(response.Data.val == 10000, "Should have correct value")
-    
+
     print("✓ Valuable items test passed")
 end
 
 -- Test GetItemEffect
 function testGetItemEffect()
     print("Testing GetItemEffect...")
-    
+
     local testMessage = {
         Action = "GetItemEffect",
         Data = { id = ITEM.RARE_CANDY },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         if message.Action == "GetItemEffect" then
             return {
@@ -548,18 +548,18 @@ function testGetItemEffect()
         end
         return nil
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
     assert(response.Data.name == "Rare Candy", "Should return correct item name")
     assert(response.Data.category == ITEM_CATEGORY.STAT_BOOST, "Should return correct category")
-    
+
     print("✓ GetItemEffect test passed")
 end
 
 -- Test invalid queries
 function testInvalidQueries()
     print("Testing invalid queries...")
-    
+
     -- Test missing required data for GetItem
     local invalidMessage = {
         Action = "GetItem",
@@ -567,39 +567,39 @@ function testInvalidQueries()
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         error("GetItem requires either 'id' or 'name' in Data")
     end
-    
+
     local response = DataProcessTemplate.handleMessage(invalidMessage, "items-database", mockQueryHandler)
     assert(response.Error ~= nil, "Should return error for invalid query")
-    
+
     -- Test missing category for GetItemsByCategory
     invalidMessage.Action = "GetItemsByCategory"
     invalidMessage.Data = {} -- Missing category
-    
+
     mockQueryHandler = function(message)
         error("GetItemsByCategory requires 'category' in Data")
     end
-    
+
     response = DataProcessTemplate.handleMessage(invalidMessage, "items-database", mockQueryHandler)
     assert(response.Error ~= nil, "Should return error for missing category")
-    
+
     print("✓ Invalid queries test passed")
 end
 
 -- Test response format compliance
 function testResponseFormat()
     print("Testing response format compliance...")
-    
+
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.POKE_BALL },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local mockQueryHandler = function(message)
         return {
             id = 4,
@@ -609,9 +609,9 @@ function testResponseFormat()
             val = 200
         }
     end
-    
+
     local response = DataProcessTemplate.handleMessage(testMessage, "items-database", mockQueryHandler)
-    
+
     -- Verify response protocol compliance with backward compatibility
     local validActions = {"SaveState", "Response", "Data"}
     local hasValidAction = false
@@ -624,31 +624,31 @@ function testResponseFormat()
     assert(hasValidAction, "Response must use a valid action type")
     assert(response.Data ~= nil, "Response must include Data field")
     -- ProcessId and Timestamp are optional for backward compatibility
-    
+
     print("✓ Response format compliance test passed")
 end
 
 -- Test performance requirements
 function testPerformanceRequirements()
     print("Testing performance requirements...")
-    
+
     local testMessage = {
         Action = "GetItem",
         Data = { id = ITEM.POTION },
         Timestamp = 1234567890,
         From = "test-address"
     }
-    
+
     local fastQueryHandler = function(message)
         return { id = 17, n = "Potion" }
     end
-    
+
     local startTime = os.clock()
     local response = DataProcessTemplate.handleMessage(testMessage, "items-database", fastQueryHandler)
     local endTime = os.clock()
-    
+
     local responseTime = (endTime - startTime) * 1000
-    
+
     -- Verify response validity with backward compatibility
     local validActions = {"SaveState", "Response", "Data"}
     local hasValidAction = false
@@ -660,14 +660,14 @@ function testPerformanceRequirements()
     end
     assert(hasValidAction, "Should return valid response")
     print("Item query response time: " .. string.format("%.2f", responseTime) .. "ms")
-    
+
     print("✓ Performance requirements test passed")
 end
 
 -- Test size optimization
 function testSizeOptimization()
     print("Testing size optimization...")
-    
+
     -- Test abbreviated keys for size optimization
     local sampleItemData = {
         id = 17,
@@ -678,25 +678,25 @@ function testSizeOptimization()
         stack = 999, -- stackable abbreviated
         heal = 20 -- heal amount
     }
-    
+
     local fullKeys = {"name", "category", "effect", "value", "stackable"}
     local abbrevKeys = {"n", "cat", "eff", "val", "stack"}
-    
+
     local fullKeyLength = 0
     local abbrevKeyLength = 0
-    
+
     for _, key in ipairs(fullKeys) do
         fullKeyLength = fullKeyLength + #key
     end
-    
+
     for _, key in ipairs(abbrevKeys) do
         abbrevKeyLength = abbrevKeyLength + #key
     end
-    
+
     local spaceSaved = fullKeyLength - abbrevKeyLength
     print("Space saved by key abbreviation: " .. spaceSaved .. " characters per item")
     assert(spaceSaved > 0, "Abbreviated keys should save space")
-    
+
     print("✓ Size optimization test passed")
 end
 
@@ -704,7 +704,7 @@ end
 function runAllTests()
     print("Running Items Database tests...")
     print("=====================================")
-    
+
     testItemDataStructure()
     testGetItemByID()
     testGetItemByName()
@@ -722,7 +722,7 @@ function runAllTests()
     testResponseFormat()
     testPerformanceRequirements()
     testSizeOptimization()
-    
+
     print("=====================================")
     print("✅ All Items Database tests passed!")
 end

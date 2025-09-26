@@ -30,7 +30,7 @@ local function createTestBattleData()
                 ability = "static"
             },
             {
-                id = "charizard_002", 
+                id = "charizard_002",
                 stats = {speed = 100, hp = 150, attack = 84},
                 isPlayer = false,
                 moves = {
@@ -60,22 +60,22 @@ local AoliteTestSuite = {}
 -- Test 1: Process Initialization and Info Handler
 function AoliteTestSuite.testProcessInitialization()
     print("=== Aolite Test 1: Process Initialization ===")
-    
+
     local processId = initializeProcess()
-    
+
     -- Test Info handler
     local infoMsg = {
         Target = processId,
         Action = "Info",
         From = "test_sender"
     }
-    
+
     aolite.send(infoMsg)
     aolite.runScheduler()
-    
+
     local responses = aolite.getAllMsgs()
     local infoResponse = responses[#responses]
-    
+
     if infoResponse and infoResponse.Action == "SaveState" then
         local infoData = json.decode(infoResponse.Data)
         assert(infoData.name == "Pokemon Battle Engine Turn Manager", "Process name mismatch")
@@ -92,10 +92,10 @@ end
 -- Test 2: Turn Order Calculation with Aolite
 function AoliteTestSuite.testTurnOrderCalculationAolite()
     print("=== Aolite Test 2: Turn Order Calculation ===")
-    
+
     local processId = initializeProcess()
     local battleData = createTestBattleData()
-    
+
     local turnOrderMsg = {
         Target = processId,
         Action = "CalculateTurnOrder",
@@ -104,13 +104,13 @@ function AoliteTestSuite.testTurnOrderCalculationAolite()
         From = "test_sender",
         Timestamp = 1234567890
     }
-    
+
     aolite.send(turnOrderMsg)
     aolite.runScheduler()
-    
+
     local responses = aolite.getAllMsgs()
     local response = responses[#responses]
-    
+
     if response and response.Action == "SaveState" then
         local data = json.decode(response.Data)
         assert(data.turnOrder, "Turn order not calculated")
@@ -126,10 +126,10 @@ end
 -- Test 3: Action Validation with Aolite
 function AoliteTestSuite.testActionValidationAolite()
     print("=== Aolite Test 3: Action Validation ===")
-    
+
     local processId = initializeProcess()
     local battleData = createTestBattleData()
-    
+
     -- Test valid action
     local validActionMsg = {
         Target = processId,
@@ -141,13 +141,13 @@ function AoliteTestSuite.testActionValidationAolite()
         From = "test_sender",
         Timestamp = 1234567890
     }
-    
+
     aolite.send(validActionMsg)
     aolite.runScheduler()
-    
+
     local responses = aolite.getAllMsgs()
     local response = responses[#responses]
-    
+
     if response and response.Action == "SaveState" then
         local data = json.decode(response.Data)
         -- Note: This would be true if we had proper battle state setup
@@ -162,10 +162,10 @@ end
 -- Test 4: Turn Execution Pipeline with Aolite
 function AoliteTestSuite.testTurnExecutionAolite()
     print("=== Aolite Test 4: Turn Execution Pipeline ===")
-    
+
     local processId = initializeProcess()
     local battleData = createTestBattleData()
-    
+
     local turnData = {
         turnOrder = battleData.participants,
         actions = {
@@ -179,7 +179,7 @@ function AoliteTestSuite.testTurnExecutionAolite()
             }
         }
     }
-    
+
     local executeTurnMsg = {
         Target = processId,
         Action = "ExecuteTurn",
@@ -189,13 +189,13 @@ function AoliteTestSuite.testTurnExecutionAolite()
         From = "test_sender",
         Timestamp = 1234567890
     }
-    
+
     aolite.send(executeTurnMsg)
     aolite.runScheduler()
-    
+
     local responses = aolite.getAllMsgs()
     local response = responses[#responses]
-    
+
     if response and response.Action == "SaveState" then
         local data = json.decode(response.Data)
         assert(data.turnResults, "Turn results not generated")
@@ -211,9 +211,9 @@ end
 -- Test 5: Switch Mechanics with Aolite
 function AoliteTestSuite.testSwitchMechanicsAolite()
     print("=== Aolite Test 5: Switch Mechanics ===")
-    
+
     local processId = initializeProcess()
-    
+
     local switchMsg = {
         Target = processId,
         Action = "ProcessSwitch",
@@ -223,13 +223,13 @@ function AoliteTestSuite.testSwitchMechanicsAolite()
         From = "test_sender",
         Timestamp = 1234567890
     }
-    
+
     aolite.send(switchMsg)
     aolite.runScheduler()
-    
+
     local responses = aolite.getAllMsgs()
     local response = responses[#responses]
-    
+
     if response and response.Action == "SaveState" then
         local data = json.decode(response.Data)
         assert(data.switched == true, "Switch not processed")
@@ -246,9 +246,9 @@ end
 -- Test 6: Error Handling with Aolite
 function AoliteTestSuite.testErrorHandlingAolite()
     print("=== Aolite Test 6: Error Handling ===")
-    
+
     local processId = initializeProcess()
-    
+
     -- Send message with missing required parameters
     local invalidMsg = {
         Target = processId,
@@ -257,13 +257,13 @@ function AoliteTestSuite.testErrorHandlingAolite()
         From = "test_sender",
         Timestamp = 1234567890
     }
-    
+
     aolite.send(invalidMsg)
     aolite.runScheduler()
-    
+
     local responses = aolite.getAllMsgs()
     local response = responses[#responses]
-    
+
     if response and response.Action == "Error" then
         assert(response.Error, "Error message not provided")
         print("✅ Error handling working with aolite")
@@ -277,22 +277,22 @@ end
 -- Test 7: Ping Handler with Aolite
 function AoliteTestSuite.testPingHandlerAolite()
     print("=== Aolite Test 7: Ping Handler ===")
-    
+
     local processId = initializeProcess()
-    
+
     local pingMsg = {
         Target = processId,
         Action = "Ping",
         From = "test_sender",
         Timestamp = 1234567890
     }
-    
+
     aolite.send(pingMsg)
     aolite.runScheduler()
-    
+
     local responses = aolite.getAllMsgs()
     local response = responses[#responses]
-    
+
     if response and response.Action == "Pong" and response.Data == "pong" then
         print("✅ Ping handler working with aolite")
         return true
@@ -305,10 +305,10 @@ end
 -- Test 8: Multi-Message Flow with Aolite
 function AoliteTestSuite.testMultiMessageFlowAolite()
     print("=== Aolite Test 8: Multi-Message Flow ===")
-    
+
     local processId = initializeProcess()
     local battleData = createTestBattleData()
-    
+
     -- Send sequence of messages
     local messages = {
         {
@@ -330,15 +330,15 @@ function AoliteTestSuite.testMultiMessageFlowAolite()
             Timestamp = 1234567891
         }
     }
-    
+
     for _, msg in ipairs(messages) do
         aolite.send(msg)
     end
-    
+
     aolite.runScheduler()
-    
+
     local responses = aolite.getAllMsgs()
-    
+
     if #responses >= 2 then
         print("✅ Multi-message flow working with aolite")
         return true
@@ -352,7 +352,7 @@ end
 function AoliteTestSuite.runAllTests()
     print("🧪 Running Battle Engine Turn Manager Aolite Tests")
     print("=" .. string.rep("=", 60))
-    
+
     local tests = {
         AoliteTestSuite.testProcessInitialization,
         AoliteTestSuite.testTurnOrderCalculationAolite,
@@ -363,10 +363,10 @@ function AoliteTestSuite.runAllTests()
         AoliteTestSuite.testPingHandlerAolite,
         AoliteTestSuite.testMultiMessageFlowAolite
     }
-    
+
     local passed = 0
     local total = #tests
-    
+
     for i, test in ipairs(tests) do
         local success, result = pcall(test)
         if success and result then
@@ -374,14 +374,14 @@ function AoliteTestSuite.runAllTests()
         else
             print("❌ Aolite Test", i, "failed:", result or "unknown error")
         end
-        
+
         -- Clean up between tests
         aolite.clearMessages()
     end
-    
+
     print("=" .. string.rep("=", 60))
     print(string.format("🏁 Aolite Test Results: %d/%d passed (%.1f%%)", passed, total, (passed/total)*100))
-    
+
     if passed == total then
         print("🎉 All aolite tests passed! Battle engine AO integration working correctly.")
         return true

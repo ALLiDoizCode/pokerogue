@@ -8,13 +8,13 @@ local processes = {
         name = "Abilities Database"
     },
     {
-        original = "processes/items-database.lua", 
+        original = "processes/items-database.lua",
         adp = "processes/items-database-adp.lua",
         name = "Items Database"
     },
     {
         original = "processes/moves-database.lua",
-        adp = "processes/moves-database-adp.lua", 
+        adp = "processes/moves-database-adp.lua",
         name = "Moves Database"
     },
     {
@@ -52,7 +52,7 @@ local passedTests = 0
 
 for _, process in ipairs(processes) do
     print("\nValidating " .. process.name .. "...")
-    
+
     -- Read original file
     local originalFile = io.open(process.original, "r")
     if not originalFile then
@@ -62,7 +62,7 @@ for _, process in ipairs(processes) do
     end
     local originalContent = originalFile:read("*all")
     originalFile:close()
-    
+
     -- Read ADP file
     local adpFile = io.open(process.adp, "r")
     if not adpFile then
@@ -72,12 +72,12 @@ for _, process in ipairs(processes) do
     end
     local adpContent = adpFile:read("*all")
     adpFile:close()
-    
+
     -- Test 1: Check constants preservation
     totalTests = totalTests + 1
     local originalConstants = extractConstants(originalContent, "([A-Z_]+)%s*=%s*%d+")
     local adpConstants = extractConstants(adpContent, "([A-Z_]+)%s*=%s*%d+")
-    
+
     -- Compare significant constants (at least some should be preserved)
     local constantsPreserved = #adpConstants >= (#originalConstants * 0.5) -- Allow some variation
     if constantsPreserved then
@@ -86,12 +86,12 @@ for _, process in ipairs(processes) do
     else
         print("❌ Too many constants missing (" .. #adpConstants .. " vs " .. #originalConstants .. ")")
     end
-    
+
     -- Test 2: Check handler actions preservation
     totalTests = totalTests + 1
     local originalActions = extractHandlerActions(originalContent)
     local adpActions = extractHandlerActions(adpContent)
-    
+
     -- Check that original actions are preserved in ADP version
     local actionsPreserved = true
     local preservedCount = 0
@@ -109,14 +109,14 @@ for _, process in ipairs(processes) do
             print("  Missing action: " .. originalAction)
         end
     end
-    
+
     if actionsPreserved or preservedCount >= (#originalActions - 1) then
         print("✅ Handler actions preserved (" .. preservedCount .. "/" .. #originalActions .. ")")
         passedTests = passedTests + 1
     else
         print("❌ Handler actions not preserved (" .. preservedCount .. "/" .. #originalActions .. ")")
     end
-    
+
     -- Test 3: Check for essential data structures
     totalTests = totalTests + 1
     local hasDatabase = adpContent:match("Database") or adpContent:match("DB%s*=") or adpContent:match("DATA")
@@ -126,7 +126,7 @@ for _, process in ipairs(processes) do
     else
         print("❌ Core data structures missing")
     end
-    
+
     -- Test 4: Check for rate limiting preservation
     totalTests = totalTests + 1
     local hasRateLimit = adpContent:match("RATE_LIMIT") or adpContent:match("rateLimitCounters")
@@ -136,7 +136,7 @@ for _, process in ipairs(processes) do
     else
         print("❌ Rate limiting missing")
     end
-    
+
     ::continue::
 end
 

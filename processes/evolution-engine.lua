@@ -75,16 +75,103 @@ local EVOLUTION_CHAINS = {
         {toSpecies = 9, level = 36, type = EVOLUTION_TYPES.LEVEL}, -- to Blastoise
     },
     
-    -- Classic Stone Evolutions
+    -- Gen 1 Common Evolutions
+    [10] = { -- Caterpie
+        {toSpecies = 11, level = 7, type = EVOLUTION_TYPES.LEVEL}, -- to Metapod
+    },
+    [11] = { -- Metapod
+        {toSpecies = 12, level = 10, type = EVOLUTION_TYPES.LEVEL}, -- to Butterfree
+    },
+    [13] = { -- Weedle
+        {toSpecies = 14, level = 7, type = EVOLUTION_TYPES.LEVEL}, -- to Kakuna
+    },
+    [14] = { -- Kakuna
+        {toSpecies = 15, level = 10, type = EVOLUTION_TYPES.LEVEL}, -- to Beedrill
+    },
+    [16] = { -- Pidgey
+        {toSpecies = 17, level = 18, type = EVOLUTION_TYPES.LEVEL}, -- to Pidgeotto
+    },
+    [17] = { -- Pidgeotto
+        {toSpecies = 18, level = 36, type = EVOLUTION_TYPES.LEVEL}, -- to Pidgeot
+    },
+    [19] = { -- Rattata
+        {toSpecies = 20, level = 20, type = EVOLUTION_TYPES.LEVEL}, -- to Raticate
+    },
+    [21] = { -- Spearow
+        {toSpecies = 22, level = 20, type = EVOLUTION_TYPES.LEVEL}, -- to Fearow
+    },
+    [23] = { -- Ekans
+        {toSpecies = 24, level = 22, type = EVOLUTION_TYPES.LEVEL}, -- to Arbok
+    },
+    
+    -- Gen 1 Stone Evolutions
     [25] = { -- Pikachu
         {toSpecies = 26, type = EVOLUTION_TYPES.STONE, item = "thunder_stone"}, -- to Raichu
+    },
+    [27] = { -- Sandshrew
+        {toSpecies = 28, level = 22, type = EVOLUTION_TYPES.LEVEL}, -- to Sandslash
+    },
+    [29] = { -- Nidoran♀
+        {toSpecies = 30, level = 16, type = EVOLUTION_TYPES.LEVEL}, -- to Nidorina
+    },
+    [30] = { -- Nidorina
+        {toSpecies = 31, type = EVOLUTION_TYPES.STONE, item = "moon_stone"}, -- to Nidoqueen
+    },
+    [32] = { -- Nidoran♂
+        {toSpecies = 33, level = 16, type = EVOLUTION_TYPES.LEVEL}, -- to Nidorino
+    },
+    [33] = { -- Nidorino
+        {toSpecies = 34, type = EVOLUTION_TYPES.STONE, item = "moon_stone"}, -- to Nidoking
+    },
+    [35] = { -- Clefairy
+        {toSpecies = 36, type = EVOLUTION_TYPES.STONE, item = "moon_stone"}, -- to Clefable
     },
     [37] = { -- Vulpix
         {toSpecies = 38, type = EVOLUTION_TYPES.STONE, item = "fire_stone"}, -- to Ninetales
     },
+    [39] = { -- Jigglypuff
+        {toSpecies = 40, type = EVOLUTION_TYPES.STONE, item = "moon_stone"}, -- to Wigglytuff
+    },
+    [41] = { -- Zubat
+        {toSpecies = 42, level = 22, type = EVOLUTION_TYPES.LEVEL}, -- to Golbat (Crobat in Gen 2)
+    },
+    [43] = { -- Oddish
+        {toSpecies = 44, level = 21, type = EVOLUTION_TYPES.LEVEL}, -- to Gloom
+    },
+    [44] = { -- Gloom
+        {toSpecies = 45, type = EVOLUTION_TYPES.STONE, item = "leaf_stone"}, -- to Vileplume
+        {toSpecies = 182, type = EVOLUTION_TYPES.STONE, item = "sun_stone"}, -- to Bellossom (Gen 2)
+    },
+    [46] = { -- Paras
+        {toSpecies = 47, level = 24, type = EVOLUTION_TYPES.LEVEL}, -- to Parasect
+    },
+    [48] = { -- Venonat
+        {toSpecies = 49, level = 31, type = EVOLUTION_TYPES.LEVEL}, -- to Venomoth
+    },
+    [50] = { -- Diglett
+        {toSpecies = 51, level = 26, type = EVOLUTION_TYPES.LEVEL}, -- to Dugtrio
+    },
+    [52] = { -- Meowth
+        {toSpecies = 53, level = 28, type = EVOLUTION_TYPES.LEVEL}, -- to Persian
+    },
+    [54] = { -- Psyduck
+        {toSpecies = 55, level = 33, type = EVOLUTION_TYPES.LEVEL}, -- to Golduck
+    },
+    [56] = { -- Mankey
+        {toSpecies = 57, level = 28, type = EVOLUTION_TYPES.LEVEL}, -- to Primeape
+    },
+    [58] = { -- Growlithe
+        {toSpecies = 59, type = EVOLUTION_TYPES.STONE, item = "fire_stone"}, -- to Arcanine
+    },
+    [60] = { -- Poliwag
+        {toSpecies = 61, level = 25, type = EVOLUTION_TYPES.LEVEL}, -- to Poliwhirl
+    },
     [61] = { -- Poliwhirl
         {toSpecies = 62, type = EVOLUTION_TYPES.STONE, item = "water_stone"}, -- to Poliwrath
         {toSpecies = 186, type = EVOLUTION_TYPES.TRADE, item = "kings_rock"}, -- to Politoed
+    },
+    [63] = { -- Abra
+        {toSpecies = 64, level = 16, type = EVOLUTION_TYPES.LEVEL}, -- to Kadabra
     },
     
     -- Trade Evolutions
@@ -775,6 +862,151 @@ function EvolutionEngine.processFormChange(gameState, pokemonIndex, newForm, for
     }
 end
 
+-- Learn moves during evolution
+function EvolutionEngine.learnEvolutionMoves(gameState, pokemonIndex, targetSpeciesId, moveContext)
+    local newGameState = deepCopy(gameState)
+    
+    if not newGameState.player.party[pokemonIndex] then
+        error("Pokemon not found at index " .. pokemonIndex)
+    end
+    
+    local pokemon = newGameState.player.party[pokemonIndex]
+    local updatedPokemon = deepCopy(pokemon)
+    
+    -- Evolution move database (basic implementation)
+    local EVOLUTION_MOVES = {
+        [3] = {"petal_dance", "solar_beam"}, -- Venusaur
+        [6] = {"dragon_pulse", "air_slash"}, -- Charizard
+        [9] = {"hydro_pump", "flash_cannon"}, -- Blastoise
+        [12] = {"gust", "psybeam"}, -- Butterfree
+        [15] = {"twineedle", "rage"}, -- Beedrill
+        [18] = {"hurricane", "heat_wave"}, -- Pidgeot
+        [22] = {"drill_peck", "aerial_ace"}, -- Fearow
+        [26] = {"thunderbolt", "focus_blast"}, -- Raichu
+        [31] = {"earth_power", "sludge_bomb"}, -- Nidoqueen
+        [34] = {"earth_power", "megahorn"}, -- Nidoking
+        [36] = {"moonblast", "dazzling_gleam"}, -- Clefable
+        [38] = {"fire_blast", "extrasensory"}, -- Ninetales
+        [40] = {"hyper_voice", "dazzling_gleam"}, -- Wigglytuff
+        [45] = {"petal_blizzard", "energy_ball"}, -- Vileplume
+        [49] = {"bug_buzz", "psychic"}, -- Venomoth
+        [51] = {"earthquake", "stone_edge"}, -- Dugtrio
+        [53] = {"play_rough", "u_turn"}, -- Persian
+        [55] = {"psychic", "hydro_pump"}, -- Golduck
+        [57] = {"close_combat", "earthquake"}, -- Primeape
+        [59] = {"extreme_speed", "fire_blast"}, -- Arcanine
+        [62] = {"dynamic_punch", "ice_punch"}, -- Poliwrath
+        [65] = {"future_sight", "psychic"}, -- Alakazam
+        [68] = {"dynamic_punch", "stone_edge"}, -- Machamp
+        [76] = {"explosion", "earthquake"}, -- Golem
+        [94] = {"shadow_ball", "destiny_bond"}, -- Gengar
+    }
+    
+    local newMoves = EVOLUTION_MOVES[targetSpeciesId] or {}
+    local movesToLearn = {}
+    
+    -- Check which moves the Pokemon doesn't already know
+    for _, moveId in ipairs(newMoves) do
+        local alreadyKnows = false
+        if updatedPokemon.moveset then
+            for _, knownMove in ipairs(updatedPokemon.moveset) do
+                if knownMove.moveId == moveId or knownMove.name == moveId then
+                    alreadyKnows = true
+                    break
+                end
+            end
+        end
+        
+        if not alreadyKnows then
+            table.insert(movesToLearn, {
+                moveId = moveId,
+                name = moveId,
+                level = pokemon.level,
+                source = "evolution"
+            })
+        end
+    end
+    
+    -- Learn new moves (replace if moveset is full)
+    if #movesToLearn > 0 then
+        if not updatedPokemon.moveset then
+            updatedPokemon.moveset = {}
+        end
+        
+        for _, newMove in ipairs(movesToLearn) do
+            if #updatedPokemon.moveset < 4 then
+                -- Add to empty slot
+                table.insert(updatedPokemon.moveset, newMove)
+            else
+                -- Replace first move (can be enhanced with user choice)
+                local replaceIndex = moveContext.replaceIndex or 1
+                if replaceIndex >= 1 and replaceIndex <= 4 then
+                    updatedPokemon.moveset[replaceIndex] = newMove
+                end
+            end
+        end
+    end
+    
+    newGameState.player.party[pokemonIndex] = updatedPokemon
+    
+    return {
+        gameState = newGameState,
+        moveLearnSuccess = true,
+        movesLearned = movesToLearn,
+        updatedMoveset = updatedPokemon.moveset
+    }
+end
+
+-- Prevent evolution (Everstone, B button cancellation)  
+function EvolutionEngine.preventEvolution(gameState, pokemonIndex, preventionContext)
+    local newGameState = deepCopy(gameState)
+    
+    if not newGameState.player.party[pokemonIndex] then
+        error("Pokemon not found at index " .. pokemonIndex)
+    end
+    
+    local pokemon = newGameState.player.party[pokemonIndex]
+    local updatedPokemon = deepCopy(pokemon)
+    
+    -- Check prevention reasons
+    local preventionReasons = {}
+    
+    -- Check for Everstone
+    if pokemon.heldItem == "everstone" or (preventionContext.item and preventionContext.item == "everstone") then
+        table.insert(preventionReasons, "Everstone prevents evolution")
+    end
+    
+    -- Check for user cancellation (B button)
+    if preventionContext.userCancelled or preventionContext.buttonPressed == "B" then
+        table.insert(preventionReasons, "Player cancelled evolution")
+    end
+    
+    -- Check for forced prevention
+    if preventionContext.forcePrevent then
+        table.insert(preventionReasons, "Evolution forcibly prevented")
+    end
+    
+    -- Update prevention metadata
+    if #preventionReasons > 0 then
+        updatedPokemon.evolutionsPrevented = (updatedPokemon.evolutionsPrevented or 0) + 1
+        updatedPokemon.lastEvolutionPrevention = {
+            level = pokemon.level,
+            timestamp = msg and msg.Timestamp or 0,
+            reasons = preventionReasons
+        }
+    end
+    
+    newGameState.player.party[pokemonIndex] = updatedPokemon
+    newGameState.version = (gameState.version or 0) + 1
+    
+    return {
+        gameState = newGameState,
+        evolutionPrevented = #preventionReasons > 0,
+        preventionReasons = preventionReasons,
+        preventionCount = updatedPokemon.evolutionsPrevented or 0
+    }
+end
+
 -- Main logic handler for evolution operations
 function EvolutionEngine.handleLogicOperation(gameState, operation, parameters, rngState)
     if operation == "processEvolution" then
@@ -863,6 +1095,27 @@ function EvolutionEngine.handleLogicOperation(gameState, operation, parameters, 
             validationError = validationError,
             evolutionData = evolutionData
         }
+        
+    elseif operation == "learnEvolutionMoves" then
+        local pokemonIndex = parameters.pokemonIndex
+        local targetSpeciesId = parameters.targetSpeciesId
+        local moveContext = parameters.moveContext or {}
+        
+        if not pokemonIndex or not targetSpeciesId then
+            error("pokemonIndex and targetSpeciesId parameters are required for learnEvolutionMoves operation")
+        end
+        
+        return EvolutionEngine.learnEvolutionMoves(gameState, pokemonIndex, targetSpeciesId, moveContext)
+        
+    elseif operation == "preventEvolution" then
+        local pokemonIndex = parameters.pokemonIndex
+        local preventionContext = parameters.preventionContext or {}
+        
+        if not pokemonIndex then
+            error("pokemonIndex parameter is required for preventEvolution operation")
+        end
+        
+        return EvolutionEngine.preventEvolution(gameState, pokemonIndex, preventionContext)
         
     else
         error("Unknown evolution engine operation: " .. operation)
@@ -980,6 +1233,208 @@ Handlers.add("health-check",
     end
 )
 
+-- Individual Action Handlers (REQUIRED for AO compliance)
+
+-- Check Evolution Triggers Handler
+Handlers.add("check-evolution-triggers",
+    Handlers.utils.hasMatchingTag("Action", "CheckEvolutionTriggers"),
+    function(msg)
+        local pokemonIndex = tonumber(msg.PokemonIndex)
+        local evolutionContext = {}
+        
+        if msg.Data and msg.Data ~= "" then
+            evolutionContext = json.decode(msg.Data)
+        end
+        
+        if not pokemonIndex then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "PokemonIndex required",
+                ProcessId = PROCESS_ID,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        local message = {
+            Action = "ProcessLogic",
+            Data = {
+                gameState = evolutionContext.gameState or {},
+                operation = "checkEvolutionConditions",
+                parameters = {
+                    pokemonIndex = pokemonIndex,
+                    evolutionContext = evolutionContext
+                }
+            },
+            Timestamp = msg.Timestamp or 0,
+            From = msg.From
+        }
+        
+        local response = handleMessage(message)
+        ao.send({
+            Target = msg.From,
+            Action = response.Action,
+            Data = response.Data,
+            Error = response.Error,
+            GameState = response.GameState,
+            ProcessId = response.ProcessId,
+            Timestamp = tostring(response.Timestamp)
+        })
+    end
+)
+
+-- Process Evolution Handler
+Handlers.add("process-evolution", 
+    Handlers.utils.hasMatchingTag("Action", "ProcessEvolution"),
+    function(msg)
+        local pokemonIndex = tonumber(msg.PokemonIndex)
+        local targetSpeciesId = tonumber(msg.TargetSpeciesId)
+        local evolutionContext = {}
+        
+        if msg.Data and msg.Data ~= "" then
+            evolutionContext = json.decode(msg.Data)
+        end
+        
+        if not pokemonIndex or not targetSpeciesId then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "PokemonIndex and TargetSpeciesId required",
+                ProcessId = PROCESS_ID,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        local message = {
+            Action = "ProcessLogic",
+            Data = {
+                gameState = evolutionContext.gameState or {},
+                operation = "processEvolution",
+                parameters = {
+                    pokemonIndex = pokemonIndex,
+                    targetSpeciesId = targetSpeciesId,
+                    evolutionContext = evolutionContext
+                }
+            },
+            Timestamp = msg.Timestamp or 0,
+            From = msg.From
+        }
+        
+        local response = handleMessage(message)
+        ao.send({
+            Target = msg.From,
+            Action = response.Action,
+            Data = response.Data,
+            Error = response.Error,
+            GameState = response.GameState,
+            ProcessId = response.ProcessId,
+            Timestamp = tostring(response.Timestamp)
+        })
+    end
+)
+
+-- Learn Evolution Moves Handler
+Handlers.add("learn-evolution-moves",
+    Handlers.utils.hasMatchingTag("Action", "LearnEvolutionMoves"),
+    function(msg)
+        local pokemonIndex = tonumber(msg.PokemonIndex)
+        local targetSpeciesId = tonumber(msg.TargetSpeciesId)
+        local moveContext = {}
+        
+        if msg.Data and msg.Data ~= "" then
+            moveContext = json.decode(msg.Data)
+        end
+        
+        if not pokemonIndex or not targetSpeciesId then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "PokemonIndex and TargetSpeciesId required",
+                ProcessId = PROCESS_ID,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        local message = {
+            Action = "ProcessLogic", 
+            Data = {
+                gameState = moveContext.gameState or {},
+                operation = "learnEvolutionMoves",
+                parameters = {
+                    pokemonIndex = pokemonIndex,
+                    targetSpeciesId = targetSpeciesId,
+                    moveContext = moveContext
+                }
+            },
+            Timestamp = msg.Timestamp or 0,
+            From = msg.From
+        }
+        
+        local response = handleMessage(message)
+        ao.send({
+            Target = msg.From,
+            Action = response.Action,
+            Data = response.Data,
+            Error = response.Error,
+            GameState = response.GameState,
+            ProcessId = response.ProcessId,
+            Timestamp = tostring(response.Timestamp)
+        })
+    end
+)
+
+-- Prevent Evolution Handler  
+Handlers.add("prevent-evolution",
+    Handlers.utils.hasMatchingTag("Action", "PreventEvolution"),
+    function(msg)
+        local pokemonIndex = tonumber(msg.PokemonIndex)
+        local preventionContext = {}
+        
+        if msg.Data and msg.Data ~= "" then
+            preventionContext = json.decode(msg.Data)
+        end
+        
+        if not pokemonIndex then
+            ao.send({
+                Target = msg.From,
+                Action = "Error", 
+                Error = "PokemonIndex required",
+                ProcessId = PROCESS_ID,
+                Timestamp = tostring(msg.Timestamp or 0)
+            })
+            return
+        end
+        
+        local message = {
+            Action = "ProcessLogic",
+            Data = {
+                gameState = preventionContext.gameState or {},
+                operation = "preventEvolution",
+                parameters = {
+                    pokemonIndex = pokemonIndex,
+                    preventionContext = preventionContext
+                }
+            },
+            Timestamp = msg.Timestamp or 0,
+            From = msg.From  
+        }
+        
+        local response = handleMessage(message)
+        ao.send({
+            Target = msg.From,
+            Action = response.Action,
+            Data = response.Data,
+            Error = response.Error,
+            GameState = response.GameState,
+            ProcessId = response.ProcessId,
+            Timestamp = tostring(response.Timestamp)
+        })
+    end
+)
+
 -- ADP v1.0 Compliant Info Handler (REQUIRED)
 Handlers.add("info",
     Handlers.utils.hasMatchingTag("Action", "Info"),
@@ -994,6 +1449,10 @@ Handlers.add("info",
                     adpVersion = ADP_VERSION,
                     processId = ao.id,
                     capabilities = {
+                        "CheckEvolutionTriggers",
+                        "ProcessEvolution",
+                        "LearnEvolutionMoves", 
+                        "PreventEvolution",
                         "processEvolution",
                         "checkEvolutionConditions", 
                         "getAvailableEvolutions",
@@ -1001,6 +1460,40 @@ Handlers.add("info",
                         "validateEvolutionData"
                     },
                     messageSchemas = {
+                        CheckEvolutionTriggers = {
+                            required = {"Action", "PokemonIndex"},
+                            properties = {
+                                Action = {type = "string", value = "CheckEvolutionTriggers"},
+                                PokemonIndex = {type = "string", description = "Index of Pokemon in party"},
+                                Data = {type = "string", description = "JSON evolution context"}
+                            }
+                        },
+                        ProcessEvolution = {
+                            required = {"Action", "PokemonIndex", "TargetSpeciesId"},
+                            properties = {
+                                Action = {type = "string", value = "ProcessEvolution"},
+                                PokemonIndex = {type = "string", description = "Index of Pokemon in party"},
+                                TargetSpeciesId = {type = "string", description = "Target evolution species ID"},
+                                Data = {type = "string", description = "JSON evolution context"}
+                            }
+                        },
+                        LearnEvolutionMoves = {
+                            required = {"Action", "PokemonIndex", "TargetSpeciesId"},
+                            properties = {
+                                Action = {type = "string", value = "LearnEvolutionMoves"},
+                                PokemonIndex = {type = "string", description = "Index of Pokemon in party"},
+                                TargetSpeciesId = {type = "string", description = "Target evolution species ID"},
+                                Data = {type = "string", description = "JSON move context"}
+                            }
+                        },
+                        PreventEvolution = {
+                            required = {"Action", "PokemonIndex"},
+                            properties = {
+                                Action = {type = "string", value = "PreventEvolution"},
+                                PokemonIndex = {type = "string", description = "Index of Pokemon in party"},
+                                Data = {type = "string", description = "JSON prevention context"}
+                            }
+                        },
                         ProcessLogic = {
                             required = {"Action", "Data", "Timestamp"},
                             properties = {
@@ -1010,7 +1503,7 @@ Handlers.add("info",
                                     required = {"gameState", "operation"},
                                     properties = {
                                         gameState = {type = "object", description = "Current game state"},
-                                        operation = {type = "string", enum = {"processEvolution", "checkEvolutionConditions", "getAvailableEvolutions", "processFormChange", "validateEvolutionData"}},
+                                        operation = {type = "string", enum = {"processEvolution", "checkEvolutionConditions", "getAvailableEvolutions", "processFormChange", "validateEvolutionData", "learnEvolutionMoves", "preventEvolution"}},
                                         parameters = {type = "object", description = "Operation-specific parameters"}
                                     }
                                 },
@@ -1052,20 +1545,27 @@ Handlers.add("info",
                         "Stat recalculation",
                         "Nature considerations",
                         "EV/IV preservation",
-                        "Comprehensive validation"
+                        "Comprehensive validation",
+                        "Evolution prevention (Everstone)",
+                        "Move learning during evolution",
+                        "Ability changes"
                     }
                 },
-                handlers = {"process-logic", "health-check", "info"},
+                handlers = {"check-evolution-triggers", "process-evolution", "learn-evolution-moves", "prevent-evolution", "process-logic", "health-check", "info"},
                 documentation = {
                     adpCompliance = ADP_VERSION,
                     selfDocumenting = true,
-                    description = "Advanced Pokemon evolution engine with comprehensive evolution type support, stat recalculation, and form change management for all Pokemon generations",
+                    description = "Advanced Pokemon evolution engine with comprehensive evolution type support, stat recalculation, move learning, and form change management for all Pokemon generations",
                     usage = {
-                        processEvolution = "Evolve a Pokemon: {pokemonIndex, targetSpeciesId, evolutionContext}",
-                        checkEvolutionConditions = "Check evolution requirements: {pokemonIndex, evolutionContext}",
-                        getAvailableEvolutions = "Get possible evolutions: {pokemonIndex, evolutionContext}",
-                        processFormChange = "Change Pokemon form: {pokemonIndex, newForm, formContext}",
-                        validateEvolutionData = "Validate evolution data structure: {evolutionData}"
+                        CheckEvolutionTriggers = "Check if Pokemon can evolve: PokemonIndex tag, optional Data with evolutionContext",
+                        ProcessEvolution = "Evolve a Pokemon: PokemonIndex and TargetSpeciesId tags, optional Data with evolutionContext",
+                        LearnEvolutionMoves = "Learn moves during evolution: PokemonIndex and TargetSpeciesId tags, optional Data with moveContext",  
+                        PreventEvolution = "Prevent evolution (Everstone): PokemonIndex tag, optional Data with preventionContext",
+                        processEvolution = "Legacy: Evolve a Pokemon: {pokemonIndex, targetSpeciesId, evolutionContext}",
+                        checkEvolutionConditions = "Legacy: Check evolution requirements: {pokemonIndex, evolutionContext}",
+                        getAvailableEvolutions = "Legacy: Get possible evolutions: {pokemonIndex, evolutionContext}",
+                        processFormChange = "Legacy: Change Pokemon form: {pokemonIndex, newForm, formContext}",
+                        validateEvolutionData = "Legacy: Validate evolution data structure: {evolutionData}"
                     }
                 }
             },
