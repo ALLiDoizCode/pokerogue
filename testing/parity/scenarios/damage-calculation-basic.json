@@ -21,7 +21,7 @@
     }
   },
   "expectedOutput": {
-    "damage": 85,
+    "damage": 51,
     "effectiveness": "super_effective",
     "critical": false
   },

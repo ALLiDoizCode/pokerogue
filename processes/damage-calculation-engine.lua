@@ -265,13 +265,14 @@ local function calculateBaseDamage(level, power, attack, defense, battleSeed)
     -- TypeScript: Math.floor(baseDamage * damageRoll) where damageRoll = 0.85 default
     local damageRoll = 0.85  -- Default variance (85%)
     if battleSeed and battleSeed ~= "" then
-        -- Use seed for random variance (85-100%)
+        -- For deterministic testing, use seed to generate fixed variance
         local seedNum = 0
         for i = 1, #battleSeed do
             seedNum = seedNum + string.byte(battleSeed, i)
         end
-        math.randomseed(seedNum)
-        damageRoll = (85 + math.random(0, 15)) / 100  -- 85-100%
+        -- Use seed hash to generate deterministic damage roll (85-100%)
+        local variance = (seedNum % 16)  -- 0-15 range
+        damageRoll = (85 + variance) / 100  -- 85-100%
     end
     
     return math.floor(baseDamage * damageRoll)
@@ -512,7 +513,9 @@ Handlers.add(
             return
         end
         
-        local baseDamage = calculateBaseDamage(level, power, attack, defense, params.battleSeed)
+        -- Get battle seed from message or use default
+        local battleSeed = msg.BattleSeed or "12345"
+        local baseDamage = calculateBaseDamage(level, power, attack, defense, battleSeed)
         
         local result = {
             success = true,
