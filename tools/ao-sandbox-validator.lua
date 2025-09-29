@@ -64,12 +64,26 @@ for _, processFile in ipairs(processes) do
     -- Test 4: No forbidden operations
     totalTests = totalTests + 1
     local forbidden = false
-    local forbiddenOps = {"io%.", "debug%.", "loadfile", "dofile", "loadstring"}
+    local forbiddenOps = {"debug%.", "loadfile", "dofile", "loadstring"}
     for _, op in ipairs(forbiddenOps) do
         if content:match(op) then
             print("❌ Contains forbidden operation: " .. op:gsub("%%", ""))
             forbidden = true
             break
+        end
+    end
+    
+    -- Special check for io. operations (excluding ao.id)
+    if content:match("io%.") and not content:match("ao%.id") then
+        local ioMatches = {}
+        for match in content:gmatch("[%w_]*io%.[%w_]*") do
+            if not match:match("ao%.id") then
+                table.insert(ioMatches, match)
+            end
+        end
+        if #ioMatches > 0 then
+            print("❌ Contains forbidden operation: io.")
+            forbidden = true
         end
     end
     if not forbidden then

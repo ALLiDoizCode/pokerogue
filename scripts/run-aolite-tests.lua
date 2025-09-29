@@ -72,7 +72,8 @@ local function main()
     "testing/unit/damage-calculation-engine.test.lua",
     "testing/unit/battle-state-manager.test.lua",
     "testing/unit/weather-system-engine.test.lua",
-    "testing/unit/positional-battle-mechanics-engine.test.lua"
+    "testing/unit/positional-battle-mechanics-engine.test.lua",
+    "testing/unit/fusion-battle-engine.test.lua"
   }
   
   local totalLegacyTests = 0
