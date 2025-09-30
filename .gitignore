@@ -67,3 +67,20 @@ _build/
 *.beam
 *.so
 *.dylib
+
+# Package manager caches
+.pnpm-store/
+.yarn/cache/
+.npm/
+
+# Test reports (generated)
+testing/reports/aos-local-integration-*.html
+testing/reports/aos-local-integration-*.json
+testing/reports/parity-report-*.html
+testing/reports/parity-report-*.json
+testing/reports/statistical-validation-*.html
+testing/reports/statistical-validation-*.json
+
+# Temporary backup files
+*.bak
+*.backup
