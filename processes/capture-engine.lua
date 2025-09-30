@@ -986,7 +986,7 @@ function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPoke
                 battleId = battleConditions.battleId or "unknown",
                 validateHP = true,
                 validateStatus = true,
-                timestamp = os.time()
+                timestamp = (msg.Timestamp or 0)
             })
         })
     end
@@ -1001,7 +1001,7 @@ function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPoke
                 queryType = "capture_context",
                 turnInfo = true,
                 environmentalConditions = true,
-                timestamp = os.time()
+                timestamp = (msg.Timestamp or 0)
             })
         })
     end
@@ -1017,7 +1017,7 @@ function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPoke
             reason = "pokeball_usage",
             battleId = battleConditions.battleId or "unknown",
             captureAttempt = true,
-            timestamp = os.time()
+            timestamp = (msg.Timestamp or 0)
         })
     })
     
@@ -1057,9 +1057,9 @@ function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPoke
                 Data = json.encode({
                     captureMethod = pokeballType,
                     captureLocation = battleConditions.location or "unknown",
-                    captureDate = msg and msg.Timestamp or os.time(),
+                    captureDate = msg and msg.Timestamp or (msg.Timestamp or 0),
                     partySlot = location == "party" and #updatedGameState.player.party or nil,
-                    timestamp = os.time()
+                    timestamp = (msg.Timestamp or 0)
                 })
             })
         end
@@ -1076,7 +1076,7 @@ function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPoke
                     captureMethod = pokeballType,
                     shakeCount = captureResult.shakeCount,
                     criticalCapture = captureResult.criticalCapture,
-                    timestamp = os.time()
+                    timestamp = (msg.Timestamp or 0)
                 })
             })
         end
@@ -1110,7 +1110,7 @@ function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPoke
                     failureReason = "capture_failed",
                     shakeCount = captureResult.shakeCount,
                     ballUsed = pokeballType,
-                    timestamp = os.time()
+                    timestamp = (msg.Timestamp or 0)
                 })
             })
         end
@@ -1129,7 +1129,7 @@ function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPoke
                     fleeRate = pokemonBehavior.fleeRate,
                     reason = "failed_capture",
                     battleId = battleConditions.battleId or "unknown",
-                    timestamp = os.time()
+                    timestamp = (msg.Timestamp or 0)
                 })
             })
         end

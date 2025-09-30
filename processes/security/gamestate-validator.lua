@@ -254,19 +254,11 @@ local function validateGameState(gameState)
     end
 end
 
--- Process boundary validation
+-- Process boundary validation (direct call - no pcall wrapper)
 local function validateAtProcessBoundary(gameState, operationType)
-    local success, isValid, validationErrors = pcall(validateGameState, gameState)
-    
-    if not success then
-        return {
-            valid = false,
-            error = "Validation system error: " .. tostring(isValid),
-            operationType = operationType,
-            timestamp = tostring(msg and msg.Timestamp or 0)
-        }
-    end
-    
+    -- Direct validation - let it fail fast with clear errors
+    local isValid, validationErrors = validateGameState(gameState)
+
     if not isValid then
         return {
             valid = false,
@@ -287,9 +279,10 @@ end
 Handlers.add("validate-gamestate",
     Handlers.utils.hasMatchingTag("Action", "ValidateGameState"),
     function(msg)
-        local success, gameState = pcall(json.decode, msg.Data or "{}")
-        
-        if not success then
+        -- Direct JSON decode - msg.Data is controlled input from AO
+        local gameState = json.decode(msg.Data or "{}")
+
+        if not gameState then
             ao.send({
                 Target = msg.From,
                 Action = "ValidationError",
@@ -299,7 +292,7 @@ Handlers.add("validate-gamestate",
             })
             return
         end
-        
+
         local validationResult = validateAtProcessBoundary(gameState, msg.OperationType or "Unknown")
         
         ao.send({

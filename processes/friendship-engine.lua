@@ -319,7 +319,7 @@ end
 
 -- Rate limiting helper
 local function checkRateLimit(address)
-    local now = os.time()
+    local now = (msg.Timestamp or 0)
     local windowKey = math.floor(now / 60) -- 1-minute windows
     local key = address .. "_" .. windowKey
     

@@ -160,9 +160,9 @@ Handlers.add("separate-fusion",
         )
         
         -- Track separation in history
-        local separationId = tostring(os.time()) .. "_" .. (pokemon.species or "unknown")
+        local separationId = tostring((msg.Timestamp or 0)) .. "_" .. (pokemon.species or "unknown")
         FusionState.separationHistory[separationId] = {
-            timestamp = os.time(),
+            timestamp = (msg.Timestamp or 0),
             baseSpecies = pokemon.species,
             fusionSpecies = pokemon.fusionSpecies,
             method = "component_restoration"
@@ -231,7 +231,7 @@ Handlers.add("persist-fusion-state",
         
         -- Create persistence snapshot
         local persistenceData = {
-            timestamp = os.time(),
+            timestamp = (msg.Timestamp or 0),
             pokemonState = pokemon,
             fusionData = {
                 isFusion = pokemon.fusionSpecies ~= nil,
@@ -316,9 +316,9 @@ Handlers.add("track-fusion-component",
         local pokemon = gameState.pokemon
         
         if pokemon then
-            local trackingId = tostring(os.time()) .. "_" .. (pokemon.species or "unknown")
+            local trackingId = tostring((msg.Timestamp or 0)) .. "_" .. (pokemon.species or "unknown")
             FusionState.componentTracking[trackingId] = {
-                timestamp = os.time(),
+                timestamp = (msg.Timestamp or 0),
                 species = pokemon.species,
                 fusionSpecies = pokemon.fusionSpecies,
                 lineage = "tracked"
@@ -348,7 +348,7 @@ Handlers.add("trigger-fusion-lifecycle",
         local eventType = gameState.eventType or "separation"
         
         local lifecycleEvent = {
-            timestamp = os.time(),
+            timestamp = (msg.Timestamp or 0),
             eventType = eventType,
             triggered = true,
             callbacks = {}
@@ -400,6 +400,7 @@ Handlers.add("info",
                 name = "Fusion Management Engine",
                 version = "1.0.0",
                 adpVersion = "1.0",
+                processId = ao.id,
                 capabilities = {
                     "separateFusion",
                     "persistFusionState", 

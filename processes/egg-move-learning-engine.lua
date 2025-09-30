@@ -971,6 +971,7 @@ Handlers.add("info",
                     name = "Egg Move Learning Engine",
                     version = PROCESS_VERSION,
                     adpVersion = ADP_VERSION,
+                    processId = ao.id,
                     capabilities = {
                         "InheritEggMoves",
                         "ValidateMoveLearn",

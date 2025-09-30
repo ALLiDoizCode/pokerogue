@@ -79,7 +79,7 @@ end
 -- Generate Tera Shard type with party exclusion logic
 local function generateTeraShardType(partyTeraTypes, randomSeed)
     -- Use AO-compatible random seed for deterministic behavior
-    math.randomseed(randomSeed or os.time())
+    math.randomseed(randomSeed or (msg.Timestamp or 0))
     
     -- Check for Stellar special probability (1/64)
     if math.random(64) == 1 then
@@ -312,7 +312,7 @@ Handlers.add("generate-tera-crystal",
             end
             
             -- Generate random seed from message timestamp
-            local randomSeed = tonumber(msg.Timestamp) or os.time()
+            local randomSeed = tonumber(msg.Timestamp) or (msg.Timestamp or 0)
             
             -- Generate Tera Shard type
             local shardType = generateTeraShardType(partyTeraTypes, randomSeed)

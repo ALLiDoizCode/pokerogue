@@ -84,7 +84,7 @@ end
 
 -- Generate unique tag ID
 local function generateTagId(battleId, tagType, targetIndex)
-    local timestamp = tostring(os.time())
+    local timestamp = tostring((msg.Timestamp or 0))
     return battleId .. "_" .. tagType .. "_" .. targetIndex .. "_" .. timestamp
 end
 

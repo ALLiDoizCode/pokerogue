@@ -301,7 +301,7 @@ local function checkAchievements(playerData, updateType, value)
             
             if achieved then
                 achievements[achvId] = {
-                    achievedAt = msg.Timestamp or tostring(os.time()),
+                    achievedAt = msg.Timestamp or tostring((msg.Timestamp or 0)),
                     score = achvData.score
                 }
                 table.insert(newAchievements, achvData)
@@ -503,7 +503,7 @@ Handlers.add(
         local reward = {
             type = rewardType,
             amount = amount,
-            distributedAt = msg.Timestamp or tostring(os.time())
+            distributedAt = msg.Timestamp or tostring((msg.Timestamp or 0))
         }
         
         -- Apply reward based on type
@@ -544,11 +544,11 @@ Handlers.add(
             Action = "PlayerProgressionSaved",
             Success = "true",
             PlayerId = playerId,
-            SavedAt = msg.Timestamp or tostring(os.time()),
+            SavedAt = msg.Timestamp or tostring((msg.Timestamp or 0)),
             Data = json.encode({
                 playerId = playerId,
                 progression = playerData.progression,
-                savedAt = msg.Timestamp or tostring(os.time())
+                savedAt = msg.Timestamp or tostring((msg.Timestamp or 0))
             })
         })
     end

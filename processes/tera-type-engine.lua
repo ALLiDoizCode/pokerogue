@@ -163,18 +163,14 @@ local function sendErrorResponse(target, errorInfo, context)
     ao.send(response)
 end
 
--- Safe JSON parsing with error handling
+-- Direct JSON parsing for AO messages (controlled input)
 local function safeJsonDecode(jsonStr, defaultValue)
     if not jsonStr or jsonStr == "" then
         return defaultValue or {}
     end
-    
-    local success, decoded = pcall(json.decode, jsonStr)
-    if success then
-        return decoded
-    else
-        return defaultValue or {}
-    end
+
+    -- Direct decode - msg.Data is controlled input from AO
+    return json.decode(jsonStr) or defaultValue or {}
 end
 
 -- ===============================
