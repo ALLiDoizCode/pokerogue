@@ -24,8 +24,8 @@ local function validateBattleId(battleId)
 end
 
 local function createTimestamp(msg)
-    -- AO Compliance: Use msg.Timestamp instead of os.time() for deterministic behavior
-    return msg and (msg.Timestamp or tostring(os.time())) or tostring(os.time())
+    -- AO Compliance: Use msg.Timestamp instead of (msg.Timestamp or 0) for deterministic behavior
+    return msg and (msg.Timestamp or tostring((msg.Timestamp or 0))) or tostring((msg.Timestamp or 0))
 end
 
 local function validatePokemonState(stateData)

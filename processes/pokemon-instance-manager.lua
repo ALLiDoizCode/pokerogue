@@ -151,7 +151,7 @@ local function createPokemonInstance(speciesId, level, forcedValues)
   level = level or 5
   
   -- Generate personality value (32-bit like TypeScript) using AO-compatible method
-  local personalityValue = (level or 5) * (speciesId or 1) * (os.time() % 4294967295)
+  local personalityValue = (level or 5) * (speciesId or 1) * ((msg.Timestamp or 0) % 4294967295)
   
   -- Generate IVs from personality value
   local ivs = forcedValues and forcedValues.ivs or generateIVsFromSeed(personalityValue)

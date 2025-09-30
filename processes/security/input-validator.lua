@@ -487,8 +487,9 @@ local function validateMessage(msg)
         
         -- Validate data if present and schema is defined
         if msg.Data and actionSchema.dataSchema then
-            local success, data = pcall(json.decode, msg.Data)
-            if not success then
+            -- Direct decode - msg.Data is controlled input from AO
+            local data = json.decode(msg.Data)
+            if not data then
                 validationResult.valid = false
                 table.insert(validationResult.errors, "Invalid JSON in Data field")
             else

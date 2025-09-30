@@ -454,10 +454,9 @@ end
 local function evaluateFusionEvolutionTrigger(msg)
     local data = {}
     if msg.Data and msg.Data ~= "" then
-        local success, parsed = pcall(json.decode, msg.Data)
-        if success then
-            data = parsed
-        else
+        -- Direct decode - msg.Data is controlled input from AO
+        data = json.decode(msg.Data)
+        if not data then
             ao.send({
                 Target = msg.From,
                 Action = "Error",
@@ -538,10 +537,9 @@ end
 local function processFusionEvolution(msg)
     local data = {}
     if msg.Data and msg.Data ~= "" then
-        local success, parsed = pcall(json.decode, msg.Data)
-        if success then
-            data = parsed
-        else
+        -- Direct decode - msg.Data is controlled input from AO
+        data = json.decode(msg.Data)
+        if not data then
             ao.send({
                 Target = msg.From,
                 Action = "Error",
@@ -864,6 +862,7 @@ local function handleInfo(msg)
                 name = "Fusion Evolution Engine",
                 version = PROCESS_VERSION,
                 adpVersion = ADP_VERSION,
+                processId = ao.id,
                 capabilities = {
                     "evaluateFusionEvolutionTrigger",
                     "processFusionEvolution",
@@ -898,10 +897,9 @@ end
 local function handleProcessLogic(msg)
     local data = {}
     if msg.Data and msg.Data ~= "" then
-        local success, parsed = pcall(json.decode, msg.Data)
-        if success then
-            data = parsed
-        else
+        -- Direct decode - msg.Data is controlled input from AO
+        data = json.decode(msg.Data)
+        if not data then
             ao.send({
                 Target = msg.From,
                 Action = "Error",

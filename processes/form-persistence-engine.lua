@@ -829,6 +829,7 @@ Handlers.add("info",
                     name = "Form Persistence Engine",
                     version = "1.0.0",
                     adpVersion = "1.0",
+                    processId = ao.id,
                     capabilities = {
                         "ProcessFormPersistence",
                         "CheckFormExpiration", 

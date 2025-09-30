@@ -639,6 +639,7 @@ Handlers.add("info",
                     name = "Fusion Content Engine",
                     version = "1.0.0",
                     adpVersion = "1.0",
+                    processId = ao.id,
                     capabilities = {
                         "generateFusionName",
                         "generateFusionMovePool", 

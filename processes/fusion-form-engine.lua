@@ -464,13 +464,13 @@ local function calculateAppearancePrecision(gameState, parameters, msg)
     precision.precisionMetrics = {
         colorVariance = colorVariance,
         formErrors = formErrors,
-        calculationTimestamp = msg.Timestamp or 0, -- Use message timestamp instead of os.time()
+        calculationTimestamp = msg.Timestamp or 0, -- Use message timestamp instead of (msg.Timestamp or 0)
         battleSeed = battle.battleSeed or "default"
     }
     
     precision.trackingData = {
         precisionHistory = {precision.overallPrecision},
-        lastUpdate = msg.Timestamp or 0, -- Use message timestamp instead of os.time()
+        lastUpdate = msg.Timestamp or 0, -- Use message timestamp instead of (msg.Timestamp or 0)
         trackingEnabled = true
     }
     
@@ -718,7 +718,7 @@ Handlers.add("ping",
             Action = "Pong",
             Data = "Fusion Form Engine is active",
             ProcessId = ao.id,
-            Timestamp = tostring(os.time())
+            Timestamp = tostring((msg.Timestamp or 0))
         })
     end
 )
