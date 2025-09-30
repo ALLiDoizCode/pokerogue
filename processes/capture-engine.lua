@@ -84,9 +84,14 @@ local POKEBALL_DATA = {
         catchRate = 2.0,
         bonusConditions = {}
     },
+    rogueball = {
+        name = "Rogue Ball",
+        catchRate = 3.0,
+        bonusConditions = {}
+    },
     masterball = {
         name = "Master Ball",
-        catchRate = 255.0, -- Guaranteed catch
+        catchRate = 255.0, -- Guaranteed catch (-1 in TypeScript)
         bonusConditions = {}
     },
     netball = {
@@ -133,10 +138,65 @@ local POKEBALL_DATA = {
         name = "Heal Ball",
         catchRate = 1.0,
         bonusConditions = {heal = true}
+    },
+    levelball = {
+        name = "Level Ball",
+        catchRate = 1.0,
+        bonusConditions = {levelDifference = true}
+    },
+    loveball = {
+        name = "Love Ball",
+        catchRate = 1.0,
+        bonusConditions = {oppositeGender = true}
+    },
+    heavyball = {
+        name = "Heavy Ball",
+        catchRate = 1.0,
+        bonusConditions = {heavyPokemon = true}
+    },
+    fastball = {
+        name = "Fast Ball",
+        catchRate = 1.0,
+        bonusConditions = {fastPokemon = true}
+    },
+    friendball = {
+        name = "Friend Ball",
+        catchRate = 1.0,
+        bonusConditions = {friendship = true}
+    },
+    lureball = {
+        name = "Lure Ball",
+        catchRate = 1.0,
+        bonusConditions = {fishing = true}
+    },
+    moonball = {
+        name = "Moon Ball",
+        catchRate = 1.0,
+        bonusConditions = {moonStone = true}
+    },
+    sportball = {
+        name = "Sport Ball",
+        catchRate = 1.5,
+        bonusConditions = {bugCatching = true}
+    },
+    safariball = {
+        name = "Safari Ball",
+        catchRate = 1.5,
+        bonusConditions = {safari = true}
+    },
+    dreamball = {
+        name = "Dream Ball",
+        catchRate = 1.0,
+        bonusConditions = {dreamWorld = true}
+    },
+    beastball = {
+        name = "Beast Ball",
+        catchRate = 0.1,
+        bonusConditions = {ultraBeast = true, ultraBeastMultiplier = 5.0}
     }
 }
 
--- Status effect multipliers for capture rate
+-- Status effect multipliers for capture rate (TypeScript parity)
 local STATUS_EFFECT_MULTIPLIERS = {
     none = 1.0,
     sleep = 2.5,
@@ -144,9 +204,131 @@ local STATUS_EFFECT_MULTIPLIERS = {
     paralysis = 1.5,
     burn = 1.5,
     poison = 1.5,
-    badly_poison = 1.5,
+    toxic = 1.5, -- TypeScript uses TOXIC instead of badly_poison
+    badly_poison = 1.5, -- Keep for backwards compatibility
     confusion = 1.0, -- Confusion doesn't affect capture rate
     faint = 0.0 -- Cannot catch fainted Pokemon
+}
+
+-- Ability effects on capture rates and mechanics
+local ABILITY_CAPTURE_EFFECTS = {
+    -- Abilities that reduce capture rate (target Pokemon)
+    pressure = {
+        type = "capture_rate_modifier",
+        multiplier = 0.5,
+        description = "Reduces capture rate by 50%"
+    },
+    intimidate = {
+        type = "capture_rate_modifier",
+        multiplier = 1.1,
+        description = "Slightly increases capture rate due to intimidation"
+    },
+    
+    -- Abilities that affect status application and capture
+    magic_guard = {
+        type = "status_immunity",
+        blockedStatuses = {"poison", "burn"},
+        description = "Blocks certain status effects that would increase capture rate"
+    },
+    natural_cure = {
+        type = "status_cure",
+        activationTrigger = "capture_attempt",
+        description = "May cure status effects during capture attempts"
+    },
+    
+    -- Player abilities that improve capture rates
+    compound_eyes = {
+        type = "critical_capture_bonus",
+        multiplier = 1.3,
+        description = "Increases critical capture chance by 30%"
+    },
+    keen_eye = {
+        type = "accuracy_bonus",
+        effect = "pokeball_accuracy",
+        description = "Improves pokeball throwing accuracy"
+    },
+    
+    -- Abilities that affect specific pokeball types
+    static = {
+        type = "pokeball_type_bonus",
+        affectedBalls = {"quickball"},
+        multiplier = 1.2,
+        description = "Slight bonus to electric-themed pokeballs"
+    },
+    flash_fire = {
+        type = "status_resistance",
+        resistedStatus = "burn",
+        description = "Prevents burn status that would increase capture rate"
+    },
+    
+    -- Abilities that affect flee behavior
+    run_away = {
+        type = "flee_modifier",
+        multiplier = 2.0,
+        description = "Doubles flee rate after failed capture attempts"
+    },
+    arena_trap = {
+        type = "prevent_flee",
+        description = "Prevents wild Pokemon from fleeing after failed captures"
+    },
+    shadow_tag = {
+        type = "prevent_flee",
+        description = "Prevents wild Pokemon from fleeing after failed captures"
+    },
+    magnet_pull = {
+        type = "prevent_flee",
+        targetTypes = {"steel"},
+        description = "Prevents Steel-type Pokemon from fleeing"
+    },
+    
+    -- Complex abilities with special effects
+    trace = {
+        type = "copy_ability",
+        description = "Copies target's ability, including capture-affecting abilities"
+    },
+    skill_swap = {
+        type = "swap_ability",
+        description = "Swaps abilities, potentially affecting capture mechanics"
+    }
+}
+
+-- Item effects on capture rates
+local ITEM_CAPTURE_EFFECTS = {
+    -- Player held items
+    catching_charm = {
+        type = "critical_capture_bonus",
+        multiplier = 1.5,
+        description = "Increases critical capture chance"
+    },
+    pokeball_plus = {
+        type = "pokeball_effectiveness",
+        ballTypeBonus = 1.2,
+        description = "Increases all pokeball effectiveness by 20%"
+    },
+    
+    -- Pokemon held items that affect capture
+    quick_claw = {
+        type = "escape_bonus",
+        fleeRateMultiplier = 1.3,
+        description = "Increases flee rate after failed captures"
+    },
+    bright_powder = {
+        type = "capture_evasion",
+        evasionBonus = 0.1,
+        description = "10% chance to avoid capture entirely"
+    },
+    
+    -- Berries that affect capture indirectly
+    oran_berry = {
+        type = "hp_restore",
+        effect = "reduces_low_hp_capture_bonus",
+        description = "Restores HP, reducing low-HP capture bonus"
+    },
+    pecha_berry = {
+        type = "status_cure",
+        curedStatus = "poison",
+        description = "Cures poison, removing status capture bonus"
+    }
 }
 
 -- ====================================
@@ -163,6 +345,106 @@ local function deepCopy(original)
         copy[key] = deepCopy(value)
     end
     return copy
+end
+
+-- Apply ability and item effects to capture calculations
+local function applyAbilityAndItemEffects(pokemon, battleConditions, captureRate, criticalCaptureChance)
+    local modifiedCaptureRate = captureRate
+    local modifiedCriticalChance = criticalCaptureChance
+    local abilityEffects = {}
+    
+    -- Process Pokemon abilities
+    if pokemon.abilities then
+        for _, ability in ipairs(pokemon.abilities) do
+            local abilityEffect = ABILITY_CAPTURE_EFFECTS[ability]
+            if abilityEffect then
+                if abilityEffect.type == "capture_rate_modifier" then
+                    modifiedCaptureRate = modifiedCaptureRate * abilityEffect.multiplier
+                    table.insert(abilityEffects, {
+                        ability = ability,
+                        effect = abilityEffect.description,
+                        modifier = abilityEffect.multiplier
+                    })
+                elseif abilityEffect.type == "critical_capture_bonus" then
+                    modifiedCriticalChance = modifiedCriticalChance * abilityEffect.multiplier
+                    table.insert(abilityEffects, {
+                        ability = ability,
+                        effect = abilityEffect.description,
+                        modifier = abilityEffect.multiplier
+                    })
+                end
+            end
+        end
+    end
+    
+    -- Process player abilities (if available)
+    if battleConditions.playerAbilities then
+        for _, ability in ipairs(battleConditions.playerAbilities) do
+            local abilityEffect = ABILITY_CAPTURE_EFFECTS[ability]
+            if abilityEffect then
+                if abilityEffect.type == "critical_capture_bonus" then
+                    modifiedCriticalChance = modifiedCriticalChance * abilityEffect.multiplier
+                    table.insert(abilityEffects, {
+                        ability = ability,
+                        effect = abilityEffect.description,
+                        source = "player",
+                        modifier = abilityEffect.multiplier
+                    })
+                end
+            end
+        end
+    end
+    
+    -- Process held items
+    if pokemon.heldItem then
+        local itemEffect = ITEM_CAPTURE_EFFECTS[pokemon.heldItem]
+        if itemEffect then
+            if itemEffect.type == "capture_evasion" then
+                -- Special handling for evasion items
+                table.insert(abilityEffects, {
+                    item = pokemon.heldItem,
+                    effect = itemEffect.description,
+                    evasionChance = itemEffect.evasionBonus
+                })
+            elseif itemEffect.type == "escape_bonus" then
+                table.insert(abilityEffects, {
+                    item = pokemon.heldItem,
+                    effect = itemEffect.description,
+                    fleeModifier = itemEffect.fleeRateMultiplier
+                })
+            end
+        end
+    end
+    
+    -- Process player held items
+    if battleConditions.playerHeldItem then
+        local itemEffect = ITEM_CAPTURE_EFFECTS[battleConditions.playerHeldItem]
+        if itemEffect then
+            if itemEffect.type == "critical_capture_bonus" then
+                modifiedCriticalChance = modifiedCriticalChance * itemEffect.multiplier
+                table.insert(abilityEffects, {
+                    item = battleConditions.playerHeldItem,
+                    effect = itemEffect.description,
+                    source = "player",
+                    modifier = itemEffect.multiplier
+                })
+            elseif itemEffect.type == "pokeball_effectiveness" then
+                modifiedCaptureRate = modifiedCaptureRate * itemEffect.ballTypeBonus
+                table.insert(abilityEffects, {
+                    item = battleConditions.playerHeldItem,
+                    effect = itemEffect.description,
+                    source = "player",
+                    modifier = itemEffect.ballTypeBonus
+                })
+            end
+        end
+    end
+    
+    return {
+        captureRate = math.max(0, math.min(255, modifiedCaptureRate)),
+        criticalCaptureChance = math.max(0, math.min(255, modifiedCriticalChance)),
+        abilityEffects = abilityEffects
+    }
 end
 
 -- GameState integrity validation
@@ -312,106 +594,222 @@ end
 
 local CaptureEngine = {}
 
--- Calculate comprehensive capture rate based on all factors
+-- Calculate comprehensive capture rate based on all factors (TypeScript Parity)
 function CaptureEngine.calculateCaptureRate(pokemon, pokeballType, battleConditions, rngState)
-    local baseRate = pokemon.catchRate or 45 -- Default catch rate
+    -- Use exact TypeScript variable names and formula
+    local _3m = 3 * (pokemon.maxHp or 100)
+    local _2h = 2 * math.max(1, pokemon.hp) -- Prevent division by zero
+    local catchRate = pokemon.catchRate or 45 -- Default species catch rate
     local ballData = POKEBALL_DATA[pokeballType] or POKEBALL_DATA.pokeball
     
-    -- Core HP calculation using official Pokemon formula
-    -- Rate = (HP_max * 3 - HP_current * 2) * species_rate * ball_rate / (HP_max * 3)
-    local currentHp = math.max(1, pokemon.hp) -- Prevent division by zero
-    local maxHp = pokemon.maxHp or 100
-    local hpFactor = ((maxHp * 3 - currentHp * 2) * baseRate) / (maxHp * 3)
+    -- Apply pokeball multiplier with TypeScript parity logic
+    local pokeballMultiplier = ballData.catchRate
     
-    -- Apply pokeball base modifier
-    local ballModifier = ballData.catchRate
+    -- Handle Master Ball special case (-1 in TypeScript indicates guaranteed capture)
+    if pokeballType == "masterball" then
+        pokeballMultiplier = -1
+    end
     
-    -- Apply pokeball-specific bonuses
+    -- Apply pokeball-specific bonuses with comprehensive conditional logic
     if ballData.bonusConditions then
-        -- Net Ball bonus for Water/Bug types
-        if ballData.bonusConditions.waterBug and (
-            pokemon.type1 == "water" or pokemon.type1 == "bug" or 
-            pokemon.type2 == "water" or pokemon.type2 == "bug") then
-            ballModifier = ballModifier * 1.5
+        -- Net Ball bonus for Water/Bug types (3.5x when conditions met, 1x otherwise)
+        if ballData.bonusConditions.waterBug then
+            if pokemon.type1 == "water" or pokemon.type1 == "bug" or 
+               pokemon.type2 == "water" or pokemon.type2 == "bug" then
+                -- NetBall condition met, use full 3.5x multiplier
+            else
+                -- NetBall condition not met, reduce to 1x
+                pokeballMultiplier = 1.0
+            end
         end
         
-        -- Quick Ball bonus on first turn
-        if ballData.bonusConditions.firstTurn and battleConditions.turn == 1 then
-            ballModifier = ballModifier * 2.0
+        -- Quick Ball bonus on first turn (5.0x on turn 1, 1x otherwise)
+        if ballData.bonusConditions.firstTurn then
+            if battleConditions.turn ~= 1 then
+                pokeballMultiplier = 1.0
+            end
         end
         
-        -- Timer Ball bonus increases with turn count
+        -- Timer Ball bonus increases with turn count (1.0x to 4.0x)
         if ballData.bonusConditions.timer and battleConditions.turn then
-            local timerBonus = math.min(4.0, 1.0 + (battleConditions.turn * 0.3))
-            ballModifier = ballModifier * timerBonus
+            local timerMultiplier = math.min(4.0, 1.0 + (battleConditions.turn - 1) * 0.1)
+            pokeballMultiplier = timerMultiplier
         end
         
-        -- Dusk Ball bonus in caves or at night
-        if ballData.bonusConditions.darkTime and 
-           (battleConditions.environment == "cave" or battleConditions.timeOfDay == "night") then
-            ballModifier = ballModifier * 1.5
+        -- Dusk Ball bonus in caves or at night (3.5x when dark, 1x otherwise)
+        if ballData.bonusConditions.darkTime then
+            if not (battleConditions.environment == "cave" or battleConditions.timeOfDay == "night") then
+                pokeballMultiplier = 1.0
+            end
         end
         
-        -- Repeat Ball bonus if species already caught
-        if ballData.bonusConditions.alreadyCaught and battleConditions.pokedexCaught then
-            ballModifier = ballModifier * 1.5
+        -- Repeat Ball bonus if species already caught (3.5x if caught, 1x otherwise)
+        if ballData.bonusConditions.alreadyCaught then
+            if not battleConditions.pokedexCaught then
+                pokeballMultiplier = 1.0
+            end
         end
         
-        -- Dive Ball bonus for underwater encounters
-        if ballData.bonusConditions.underwater and battleConditions.environment == "underwater" then
-            ballModifier = ballModifier * 1.5
+        -- Dive Ball bonus for underwater encounters (3.5x underwater, 1x otherwise)
+        if ballData.bonusConditions.underwater then
+            if battleConditions.environment ~= "underwater" then
+                pokeballMultiplier = 1.0
+            end
+        end
+        
+        -- Level Ball effectiveness based on level difference (2x-8x scaling)
+        if ballData.bonusConditions.levelDifference and battleConditions.playerLevel and pokemon.level then
+            local levelDiff = battleConditions.playerLevel - pokemon.level
+            if levelDiff >= 20 then
+                pokeballMultiplier = 8.0
+            elseif levelDiff >= 10 then
+                pokeballMultiplier = 4.0
+            elseif levelDiff >= 5 then
+                pokeballMultiplier = 2.0
+            else
+                pokeballMultiplier = 1.0
+            end
+        end
+        
+        -- Love Ball effectiveness for opposite gender (8x opposite gender, 1x otherwise)
+        if ballData.bonusConditions.oppositeGender and battleConditions.playerGender and pokemon.gender then
+            if (battleConditions.playerGender == "male" and pokemon.gender == "female") or
+               (battleConditions.playerGender == "female" and pokemon.gender == "male") then
+                pokeballMultiplier = 8.0
+            else
+                pokeballMultiplier = 1.0
+            end
+        end
+        
+        -- Heavy Ball effectiveness based on Pokemon weight
+        if ballData.bonusConditions.heavyPokemon and pokemon.weight then
+            if pokemon.weight >= 300 then
+                pokeballMultiplier = 30.0 -- +20 bonus
+            elseif pokemon.weight >= 200 then
+                pokeballMultiplier = 20.0 -- +0 bonus (neutral)
+            else
+                pokeballMultiplier = 1.0 -- Penalty for light Pokemon
+            end
+        end
+        
+        -- Fast Ball effectiveness for high-speed Pokemon
+        if ballData.bonusConditions.fastPokemon and pokemon.baseSpeed then
+            if pokemon.baseSpeed >= 100 then
+                pokeballMultiplier = 4.0
+            else
+                pokeballMultiplier = 1.0
+            end
+        end
+        
+        -- Beast Ball effectiveness (0.1x normally, 5.0x for Ultra Beasts)
+        if ballData.bonusConditions.ultraBeast then
+            if pokemon.isUltraBeast then
+                pokeballMultiplier = ballData.bonusConditions.ultraBeastMultiplier or 5.0
+            -- Beast Ball already has 0.1x base rate for non-Ultra Beasts
+            end
+        end
+        
+        -- Moon Ball effectiveness for Pokemon that evolve with Moon Stone
+        if ballData.bonusConditions.moonStone and pokemon.evolvesWithMoonStone then
+            pokeballMultiplier = 4.0
+        end
+        
+        -- Lure Ball effectiveness for Pokemon caught while fishing
+        if ballData.bonusConditions.fishing and battleConditions.encounterMethod == "fishing" then
+            pokeballMultiplier = 4.0
         end
     end
     
-    -- Apply status effect multiplier
-    local statusMultiplier = STATUS_EFFECT_MULTIPLIERS[pokemon.statusEffect] or STATUS_EFFECT_MULTIPLIERS.none
+    -- Apply status effect multiplier (exact TypeScript values)
+    local statusMultiplier = 1
+    if pokemon.statusEffect then
+        statusMultiplier = STATUS_EFFECT_MULTIPLIERS[pokemon.statusEffect] or 1
+    end
     
-    -- Calculate final capture rate
-    local finalRate = hpFactor * ballModifier * statusMultiplier
+    -- Master Ball guaranteed capture
+    if pokeballMultiplier == -1 then
+        return {
+            captureValue = 255,
+            probability = 1.0,
+            hpFactor = _3m,
+            ballModifier = pokeballMultiplier,
+            statusMultiplier = statusMultiplier,
+            finalRate = 255,
+            pokeball = pokeballType,
+            validCapture = statusMultiplier > 0
+        }
+    end
     
-    -- Convert to capture value (0-255 scale)
-    local captureValue = math.min(255, finalRate * 255 / 100)
+    -- Calculate exact TypeScript formula:
+    -- modifiedCatchRate = Math.round((((_3m - _2h) * catchRate * pokeballMultiplier) / _3m) * statusMultiplier)
+    local baseCatchRate = math.floor(((_3m - _2h) * catchRate * pokeballMultiplier / _3m) * statusMultiplier + 0.5)
+    baseCatchRate = math.min(255, math.max(0, baseCatchRate))
+    
+    -- Apply ability and item effects
+    local abilityResults = applyAbilityAndItemEffects(pokemon, battleConditions, baseCatchRate, 0)
+    local modifiedCatchRate = abilityResults.captureRate
     
     return {
-        captureValue = captureValue,
-        probability = captureValue / 255,
-        hpFactor = hpFactor,
-        ballModifier = ballModifier,
+        captureValue = modifiedCatchRate,
+        probability = modifiedCatchRate / 255,
+        hpFactor = (_3m - _2h) / _3m,
+        ballModifier = pokeballMultiplier,
         statusMultiplier = statusMultiplier,
-        finalRate = finalRate,
+        finalRate = modifiedCatchRate,
         pokeball = pokeballType,
-        validCapture = statusMultiplier > 0
+        validCapture = statusMultiplier > 0 and modifiedCatchRate > 0,
+        abilityEffects = abilityResults.abilityEffects
     }
 end
 
--- Process capture attempt with shake mechanics
-function CaptureEngine.attemptCapture(captureRate, rngState)
-    local captureValue = captureRate.captureValue
+-- Process capture attempt with shake mechanics (Gen 6 Formula - TypeScript Parity)
+function CaptureEngine.attemptCapture(captureRate, rngState, pokedexData)
+    local modifiedCatchRate = math.min(255, captureRate.captureValue)
     
     -- Master Ball always succeeds
-    if captureValue >= 255 then
+    if captureRate.pokeball == "masterball" or modifiedCatchRate >= 255 then
         return {
             success = true,
             criticalCapture = false,
             shakeCount = 0,
-            captureValue = captureValue,
+            captureValue = modifiedCatchRate,
             guaranteed = true
         }
     end
     
-    -- Check for critical capture (rare occurrence that skips shakes)
-    local criticalCaptureChance = math.max(0, (captureValue - 100) / 6)
+    -- Calculate critical capture chance using TypeScript parity formula
+    local criticalCaptureChance = 0
+    if pokedexData then
+        local dexCount = pokedexData.speciesCaught or 0
+        local catchingCharmMultiplier = pokedexData.catchingCharmMultiplier or 1
+        local dexMultiplier = 
+            dexCount > 800 and 2.5 or
+            dexCount > 600 and 2 or
+            dexCount > 400 and 1.5 or
+            dexCount > 200 and 1 or
+            dexCount > 100 and 0.5 or 0
+        
+        criticalCaptureChance = math.floor((catchingCharmMultiplier * dexMultiplier * modifiedCatchRate) / 6)
+    end
+    
     local criticalRoll = nextRandom(rngState, 0, 255)
     local criticalCapture = criticalRoll < criticalCaptureChance
     
+    -- Calculate shake probability using exact Gen 6 TypeScript formula
+    -- shakeProbability = Math.round(65536 / Math.pow(255 / modifiedCatchRate, 0.1875))
+    local shakeProbability = math.floor(65536 / math.pow(255 / modifiedCatchRate, 0.1875) + 0.5)
+    
     if criticalCapture then
-        local finalCaptureRoll = nextRandom(rngState, 0, 255)
+        -- Critical capture: only 1 shake check
+        local shakeRoll = nextRandom(rngState, 0, 65535)
+        local success = shakeRoll < shakeProbability
         return {
-            success = finalCaptureRoll < captureValue,
+            success = success,
             criticalCapture = true,
-            shakeCount = finalCaptureRoll < captureValue and 1 or 0,
-            captureValue = captureValue,
-            guaranteed = false
+            shakeCount = success and 1 or 0,
+            captureValue = modifiedCatchRate,
+            guaranteed = false,
+            shakeProbability = shakeProbability
         }
     end
     
@@ -420,30 +818,28 @@ function CaptureEngine.attemptCapture(captureRate, rngState)
     local success = true
     
     for shake = 1, 3 do
-        -- Calculate shake probability using standard formula
-        local shakeValue = (65536 * math.sqrt(math.sqrt(captureValue / 255))) / 255
         local shakeRoll = nextRandom(rngState, 0, 65535)
         
-        if shakeRoll < shakeValue then
+        if shakeRoll < shakeProbability then
             shakeCount = shake
         else
             success = false
             break
         end
-        
-        -- If we reach 3 shakes, capture succeeds
-        if shake == 3 then
-            shakeCount = 3
-            success = true
-        end
+    end
+    
+    -- If all 3 shakes succeed, capture succeeds
+    if shakeCount == 3 then
+        success = true
     end
     
     return {
         success = success,
         criticalCapture = false,
         shakeCount = shakeCount,
-        captureValue = captureValue,
-        guaranteed = false
+        captureValue = modifiedCatchRate,
+        guaranteed = false,
+        shakeProbability = shakeProbability
     }
 end
 
@@ -483,6 +879,74 @@ function CaptureEngine.validateCaptureConditions(pokemon, gameState, battleCondi
     return #errors == 0, errors
 end
 
+-- Calculate Pokemon behavior after failed capture attempt
+function CaptureEngine.calculateFailedCaptureBehavior(pokemon, captureResult, battleConditions, rngState)
+    -- Base flee rate depends on species and battle conditions
+    local baseFleRate = pokemon.fleRate or 10 -- Default 10% flee rate
+    
+    -- Modify flee rate based on capture attempt factors
+    local fleeModifier = 1.0
+    
+    -- Pokemon more likely to flee after multiple failed captures
+    if battleConditions.failedCaptureAttempts then
+        fleeModifier = fleeModifier + (battleConditions.failedCaptureAttempts * 0.15)
+    end
+    
+    -- Pokemon more likely to flee if severely wounded
+    local hpPercentage = pokemon.hp / (pokemon.maxHp or 100)
+    if hpPercentage < 0.25 then
+        fleeModifier = fleeModifier + 0.3 -- 30% increase when under 25% HP
+    elseif hpPercentage < 0.5 then
+        fleeModifier = fleeModifier + 0.15 -- 15% increase when under 50% HP
+    end
+    
+    -- Status effects affect flee behavior
+    if pokemon.statusEffect then
+        if pokemon.statusEffect == "sleep" or pokemon.statusEffect == "freeze" then
+            fleeModifier = fleeModifier * 0.1 -- Much less likely to flee when asleep/frozen
+        elseif pokemon.statusEffect == "paralysis" then
+            fleeModifier = fleeModifier * 0.5 -- Half as likely to flee when paralyzed
+        end
+    end
+    
+    -- Environmental factors
+    if battleConditions.environment == "cave" then
+        fleeModifier = fleeModifier * 0.8 -- Slightly less likely to flee in caves
+    elseif battleConditions.environment == "open_field" then
+        fleeModifier = fleeModifier * 1.2 -- More likely to flee in open areas
+    end
+    
+    -- Calculate final flee probability
+    local finalFleeRate = math.min(95, baseFleRate * fleeModifier) -- Cap at 95%
+    local fleeRoll = nextRandom(rngState, 1, 100)
+    local willFlee = fleeRoll <= finalFleeRate
+    
+    -- Determine Pokemon's action if it doesn't flee
+    local action = "continue_battle"
+    if not willFlee then
+        -- 70% chance to attack, 20% to use status move, 10% to do nothing
+        local actionRoll = nextRandom(rngState, 1, 100)
+        if actionRoll <= 70 then
+            action = "attack"
+        elseif actionRoll <= 90 then
+            action = "status_move"
+        else
+            action = "wait"
+        end
+    else
+        action = "flee"
+    end
+    
+    return {
+        willFlee = willFlee,
+        fleeRate = finalFleeRate,
+        action = action,
+        hpPreserved = pokemon.hp,
+        statusPreserved = pokemon.statusEffect,
+        battleContinues = not willFlee
+    }
+end
+
 -- Add captured Pokemon to party or PC storage
 function CaptureEngine.addPokemonToParty(gameState, capturedPokemon)
     local newGameState = deepCopy(gameState)
@@ -511,6 +975,52 @@ end
 
 -- Process complete capture attempt with all mechanics
 function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPokemon, battleConditions, rngState)
+    -- 1. COORDINATE: Validate Pokemon state with pokemon-instance-manager
+    if battleConditions.pokemonId then
+        ao.send({
+            Target = battleConditions.pokemonInstanceManagerId or "pokemon-instance-manager",
+            Action = "ValidatePokemon",
+            PokemonId = battleConditions.pokemonId,
+            Operation = "status_check",
+            Data = json.encode({
+                battleId = battleConditions.battleId or "unknown",
+                validateHP = true,
+                validateStatus = true,
+                timestamp = os.time()
+            })
+        })
+    end
+    
+    -- 2. COORDINATE: Get battle context from battle-engine
+    if battleConditions.battleId then
+        ao.send({
+            Target = battleConditions.battleEngineId or "battle-engine",
+            Action = "QueryBattleState", 
+            BattleId = battleConditions.battleId,
+            Data = json.encode({
+                queryType = "capture_context",
+                turnInfo = true,
+                environmentalConditions = true,
+                timestamp = os.time()
+            })
+        })
+    end
+    
+    -- 3. COORDINATE: Consume Pokeball from inventory-manager
+    ao.send({
+        Target = battleConditions.inventoryManagerId or "inventory-manager",
+        Action = "ConsumeItem",
+        ItemType = pokeballType,
+        Quantity = "1",
+        PlayerId = gameState.playerId or "unknown",
+        Data = json.encode({
+            reason = "pokeball_usage",
+            battleId = battleConditions.battleId or "unknown",
+            captureAttempt = true,
+            timestamp = os.time()
+        })
+    })
+    
     -- Validate capture conditions
     local isValid, validationErrors = CaptureEngine.validateCaptureConditions(targetPokemon, gameState, battleConditions)
     if not isValid then
@@ -520,8 +1030,9 @@ function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPoke
     -- Calculate capture rate with all modifiers
     local captureRate = CaptureEngine.calculateCaptureRate(targetPokemon, pokeballType, battleConditions, rngState)
     
-    -- Attempt capture with shake mechanics
-    local captureResult = CaptureEngine.attemptCapture(captureRate, rngState)
+    -- Attempt capture with shake mechanics (pass pokedex data from game state)
+    local pokedexData = gameState.player and gameState.player.pokedex or {speciesCaught = 0}
+    local captureResult = CaptureEngine.attemptCapture(captureRate, rngState, pokedexData)
     
     if captureResult.success then
         -- Create captured Pokemon with metadata
@@ -535,7 +1046,42 @@ function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPoke
         -- Add to party or PC
         local updatedGameState, location = CaptureEngine.addPokemonToParty(gameState, capturedPokemon)
         
-        -- Update player inventory (remove used pokeball)
+        -- 4. COORDINATE: Transfer Pokemon to player collection
+        if battleConditions.pokemonId then
+            ao.send({
+                Target = battleConditions.pokemonInstanceManagerId or "pokemon-instance-manager",
+                Action = "TransferPokemon",
+                PokemonId = battleConditions.pokemonId,
+                Operation = "wild_to_player",
+                PlayerId = gameState.playerId or "unknown",
+                Data = json.encode({
+                    captureMethod = pokeballType,
+                    captureLocation = battleConditions.location or "unknown",
+                    captureDate = msg and msg.Timestamp or os.time(),
+                    partySlot = location == "party" and #updatedGameState.player.party or nil,
+                    timestamp = os.time()
+                })
+            })
+        end
+        
+        -- 5. COORDINATE: Notify battle engine of capture success
+        if battleConditions.battleId then
+            ao.send({
+                Target = battleConditions.battleEngineId or "battle-engine",
+                Action = "CaptureResult",
+                BattleId = battleConditions.battleId,
+                Success = "true",
+                Data = json.encode({
+                    capturedPokemon = battleConditions.pokemonId,
+                    captureMethod = pokeballType,
+                    shakeCount = captureResult.shakeCount,
+                    criticalCapture = captureResult.criticalCapture,
+                    timestamp = os.time()
+                })
+            })
+        end
+        
+        -- Update player inventory (remove used pokeball) - local state only
         if updatedGameState.player.inventory and updatedGameState.player.inventory[pokeballType] then
             updatedGameState.player.inventory[pokeballType] = 
                 math.max(0, updatedGameState.player.inventory[pokeballType] - 1)
@@ -550,7 +1096,45 @@ function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPoke
             capturedPokemon = capturedPokemon
         }
     else
-        -- Failed capture - only remove pokeball from inventory
+        -- Failed capture coordination and behavior
+        
+        -- 6. COORDINATE: Notify battle engine of capture failure
+        if battleConditions.battleId then
+            ao.send({
+                Target = battleConditions.battleEngineId or "battle-engine",
+                Action = "CaptureResult",
+                BattleId = battleConditions.battleId,
+                Success = "false",
+                Data = json.encode({
+                    targetPokemon = battleConditions.pokemonId,
+                    failureReason = "capture_failed",
+                    shakeCount = captureResult.shakeCount,
+                    ballUsed = pokeballType,
+                    timestamp = os.time()
+                })
+            })
+        end
+        
+        -- Calculate Pokemon behavior after failed capture
+        local pokemonBehavior = CaptureEngine.calculateFailedCaptureBehavior(targetPokemon, captureResult, battleConditions, rngState)
+        
+        -- 7. COORDINATE: Update Pokemon behavior in pokemon-instance-manager
+        if battleConditions.pokemonId and pokemonBehavior.willFlee then
+            ao.send({
+                Target = battleConditions.pokemonInstanceManagerId or "pokemon-instance-manager",
+                Action = "UpdatePokemonBehavior",
+                PokemonId = battleConditions.pokemonId,
+                Data = json.encode({
+                    behavior = "flee",
+                    fleeRate = pokemonBehavior.fleeRate,
+                    reason = "failed_capture",
+                    battleId = battleConditions.battleId or "unknown",
+                    timestamp = os.time()
+                })
+            })
+        end
+        
+        -- Failed capture - only remove pokeball from inventory (local state)
         local updatedGameState = deepCopy(gameState)
         if updatedGameState.player.inventory and updatedGameState.player.inventory[pokeballType] then
             updatedGameState.player.inventory[pokeballType] = 
@@ -563,7 +1147,8 @@ function CaptureEngine.processCaptureAttempt(gameState, pokeballType, targetPoke
             captureResult = captureResult,
             captureRate = captureRate,
             storageLocation = nil,
-            capturedPokemon = nil
+            capturedPokemon = nil,
+            pokemonBehavior = pokemonBehavior
         }
     end
 end
@@ -778,6 +1363,62 @@ Handlers.add("info",
         for status, multiplier in pairs(STATUS_EFFECT_MULTIPLIERS) do
             response.Data.pokeballs.statusEffects[status] = multiplier
         end
+        
+        -- Add ability effects data
+        response.Data.abilities = {
+            captureModifiers = {},
+            fleeModifiers = {},
+            criticalCaptureModifiers = {}
+        }
+        for ability, effect in pairs(ABILITY_CAPTURE_EFFECTS) do
+            response.Data.abilities[effect.type .. "s"] = response.Data.abilities[effect.type .. "s"] or {}
+            response.Data.abilities[effect.type .. "s"][ability] = {
+                description = effect.description,
+                multiplier = effect.multiplier
+            }
+        end
+        
+        -- Add item effects data
+        response.Data.items = {
+            playerItems = {},
+            pokemonItems = {}
+        }
+        for item, effect in pairs(ITEM_CAPTURE_EFFECTS) do
+            if effect.description:find("player") then
+                response.Data.items.playerItems[item] = {
+                    type = effect.type,
+                    description = effect.description
+                }
+            else
+                response.Data.items.pokemonItems[item] = {
+                    type = effect.type,
+                    description = effect.description
+                }
+            end
+        end
+        
+        -- Add cross-process coordination capabilities
+        response.Data.coordination = {
+            supportedProcesses = {
+                "pokemon-instance-manager",
+                "battle-engine",
+                "inventory-manager",
+                "wild-encounter-engine"
+            },
+            messageTypes = {
+                "ValidatePokemon",
+                "QueryBattleState", 
+                "ConsumeItem",
+                "TransferPokemon"
+            },
+            capabilities = {
+                "deterministic_rng",
+                "critical_capture_calculation",
+                "specialty_pokeball_conditions",
+                "ability_interactions",
+                "failed_capture_behavior"
+            }
+        }
         
         ao.send(response)
     end

@@ -648,6 +648,37 @@ Manual templates have been archived to `archive/templates/` as they are supersed
 - **AO Compliance**: All processes now follow monolithic design with proper handler patterns
 - MCP servers provide additional capabilities for memory management and documentation access
 
+## AO Compliance Validation System
+
+**CRITICAL**: Enhanced AO compliance validation implemented to prevent deployment-blocking violations.
+
+### Automated Validation
+- **Pre-commit Hook**: `ao-compliance` in lefthook.yml automatically validates process files
+- **Manual Command**: `npm run lint:ao-sandbox` 
+- **Direct Tool**: `lua tools/ao-sandbox-validator.lua`
+
+### Enhanced Validation Features
+- ✅ **Strict Forbidden Pattern Detection**: require(), unnecessary pcall, os.time()
+- ✅ **Anti-Pattern Detection**: pcall(json.decode, msg.Data), handler wrappers
+- ✅ **Best Practice Validation**: Error handling patterns, timestamp usage
+- ✅ **100% Compliance Required**: No tolerance for critical violations
+- ✅ **Detailed Reporting**: Specific violations with fix suggestions
+
+### Developer Resources
+- **📚 Full Guidelines**: `docs/architecture/ao-compliance-guidelines.md`
+- **⚡ Quick Reference**: `docs/architecture/ao-quick-reference.md` 
+- **🔧 Validation Tool**: Enhanced `tools/ao-sandbox-validator.lua`
+- **🎯 Pre-commit Integration**: Automatic validation in development workflow
+
+### Common Violations Fixed
+Based on Story 13.3 review findings and validation system improvements:
+- ✅ `require("json")` is PERMITTED in AO (only JSON require allowed)
+- ❌ `pcall(json.decode, msg.Data)` → ✅ Direct `json.decode(msg.Data)`
+- ❌ `os.time()` → ✅ `msg.Timestamp`
+- ❌ `require("./utils")` → ✅ Embed utilities in process file
+
+The validation system ensures these critical issues are caught during development rather than at review stage.
+
 ## Automated README Updates
 The project includes automated README Migration Parity Checklist updates:
 - `scripts/update-progress-checklist.sh` - Scans completed stories and updates checklist

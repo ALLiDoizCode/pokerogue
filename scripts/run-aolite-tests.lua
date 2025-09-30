@@ -63,7 +63,7 @@ local function main()
   print("\n📂 Running Legacy Test Files...")
   local testFiles = {
     "testing/unit/coordinator-process.test.lua",
-    "testing/unit/data-process-template.test.lua", 
+    "testing/unit/data-process-template.test.lua",
     "testing/unit/pokemon-species-db.test.lua",
     "testing/unit/pokemon-instance-manager.test.lua",
     "testing/unit/moves-database.test.lua",
@@ -73,7 +73,9 @@ local function main()
     "testing/unit/battle-state-manager.test.lua",
     "testing/unit/weather-system-engine.test.lua",
     "testing/unit/positional-battle-mechanics-engine.test.lua",
-    "testing/unit/fusion-battle-engine.test.lua"
+    "testing/unit/fusion-battle-engine.test.lua",
+    "testing/unit/pc-storage-manager.test.lua",
+    "testing/unit/unlockable-content-engine.test.lua"
   }
   
   local totalLegacyTests = 0

@@ -8,6 +8,11 @@ pre-commit:
       stage_fixed: true
     ls-lint:
       run: pnpm exec ls-lint
+    ao-compliance:
+      run: lua tools/ao-sandbox-validator.lua
+      skip:
+        - ref: main
+      glob: "processes/*.lua"
     tdd-validation:
       run: scripts/hooks/tdd-pre-commit.sh
       skip:
