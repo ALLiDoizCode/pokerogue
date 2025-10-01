@@ -6,7 +6,7 @@ local processes = {}
 local function scanProcesses(dir)
     local handle = io.popen('find ' .. dir .. ' -name "*.lua" -type f')
     for file in handle:lines() do
-        if not file:match("-legacy%.lua$") then -- Skip legacy files
+        if not file:match("-legacy%.lua$") and not file:match("/generated/") then -- Skip legacy files and generated data
             table.insert(processes, file)
         end
     end

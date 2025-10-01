@@ -75,7 +75,10 @@ local function main()
     "testing/unit/positional-battle-mechanics-engine.test.lua",
     "testing/unit/fusion-battle-engine.test.lua",
     "testing/unit/pc-storage-manager.test.lua",
-    "testing/unit/unlockable-content-engine.test.lua"
+    "testing/unit/unlockable-content-engine.test.lua",
+    "testing/unit/trainer-encounter-engine.test.lua",
+    "testing/unit/gym-leader-elite-four.test.lua",
+    "testing/unit/environmental-cycle.test.lua"
   }
   
   local totalLegacyTests = 0
