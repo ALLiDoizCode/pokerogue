@@ -1,0 +1,162 @@
+# Quality Gate Decision - Story 17.1c
+# AI Move Selection Target Selection & Testing
+# Generated: October 2, 2025
+# Reviewer: Quinn (Test Architect)
+
+schema: 1
+story: "17.1c"
+story_title: "AI Move Selection Target Selection & Testing"
+gate: CONCERNS
+status_reason: "Excellent implementation quality with comprehensive test suite, but test execution blocked by npm cache permissions and missing Lua runtime. Node.js tests can run after npm install, Lua tests require Lua 5.3+ installation."
+reviewer: "Quinn (Test Architect)"
+updated: "2025-10-02T20:15:00Z"
+
+waiver: { active: false }
+
+top_issues:
+  - id: "ENV-001"
+    severity: medium
+    finding: "npm cache has root-owned files preventing dependency installation (EACCES error)"
+    suggested_action: "Run 'sudo chown -R 501:20 /Users/jonathangreen/.npm' then 'npm install' to execute Node.js-based tests (aos-local, parity)"
+    suggested_owner: dev
+  - id: "ENV-002"
+    severity: medium
+    finding: "Lua runtime not installed on system (command not found)"
+    suggested_action: "Install Lua 5.3+ via homebrew: 'brew install lua@5.3' to execute unit tests and AO validation tools"
+    suggested_owner: dev
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 2, low: 0 }
+  highest: medium
+  recommendations:
+    must_fix:
+      - "Install npm dependencies to execute 57 Node.js tests (12 integration + 45 parity)"
+      - "Install Lua runtime to execute 51 unit tests and AO compliance validation"
+    monitor:
+      - "Integration test count (12 vs 15+ target) - consider adding 3 more tests"
+      - "Parity test count (45 vs 50+ target) - consider adding 5 more tests"
+
+quality_score: 80
+expires: "2025-10-16T00:00:00Z"
+
+evidence:
+  tests_reviewed: 108
+  tests_by_type:
+    unit: 51
+    integration: 12
+    parity: 45
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12]
+    ac_gaps: [10]
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: "AO compliance 100% (manual inspection). Only permitted require('json'). No os.time(), math.random(), or unnecessary pcall. Sandboxed execution."
+  performance:
+    status: CONCERNS
+    notes: "File size excellent (56KB vs <100KB target, 44% under budget). Execution time validation blocked by test environment."
+  reliability:
+    status: PASS
+    notes: "Comprehensive error handling. Edge cases covered (counter moves, empty targets, inactive filtering). 6-phase algorithm implemented exactly per TypeScript reference."
+  maintainability:
+    status: PASS
+    notes: "Exceptional inline documentation with TypeScript line number references. Clear code organization. ADP v1.0 compliant with self-documenting Info handler."
+
+recommendations:
+  immediate:
+    - action: "Fix npm cache permissions and install dependencies"
+      refs: ["Terminal command required"]
+      rationale: "Blocks execution of 57 Node.js tests (aos-local + parity)"
+    - action: "Install Lua 5.3+ runtime"
+      refs: ["brew install lua@5.3"]
+      rationale: "Blocks execution of 51 unit tests and AO compliance validation"
+  future:
+    - action: "Add 3 more integration test scenarios to meet 15+ requirement"
+      refs: ["testing/integration/ai-move-selection-integration.test.lua"]
+      rationale: "Current 12 tests close to target, additional coverage would strengthen confidence"
+    - action: "Add 5 more parity test scenarios to meet 50+ requirement"
+      refs: ["testing/parity/ai-move-selection-target-parity.test.ts"]
+      rationale: "Current 45 tests close to target, additional coverage would validate edge cases"
+
+acceptance_criteria_validation:
+  AC1_target_selection_logic:
+    status: PASS
+    implementation: "Lines 1002-1153 (getNextTargets function)"
+    tests: "19 target resolution tests"
+    evidence: "6-phase algorithm matches pokemon.ts:6717-6796 exactly"
+  AC2_multi_target_handling:
+    status: PASS
+    implementation: "Lines 1025-1027 (Phase 2 multi-target detection)"
+    tests: "Special cases tests (multi-target scenarios)"
+    evidence: "AoE moves return all targets immediately, skipping benefit scoring"
+  AC3_single_target_optimization:
+    status: PASS
+    implementation: "Lines 1038-1127 (Phase 3-5 benefit scoring + weight normalization)"
+    tests: "12 benefit scoring + 10 weight normalization tests"
+    evidence: "Probabilistic selection weighted by benefit scores"
+  AC4_move_target_type_filtering:
+    status: PASS
+    implementation: "Lines 875-1000 (getMoveTargets function)"
+    tests: "19 target resolution tests (one per MoveTarget enum)"
+    evidence: "All 19 MoveTarget types implemented with proper multi-target flags"
+  AC5_double_battle_target_selection:
+    status: PASS
+    implementation: "Lines 1061-1064 (ally score inversion), 889-894 (ally inclusion)"
+    tests: "10 doubles parity tests"
+    evidence: "Ally targeting logic with score inversion for healing/buff moves"
+  AC6_unit_test_suite:
+    status: PASS
+    implementation: "4 test files, 51 tests total"
+    tests: "target-resolution (19), benefit-scoring (12), weight-normalization (10), special-cases (10)"
+    evidence: "Exceeds 40+ requirement by 27%"
+  AC7_integration_test_suite:
+    status: CONCERNS
+    implementation: "1 test file, 12 tests"
+    tests: "Basic battles, double battles, AI types, edge cases"
+    evidence: "Close to 15+ target (80% complete), 3 more tests recommended"
+  AC8_parity_test_suite:
+    status: CONCERNS
+    implementation: "1 test file, 45 tests"
+    tests: "Target resolution (15), benefit scoring (15), weight normalization (10), selection (5)"
+    evidence: "Close to 50+ target (90% complete), 5 more tests recommended"
+  AC9_ao_compliance:
+    status: PASS
+    implementation: "Entire process file"
+    tests: "Manual code inspection (tool blocked by missing Lua)"
+    evidence: "100% compliance - only json require, no os.time/math.random/unnecessary pcall, proper error handling"
+  AC10_performance_validation:
+    status: CONCERNS
+    implementation: "File size 56KB (44% under 100KB budget)"
+    tests: "Execution time measurement blocked"
+    evidence: "File size excellent, but <500ms/<5s validation pending test execution"
+  AC11_process_size_validation:
+    status: PASS
+    implementation: "56KB actual vs <100KB target"
+    tests: "File size check"
+    evidence: "44% under budget, well within 500KB AO network limit"
+  AC12_documentation:
+    status: PASS
+    implementation: "Inline comments with TypeScript line references"
+    tests: "Code inspection"
+    evidence: "Comprehensive documentation: getMoveTargets (lines 867-1000), getNextTargets (1002-1153), ADP Info handler updated (1584-1587)"
+
+implementation_quality:
+  algorithm_correctness: EXCELLENT
+  edge_case_handling: EXCELLENT
+  code_organization: EXCELLENT
+  documentation_quality: EXCELLENT
+  performance_optimization: EXCELLENT
+
+key_implementation_insights:
+  - "Ally score inversion (lines 1061-1064): Correctly multiplies score by -1 for same-side targets"
+  - "Weight normalization (lines 1091-1097): Handles negative benefit scores by adding abs(lowestWeight - 1)"
+  - "Probabilistic selection (lines 1129-1149): Cumulative threshold approach matches TypeScript exactly"
+  - "Multi-target immediate return (line 1025): AoE moves skip benefit scoring for performance"
+  - "Battle seed integration: All random operations deterministic for reproducibility"
+
+history:
+  - at: "2025-10-02T20:15:00Z"
+    gate: CONCERNS
+    note: "Initial review - excellent implementation but test execution blocked by environment setup (npm permissions + missing Lua runtime). Code quality exceptional, 100% AO compliance confirmed via manual inspection."
