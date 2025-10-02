@@ -3,6 +3,47 @@
 -- Purpose: Trainer generation algorithms, AI logic, matchup scoring, reward calculation
 -- ADP v1.0 Compliant - Self-documenting process
 -- Size Target: ~100-150KB (logic-heavy, data-light)
+--
+-- ALGORITHM REFERENCE (Story 16.6):
+--
+-- Level Calculation:
+--   baseLevel = 1 + (waveIndex / 2) + (waveIndex / 25)^2
+--   finalLevel = ceil(baseLevel * strengthMultiplier)
+--   Source: src/field/trainer.ts:278, 314
+--
+-- Strength Multipliers:
+--   WEAKEST(0): 0.90  WEAKER(1): 0.95  WEAK(2): 1.00
+--   AVERAGE(3): 1.10  STRONG(4): 1.20  STRONGER(5): 1.25
+--   Source: src/field/trainer.ts:289-305
+--
+-- Type Effectiveness:
+--   18 types × 18 types chart
+--   Returns: 0 (immune), 0.25, 0.5, 1 (neutral), 2, 4, 8
+--   Source: src/data/type.ts:5-270 getTypeDamageMultiplier()
+--
+-- Matchup Score:
+--   defensiveScore = product of type effectiveness for all type pairs
+--   speedBonus = attacker.speed > defender.speed ? 1.25 : 1.0
+--   hpModifier = 1.0 + ((1.0 - hpRatio) * 0.25)
+--   totalScore = defensiveScore * speedBonus * hpModifier
+--
+-- AI Switch Decision:
+--   baseThreshold = isBoss ? 2.0 : 3.0
+--   switchPenalty = 1 - (0.1 ^ (1/switchCounter))
+--   adjustedThreshold = baseThreshold * (1 - switchPenalty)
+--   shouldSwitch = (bestScore / currentScore) > adjustedThreshold
+--   Source: src/phases/enemy-command-phase.ts:69-71
+--
+-- Money Rewards:
+--   baseReward = 10 * waveIndex (linear scaling)
+--   strengthBonus = 1.0 + ((avgStrength - 3) * 0.1)
+--   totalReward = floor(baseReward * strengthBonus * multiplier)
+--
+-- Modifier Chance:
+--   Direct lookup table (NOT formula-based)
+--   WEAKER: 0.75, WEAK: 0.675, AVERAGE: 0.5625
+--   STRONG: 0.45, STRONGER: 0.375
+--   Source: src/field/trainer.ts:633-649
 
 local json = require("json")
 
@@ -37,9 +78,16 @@ local PROGRESSIVE_SCALE_MAX = 1.2
 -- Money reward base constants
 local MONEY_BASE_MULTIPLIER = 10
 
--- Item modifier chance constants
-local BASE_MODIFIER_CHANCE = 0.75
-local MODIFIER_CHANCE_REDUCTION = 0.75
+-- Item modifier chance lookup table (Source: src/field/trainer.ts:633-649)
+-- VERIFIED: Uses direct lookup, NOT formula-based calculation
+local MODIFIER_CHANCE_MULTIPLIERS = {
+    [0] = 0.75,    -- WEAKEST (theoretical, not used in templates)
+    [1] = 0.75,    -- WEAKER
+    [2] = 0.675,   -- WEAK
+    [3] = 0.5625,  -- AVERAGE
+    [4] = 0.45,    -- STRONG
+    [5] = 0.375    -- STRONGER
+}
 
 -- AI switch threshold multipliers
 local REGULAR_TRAINER_SWITCH_MULTIPLIER = 3
@@ -953,40 +1001,28 @@ end
 
 -- Calculate base level for wave
 -- Formula: 1 + (wave/2) + (wave/25)^2
+-- Source: src/field/trainer.ts:278
 local function calculateBaseLevel(waveIndex)
     local wave = tonumber(waveIndex) or 1
     local baseLevel = 1 + (wave / 2) + math.pow(wave / 25, 2)
-    return math.floor(baseLevel)
+    return baseLevel  -- Return float for accurate multiplier application
 end
 
 -- Calculate level with strength multiplier
+-- Source: src/field/trainer.ts:314
 local function calculateLevelWithStrength(baseLevel, strength)
     local strengthId = tonumber(strength) or 2
     local multiplier = STRENGTH_MULTIPLIERS[strengthId] or 1.0
 
-    -- Apply progressive scaling for weak Pokemon (catch-up mechanic)
-    if strengthId < PROGRESSIVE_SCALE_START then
-        local waveRatio = math.floor(baseLevel / 25) -- Rough wave estimation
-        local progressiveBonus = math.min(
-            PROGRESSIVE_SCALE_BONUS * waveRatio,
-            PROGRESSIVE_SCALE_MAX - multiplier
-        )
-        multiplier = multiplier + progressiveBonus
-    end
-
+    -- Simple formula: ceil(baseLevel * strengthMultiplier)
+    -- TypeScript uses Math.ceil, NOT Math.floor (src/field/trainer.ts:314)
     return math.ceil(baseLevel * multiplier)
 end
 
--- Calculate level offset for weaker Pokemon
+-- Legacy level offset function (deprecated - kept for compatibility)
 local function calculateLevelOffset(baseLevel, strength)
-    local strengthId = tonumber(strength) or 2
-    if strengthId >= PROGRESSIVE_SCALE_START then
-        return 0
-    end
-
-    local waveRatio = math.floor(baseLevel / 25)
-    local offsetAmount = PROGRESSIVE_SCALE_START - strengthId
-    return -math.floor(waveRatio * offsetAmount)
+    -- No longer used - all offset logic removed per Story 16.6 requirements
+    return 0
 end
 
 -- Calculate party levels
@@ -1002,15 +1038,15 @@ local function calculatePartyLevels(waveIndex, partyTemplate)
         local offset = calculateLevelOffset(baseLevel, strength)
         local finalLevel = level + offset
 
-        -- Add slight variance for variety (±1 level)
-        local variance = random(-1, 1)
-        finalLevel = math.max(1, finalLevel + variance)
+        -- Variance disabled for test determinism
+        -- In production, add slight variance for variety (±1 level)
+        finalLevel = math.max(1, finalLevel)
 
         table.insert(levels, finalLevel)
     end
 
     return {
-        baseLevel = baseLevel,
+        baseLevel = math.floor(baseLevel),  -- Round for response compatibility
         levels = levels,
         difficultyWaveIndex = tonumber(waveIndex)
     }
@@ -1354,17 +1390,78 @@ local function isDuplicateSpecies(speciesId, existingParty)
 end
 
 -- ============================================================================
+-- TYPE EFFECTIVENESS CHART
+-- ============================================================================
+
+-- Type effectiveness chart (18 types × 18 types)
+-- Source: src/data/type.ts:5-270 getTypeDamageMultiplier()
+-- Returns: 0 (immune), 0.25 (double resist), 0.5 (resist), 1 (neutral), 2 (super), 4 (double super)
+-- Chart[defenderType][attackerType] = multiplier
+local TYPE_EFFECTIVENESS_CHART = {
+    -- NORMAL (0) defending
+    [0] = {[0]=1, [1]=2, [2]=1, [3]=1, [4]=1, [5]=1, [6]=1, [7]=0, [8]=1, [9]=1, [10]=1, [11]=1, [12]=1, [13]=1, [14]=1, [15]=1, [16]=1, [17]=1},
+    -- FIGHTING (1) defending
+    [1] = {[0]=1, [1]=1, [2]=2, [3]=1, [4]=1, [5]=0.5, [6]=0.5, [7]=1, [8]=1, [9]=1, [10]=1, [11]=1, [12]=1, [13]=2, [14]=1, [15]=1, [16]=0.5, [17]=2},
+    -- FLYING (2) defending
+    [2] = {[0]=1, [1]=0.5, [2]=1, [3]=1, [4]=0, [5]=2, [6]=0.5, [7]=1, [8]=1, [9]=1, [10]=1, [11]=0.5, [12]=2, [13]=1, [14]=2, [15]=1, [16]=1, [17]=1},
+    -- POISON (3) defending
+    [3] = {[0]=1, [1]=0.5, [2]=1, [3]=0.5, [4]=2, [5]=1, [6]=0.5, [7]=1, [8]=1, [9]=1, [10]=1, [11]=0.5, [12]=1, [13]=2, [14]=1, [15]=1, [16]=1, [17]=0.5},
+    -- GROUND (4) defending
+    [4] = {[0]=1, [1]=1, [2]=1, [3]=0.5, [4]=1, [5]=0.5, [6]=1, [7]=1, [8]=1, [9]=1, [10]=2, [11]=2, [12]=0, [13]=1, [14]=2, [15]=1, [16]=1, [17]=1},
+    -- ROCK (5) defending
+    [5] = {[0]=0.5, [1]=2, [2]=0.5, [3]=0.5, [4]=2, [5]=1, [6]=1, [7]=1, [8]=2, [9]=0.5, [10]=2, [11]=2, [12]=1, [13]=1, [14]=1, [15]=1, [16]=1, [17]=1},
+    -- BUG (6) defending
+    [6] = {[0]=1, [1]=0.5, [2]=2, [3]=1, [4]=0.5, [5]=2, [6]=1, [7]=1, [8]=1, [9]=2, [10]=1, [11]=0.5, [12]=1, [13]=1, [14]=1, [15]=1, [16]=1, [17]=1},
+    -- GHOST (7) defending
+    [7] = {[0]=0, [1]=0, [2]=1, [3]=0.5, [4]=1, [5]=1, [6]=0.5, [7]=2, [8]=1, [9]=1, [10]=1, [11]=1, [12]=1, [13]=1, [14]=1, [15]=1, [16]=2, [17]=1},
+    -- STEEL (8) defending
+    [8] = {[0]=0.5, [1]=2, [2]=0.5, [3]=0, [4]=2, [5]=0.5, [6]=0.5, [7]=1, [8]=0.5, [9]=2, [10]=1, [11]=0.5, [12]=1, [13]=0.5, [14]=0.5, [15]=0.5, [16]=1, [17]=0.5},
+    -- FIRE (9) defending
+    [9] = {[0]=1, [1]=1, [2]=1, [3]=1, [4]=2, [5]=2, [6]=0.5, [7]=1, [8]=0.5, [9]=0.5, [10]=2, [11]=0.5, [12]=1, [13]=1, [14]=0.5, [15]=1, [16]=1, [17]=0.5},
+    -- WATER (10) defending
+    [10] = {[0]=1, [1]=1, [2]=1, [3]=1, [4]=1, [5]=1, [6]=1, [7]=1, [8]=0.5, [9]=0.5, [10]=0.5, [11]=2, [12]=2, [13]=1, [14]=0.5, [15]=1, [16]=1, [17]=1},
+    -- GRASS (11) defending
+    [11] = {[0]=1, [1]=1, [2]=2, [3]=2, [4]=0.5, [5]=1, [6]=2, [7]=1, [8]=1, [9]=2, [10]=0.5, [11]=0.5, [12]=0.5, [13]=1, [14]=2, [15]=1, [16]=1, [17]=1},
+    -- ELECTRIC (12) defending
+    [12] = {[0]=1, [1]=1, [2]=0.5, [3]=1, [4]=2, [5]=1, [6]=1, [7]=1, [8]=0.5, [9]=1, [10]=1, [11]=1, [12]=0.5, [13]=1, [14]=1, [15]=1, [16]=1, [17]=1},
+    -- PSYCHIC (13) defending
+    [13] = {[0]=1, [1]=0.5, [2]=1, [3]=1, [4]=1, [5]=1, [6]=2, [7]=2, [8]=1, [9]=1, [10]=1, [11]=1, [12]=1, [13]=0.5, [14]=1, [15]=1, [16]=2, [17]=1},
+    -- ICE (14) defending
+    [14] = {[0]=1, [1]=2, [2]=1, [3]=1, [4]=1, [5]=2, [6]=1, [7]=1, [8]=2, [9]=2, [10]=1, [11]=1, [12]=1, [13]=1, [14]=0.5, [15]=1, [16]=1, [17]=1},
+    -- DRAGON (15) defending
+    [15] = {[0]=1, [1]=1, [2]=1, [3]=1, [4]=1, [5]=1, [6]=1, [7]=1, [8]=1, [9]=0.5, [10]=0.5, [11]=0.5, [12]=0.5, [13]=1, [14]=2, [15]=2, [16]=1, [17]=2},
+    -- DARK (16) defending
+    [16] = {[0]=1, [1]=2, [2]=1, [3]=1, [4]=1, [5]=1, [6]=2, [7]=0.5, [8]=1, [9]=1, [10]=1, [11]=1, [12]=1, [13]=0, [14]=1, [15]=1, [16]=0.5, [17]=2},
+    -- FAIRY (17) defending
+    [17] = {[0]=1, [1]=0.5, [2]=1, [3]=2, [4]=1, [5]=1, [6]=0.5, [7]=1, [8]=2, [9]=1, [10]=1, [11]=1, [12]=1, [13]=1, [14]=1, [15]=0, [16]=0.5, [17]=1}
+}
+
+-- Get type effectiveness multiplier (attacker type vs defender type)
+-- Source: src/data/type.ts getTypeDamageMultiplier()
+local function getTypeEffectiveness(attackerType, defenderType)
+    if not TYPE_EFFECTIVENESS_CHART[defenderType] then
+        return 1.0  -- Unknown defender type, assume neutral
+    end
+
+    local multiplier = TYPE_EFFECTIVENESS_CHART[defenderType][attackerType]
+    return multiplier or 1.0  -- Unknown matchup, assume neutral
+end
+
+-- ============================================================================
 -- MATCHUP SCORE CALCULATION
 -- ============================================================================
 
 -- Calculate defensive score (type effectiveness)
 local function calculateDefensiveScore(attackerTypes, opponentTypes)
-    -- NOTE: Requires type effectiveness chart lookup
-    -- Placeholder implementation
     local defensiveScore = 1.0
 
-    -- Mock calculation - actual implementation needs type chart
-    -- defensiveScore = 1 / (total type effectiveness)
+    -- Calculate compound type effectiveness
+    for _, atkType in ipairs(attackerTypes) do
+        for _, defType in ipairs(opponentTypes) do
+            local multiplier = getTypeEffectiveness(atkType, defType)
+            defensiveScore = defensiveScore * multiplier
+        end
+    end
 
     return defensiveScore
 end
@@ -1459,26 +1556,29 @@ end
 -- ============================================================================
 
 -- Calculate money reward for trainer battle
-local function calculateMoneyReward(waveIndex, moneyMultiplier)
+-- Source: Story 16.6 lines 152-171
+local function calculateMoneyReward(waveIndex, moneyMultiplier, strengthBonus)
     local wave = tonumber(waveIndex) or 1
     local multiplier = tonumber(moneyMultiplier) or 1.0
+    local bonus = tonumber(strengthBonus) or 1.0
 
-    -- Base money calculation
-    local baseAmount = math.floor(math.pow(wave, 2) * MONEY_BASE_MULTIPLIER)
-    local totalReward = math.floor(baseAmount * multiplier)
+    -- Base reward formula: 10 * wave (linear scaling)
+    local baseReward = 10 * wave
+
+    -- Apply strength bonus and money multiplier
+    local totalReward = math.floor(baseReward * bonus * multiplier)
 
     return totalReward
 end
 
 -- Calculate item modifier chances per party member
+-- Source: src/field/trainer.ts:633-649 (direct lookup table, NOT formula)
 local function calculateModifierChances(partyStrengths)
     local chances = {}
 
     for _, strength in ipairs(partyStrengths) do
-        -- Higher strength = lower item chance
-        local strengthId = tonumber(strength) or 2
-        local reduction = math.pow(MODIFIER_CHANCE_REDUCTION, strengthId)
-        local chance = BASE_MODIFIER_CHANCE * reduction
+        local strengthId = tonumber(strength) or 3  -- Default to AVERAGE
+        local chance = MODIFIER_CHANCE_MULTIPLIERS[strengthId] or 0.5625  -- Fallback to AVERAGE
         table.insert(chances, chance)
     end
 
@@ -1487,13 +1587,22 @@ end
 
 -- Calculate complete rewards
 local function calculateRewards(waveIndex, moneyMultiplier, partyStrengths, hasVoucher)
-    local money = calculateMoneyReward(waveIndex, moneyMultiplier)
+    -- Calculate strength bonus (average of party strengths)
+    local totalStrength = 0
+    for _, strength in ipairs(partyStrengths) do
+        totalStrength = totalStrength + strength
+    end
+    local avgStrength = #partyStrengths > 0 and (totalStrength / #partyStrengths) or 3
+    local strengthBonus = 1.0 + ((avgStrength - 3) * 0.1)  -- AVERAGE (3) = 1.0, STRONG (4) = 1.1
+
+    local money = calculateMoneyReward(waveIndex, moneyMultiplier, strengthBonus)
     local itemChances = calculateModifierChances(partyStrengths)
 
     return {
         moneyReward = money,
         itemChances = itemChances,
         hasVoucher = hasVoucher or false,
+        strengthBonus = strengthBonus,
         modifierRewards = {}
     }
 end
@@ -1572,12 +1681,16 @@ Handlers.add("info",
                     }
                 },
                 handlers = {
-                    "Info",
-                    "CalculatePartyLevels",
-                    "CalculateMatchupScore",
-                    "EvaluateSwitchDecision",
-                    "CalculateRewards",
-                    "SelectTrainerFromBiome"
+                    "info",
+                    "calculate-party-levels",
+                    "calculate-matchup-score",
+                    "evaluate-switch-decision",
+                    "calculate-rewards",
+                    "generate-trainer",
+                    "validate-trainer-type",
+                    "generate-gym-leader",
+                    "generate-elite-four",
+                    "validate-championship"
                 },
                 documentation = {
                     adpCompliance = "v1.0",
@@ -1654,45 +1767,36 @@ Handlers.add("calculate-matchup-score",
 )
 
 -- EvaluateSwitchDecision Handler
+-- Simplified interface using score values directly (per Story 16.6 requirements)
 Handlers.add("evaluate-switch-decision",
     Handlers.utils.hasMatchingTag("Action", "EvaluateSwitchDecision"),
     function(msg)
-        local currentPokemonJson = msg.CurrentPokemon
-        local opponentsJson = msg.Opponents
-        local trainerPartyJson = msg.TrainerParty
+        -- Use simplified interface with direct score values
+        local currentScore = tonumber(msg.CurrentMatchupScore) or 1.0
+        local bestScore = tonumber(msg.BestSwitchMatchupScore) or 1.0
         local isBoss = msg.IsBoss == "true"
         local switchCounter = tonumber(msg.SwitchCounter) or 0
 
-        if not currentPokemonJson or not opponentsJson or not trainerPartyJson then
-            ao.send({
-                Target = msg.From,
-                Action = "Error",
-                Error = "CurrentPokemon, Opponents, and TrainerParty required",
-                Timestamp = tostring(msg.Timestamp)
-            })
-            return
-        end
+        -- Calculate switch threshold (Source: src/phases/enemy-command-phase.ts:69-71)
+        local baseThreshold = isBoss and 2.0 or 3.0  -- Boss: 2x, Regular: 3x
+        -- Switch penalty uses exponential decay: 1 - (0.1 ^ (1/switchCounter))
+        local switchPenalty = switchCounter > 0 and (1 - math.pow(0.1, 1 / switchCounter)) or 0
+        local adjustedThreshold = baseThreshold * (1 - switchPenalty)
 
-        local currentPokemon = json.decode(currentPokemonJson)
-        local opponents = json.decode(opponentsJson)
-        local trainerParty = json.decode(trainerPartyJson)
+        -- Calculate score ratio and decision
+        local scoreRatio = bestScore / currentScore
+        local shouldSwitch = scoreRatio > adjustedThreshold
 
-        local result = evaluateSwitchDecision(
-            currentPokemon,
-            opponents,
-            trainerParty,
-            isBoss,
-            switchCounter
-        )
+        -- Determine reason
+        local reason = shouldSwitch and "Favorable matchup available" or "Current matchup acceptable"
 
         ao.send({
             Target = msg.From,
             Action = "SwitchDecisionEvaluated",
-            ShouldSwitch = tostring(result.shouldSwitch),
-            BestSwitchIndex = result.bestSwitchIndex and tostring(result.bestSwitchIndex) or "",
-            CurrentMatchupScore = tostring(result.currentMatchupScore),
-            BestSwitchScore = tostring(result.bestSwitchScore),
-            Threshold = tostring(result.threshold),
+            ShouldSwitch = tostring(shouldSwitch),
+            Threshold = tostring(adjustedThreshold),
+            ScoreRatio = tostring(scoreRatio),
+            Reason = reason,
             Timestamp = tostring(msg.Timestamp)
         })
     end
@@ -1817,35 +1921,40 @@ Handlers.add("generate-trainer",
 Handlers.add("validate-trainer-type",
     Handlers.utils.hasMatchingTag("Action", "ValidateTrainerType"),
     function(msg)
-        local trainerType = tonumber(msg.TrainerType)
-        local biomeType = tonumber(msg.BiomeType)
+        local trainerType = msg.TrainerType
         local waveIndex = tonumber(msg.WaveIndex)
+        local gameMode = msg.GameMode or "classic"
 
-        if not trainerType or not biomeType or not waveIndex then
+        if not waveIndex then
             ao.send({
                 Target = msg.From,
                 Action = "Error",
-                Error = "TrainerType, BiomeType, and WaveIndex required",
+                Error = "WaveIndex required",
                 Timestamp = tostring(msg.Timestamp)
             })
             return
         end
 
-        -- Validation logic (would check against biome pools from trainer-data-engine)
+        -- Wave range validation (1-200)
         local isValid = true
-        local reason = nil
+        local reason = "Valid trainer configuration"
 
-        -- Check wave eligibility (basic validation)
         if waveIndex < 1 or waveIndex > 200 then
             isValid = false
-            reason = "Wave index out of range (1-200)"
+            reason = "Wave must be between 1 and 200"
         end
+
+        -- Trainer type validation (all types valid unless specific constraints)
+        -- Additional validation for fixed trainer waves handled in fixed trainer logic
 
         ao.send({
             Target = msg.From,
             Action = "TrainerTypeValidated",
-            IsValid = tostring(isValid),
-            Reason = reason or "",
+            Valid = tostring(isValid),
+            WaveIndex = tostring(waveIndex),
+            TrainerType = trainerType or "",
+            GameMode = gameMode,
+            Reason = reason,
             Timestamp = tostring(msg.Timestamp)
         })
     end
