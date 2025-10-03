@@ -8,9 +8,18 @@ import { exec } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import { promisify } from "util";
-import chalk from "chalk";
 
 const execAsync = promisify(exec);
+
+// Simple color helpers (replacing chalk)
+const colors = {
+  blue: (text) => `\x1b[34m${text}\x1b[0m`,
+  green: (text) => `\x1b[32m${text}\x1b[0m`,
+  red: (text) => `\x1b[31m${text}\x1b[0m`,
+  yellow: (text) => `\x1b[33m${text}\x1b[0m`,
+  gray: (text) => `\x1b[90m${text}\x1b[0m`,
+  bold: (text) => `\x1b[1m${text}\x1b[0m`
+};
 
 export class ParityTestFramework {
   constructor(options = {}) {
@@ -25,7 +34,7 @@ export class ParityTestFramework {
    * Execute a complete parity test suite
    */
   async runParityTests() {
-    console.log(chalk.blue("\n🔄 Starting Parity Test Framework..."));
+    console.log(colors.blue("\n🔄 Starting Parity Test Framework..."));
 
     try {
       // Initialize test environment
@@ -33,11 +42,11 @@ export class ParityTestFramework {
 
       // Load test scenarios
       const scenarios = await this.loadTestScenarios();
-      console.log(chalk.green(`📋 Loaded ${scenarios.length} test scenarios`));
+      console.log(colors.green(`📋 Loaded ${scenarios.length} test scenarios`));
 
       // Execute scenarios on both implementations
       for (const scenario of scenarios) {
-        console.log(chalk.yellow(`\n🧪 Testing scenario: ${scenario.name}`));
+        console.log(colors.yellow(`\n🧪 Testing scenario: ${scenario.name}`));
         await this.executeParityScenario(scenario);
       }
 
@@ -47,7 +56,7 @@ export class ParityTestFramework {
       // Return summary
       return this.getTestSummary();
     } catch (error) {
-      console.error(chalk.red("❌ Parity testing failed:"), error.message);
+      console.error(colors.red("❌ Parity testing failed:"), error.message);
       throw error;
     }
   }
@@ -61,12 +70,12 @@ export class ParityTestFramework {
     await fs.mkdir(this.testScenariosDir, { recursive: true });
 
     // Validate TypeScript reference integrity
-    console.log(chalk.blue("🔍 Validating TypeScript reference integrity..."));
+    console.log(colors.blue("🔍 Validating TypeScript reference integrity..."));
     try {
       await execAsync("./scripts/validate-integrity.sh --validate", {
         cwd: this.typescriptDir,
       });
-      console.log(chalk.green("✅ TypeScript reference integrity confirmed"));
+      console.log(colors.green("✅ TypeScript reference integrity confirmed"));
     } catch (error) {
       throw new Error(`TypeScript reference integrity check failed: ${error.message}`);
     }
@@ -114,35 +123,35 @@ export class ParityTestFramework {
 
     try {
       // Execute on TypeScript implementation
-      console.log(chalk.blue("  📘 Executing on TypeScript..."));
+      console.log(colors.blue("  📘 Executing on TypeScript..."));
       const tsStart = Date.now();
       testResult.typescriptResult = await this.executeOnTypeScript(scenario);
       testResult.executionTimes.typescript = Date.now() - tsStart;
 
       // Execute on AO implementation
-      console.log(chalk.blue("  🟧 Executing on AO Lua..."));
+      console.log(colors.blue("  🟧 Executing on AO Lua..."));
       const aoStart = Date.now();
       testResult.aoResult = await this.executeOnAO(scenario);
       testResult.executionTimes.ao = Date.now() - aoStart;
 
       // Compare results
-      console.log(chalk.blue("  🔍 Comparing results..."));
+      console.log(colors.blue("  🔍 Comparing results..."));
       await this.compareResults(testResult, scenario);
 
       this.results.push(testResult);
 
       // Log result
       if (testResult.comparisonStatus === "pass") {
-        console.log(chalk.green("  ✅ PASS - Results match"));
+        console.log(colors.green("  ✅ PASS - Results match"));
       } else {
-        console.log(chalk.red("  ❌ FAIL - Results differ"));
-        console.log(chalk.yellow(`     Differences: ${testResult.differences.length}`));
+        console.log(colors.red("  ❌ FAIL - Results differ"));
+        console.log(colors.yellow(`     Differences: ${testResult.differences.length}`));
       }
     } catch (error) {
       testResult.comparisonStatus = "error";
       testResult.error = error.message;
       this.results.push(testResult);
-      console.log(chalk.red(`  💥 ERROR - ${error.message}`));
+      console.log(colors.red(`  💥 ERROR - ${error.message}`));
     }
   }
 
@@ -395,9 +404,9 @@ export class ParityTestFramework {
     const htmlReport = this.generateHtmlReport(report);
     await fs.writeFile(htmlReportPath, htmlReport);
 
-    console.log(chalk.green("📊 Reports generated:"));
-    console.log(chalk.blue(`  JSON: ${reportPath}`));
-    console.log(chalk.blue(`  HTML: ${htmlReportPath}`));
+    console.log(colors.green("📊 Reports generated:"));
+    console.log(colors.blue(`  JSON: ${reportPath}`));
+    console.log(colors.blue(`  HTML: ${htmlReportPath}`));
   }
 
   /**

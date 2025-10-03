@@ -8,9 +8,18 @@ import { exec } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import { promisify } from "util";
-import chalk from "chalk";
 
 const execAsync = promisify(exec);
+
+// Simple color helpers (replacing chalk)
+const colors = {
+  blue: (text) => `\x1b[34m${text}\x1b[0m`,
+  green: (text) => `\x1b[32m${text}\x1b[0m`,
+  red: (text) => `\x1b[31m${text}\x1b[0m`,
+  yellow: (text) => `\x1b[33m${text}\x1b[0m`,
+  gray: (text) => `\x1b[90m${text}\x1b[0m`,
+  bold: (text) => `\x1b[1m${text}\x1b[0m`
+};
 
 export class AosLocalIntegrationFramework {
   constructor(options = {}) {
@@ -26,7 +35,7 @@ export class AosLocalIntegrationFramework {
    * Initialize aos-local testing environment
    */
   async initializeEnvironment() {
-    console.log(chalk.blue("🔧 Initializing aos-local integration environment..."));
+    console.log(colors.blue("🔧 Initializing aos-local integration environment..."));
 
     // Ensure directories exist
     await fs.mkdir(this.testScenariosDir, { recursive: true });
@@ -41,7 +50,7 @@ export class AosLocalIntegrationFramework {
       await fs.access("development-tools/aolite");
       await fs.access("scripts/run-aolite-tests.lua");
       this.aosCommand = "lua scripts/run-aolite-tests.lua";
-      console.log(chalk.green("✅ aos-local environment available (using aolite framework)"));
+      console.log(colors.green("✅ aos-local environment available (using aolite framework)"));
     } catch (_error) {
       throw new Error(
         "aolite framework not found. Please ensure Lua is installed and aolite submodule is initialized.",
@@ -50,7 +59,7 @@ export class AosLocalIntegrationFramework {
 
     // Load test scenarios
     const scenarios = await this.loadIntegrationScenarios();
-    console.log(chalk.green(`📋 Loaded ${scenarios.length} integration scenarios`));
+    console.log(colors.green(`📋 Loaded ${scenarios.length} integration scenarios`));
 
     return scenarios;
   }
@@ -82,7 +91,7 @@ export class AosLocalIntegrationFramework {
    * Deploy processes to aos-local environment
    */
   async deployProcesses(processFiles) {
-    console.log(chalk.blue("🚀 Deploying processes to aos-local..."));
+    console.log(colors.blue("🚀 Deploying processes to aos-local..."));
 
     for (const processFile of processFiles) {
       const processPath = path.join(this.processesDir, processFile);
@@ -99,9 +108,9 @@ export class AosLocalIntegrationFramework {
           deployTime: Date.now(),
         });
 
-        console.log(chalk.green(`  ✅ Deployed ${processFile} -> ${processId}`));
+        console.log(colors.green(`  ✅ Deployed ${processFile} -> ${processId}`));
       } catch (error) {
-        console.log(chalk.red(`  ❌ Failed to deploy ${processFile}: ${error.message}`));
+        console.log(colors.red(`  ❌ Failed to deploy ${processFile}: ${error.message}`));
         throw error;
       }
     }
@@ -111,7 +120,7 @@ export class AosLocalIntegrationFramework {
    * Execute multi-process integration test
    */
   async executeIntegrationTest(scenario) {
-    console.log(chalk.yellow(`🧪 Executing integration test: ${scenario.name}`));
+    console.log(colors.yellow(`🧪 Executing integration test: ${scenario.name}`));
 
     const testResult = {
       scenarioId: scenario.id,
@@ -155,8 +164,9 @@ export class AosLocalIntegrationFramework {
     testResult.duration = Date.now() - startTime;
     this.testResults.push(testResult);
 
+    const statusColor = testResult.status === "passed" ? colors.green : colors.red;
     console.log(
-      chalk[testResult.status === "passed" ? "green" : "red"](
+      statusColor(
         `  ${testResult.status === "passed" ? "✅" : "❌"} ${scenario.name} - ${testResult.status.toUpperCase()} (${testResult.duration}ms)`,
       ),
     );
@@ -376,8 +386,8 @@ export class AosLocalIntegrationFramework {
    * Run complete integration test suite
    */
   async runIntegrationTests() {
-    console.log(chalk.blue.bold("\n🚀 aos-local Integration Testing Framework"));
-    console.log(chalk.blue("=".repeat(60)));
+    console.log(colors.bold(colors.blue("\n🚀 aos-local Integration Testing Framework")));
+    console.log(colors.blue("=".repeat(60)));
 
     try {
       // Initialize environment
@@ -394,7 +404,7 @@ export class AosLocalIntegrationFramework {
       // Return summary
       return this.getTestSummary();
     } catch (error) {
-      console.error(chalk.red("❌ Integration testing failed:"), error.message);
+      console.error(colors.red("❌ Integration testing failed:"), error.message);
       throw error;
     } finally {
       // Cleanup
@@ -428,9 +438,9 @@ export class AosLocalIntegrationFramework {
     const htmlReport = this.generateHtmlReport(report);
     await fs.writeFile(htmlReportPath, htmlReport);
 
-    console.log(chalk.green("📊 Integration test reports generated:"));
-    console.log(chalk.blue(`  JSON: ${reportPath}`));
-    console.log(chalk.blue(`  HTML: ${htmlReportPath}`));
+    console.log(colors.green("📊 Integration test reports generated:"));
+    console.log(colors.blue(`  JSON: ${reportPath}`));
+    console.log(colors.blue(`  HTML: ${htmlReportPath}`));
   }
 
   /**
@@ -629,7 +639,7 @@ export class AosLocalIntegrationFramework {
    * Cleanup test environment
    */
   async cleanup() {
-    console.log(chalk.blue("🧹 Cleaning up test environment..."));
+    console.log(colors.blue("🧹 Cleaning up test environment..."));
 
     // Clear deployed processes
     this.processes.clear();
@@ -639,10 +649,10 @@ export class AosLocalIntegrationFramework {
       await fs.rm(this.tempDir, { recursive: true, force: true });
       await fs.mkdir(this.tempDir, { recursive: true });
     } catch (error) {
-      console.warn(chalk.yellow(`Warning: Could not clean temp directory: ${error.message}`));
+      console.warn(colors.yellow(`Warning: Could not clean temp directory: ${error.message}`));
     }
 
-    console.log(chalk.green("✅ Cleanup completed"));
+    console.log(colors.green("✅ Cleanup completed"));
   }
 }
 

@@ -78,7 +78,12 @@ local function main()
     "testing/unit/unlockable-content-engine.test.lua",
     "testing/unit/trainer-encounter-engine.test.lua",
     "testing/unit/gym-leader-elite-four.test.lua",
-    "testing/unit/environmental-cycle.test.lua"
+    "testing/unit/environmental-cycle.test.lua",
+    -- AI Move Selection Engine tests (Story 17.1)
+    "testing/unit/ai-move-selection-benefit-scoring.test.lua",
+    "testing/unit/ai-move-selection-special-cases.test.lua",
+    "testing/unit/ai-move-selection-target-resolution.test.lua",
+    "testing/unit/ai-move-selection-weight-normalization.test.lua"
   }
   
   local totalLegacyTests = 0

@@ -2,18 +2,78 @@
 
 Migrate AI battle decision making, trainer personalities, dynamic party generation, and NPC interaction systems while maintaining identical behavioral patterns and decision-making algorithms.
 
-## Story 17.1: AI Move Selection & Evaluation Migration
-As a **AI move selection engineer**,  
-I want **AI move selection and evaluation algorithms migrated to stateless AO process**,  
-so that **AI move choice logic maintains identical decision-making patterns to TypeScript**.
+## Story 17.1: AI Move Selection Core Implementation
+As a **AI move selection engineer**,
+I want **core AI move selection algorithms implemented in stateless AO process**,
+so that **AI move evaluation pipeline is functional with basic type effectiveness**.
 
 ### Acceptance Criteria
-1. AI move selection algorithms maintain identical decision logic and priority weighting
-2. Move effectiveness calculations maintain identical damage and utility evaluation behavior
-3. Type advantage assessment maintains identical strategic evaluation and selection criteria
-4. Move priority evaluation maintains identical speed and turn order consideration logic
-5. Complex move scenarios maintain identical decision resolution and selection optimization
-6. Comprehensive testing validates 100% AI move selection behavioral and strategic parity
+1. Three AI types implemented: RANDOM, SMART_RANDOM, SMART (9-stage evaluation pipeline)
+2. Move queue processing with virtual move detection (isVirtual checks)
+3. Usability filtering (PP checks, disabled moves, restrictions)
+4. Encore forced move detection and single-move shortcut logic
+5. Basic KO move detection (damage >= opponent.hp threshold)
+6. Move benefit scoring with simplified type effectiveness (1.0 default)
+7. Move pool sorting and probabilistic AI selection algorithms
+8. Struggle fallback for no usable moves
+9. ADP v1.0 compliant with 5+ handlers (evaluate-move-selection, calculate-move-benefit, detect-ko-moves, health-check, info)
+10. AO compliance validation passes (100% compliance)
+11. Process size under 100KB (target: 40-60KB)
+
+### Out of Scope (Deferred to 17.1a-17.1c)
+- Full type effectiveness matrix (18×18 type chart)
+- Complete damage calculation formulas
+- Complex target selection logic
+- Comprehensive test suites (40+ unit, 15+ integration, 50+ parity tests)
+
+## Story 17.1a: AI Move Selection Type System Enhancement
+As a **AI move selection engineer**,
+I want **full type effectiveness matrix and STAB calculations integrated**,
+so that **AI move selection evaluates type matchups identically to TypeScript**.
+
+### Acceptance Criteria
+1. 18×18 type effectiveness matrix embedded (324 entries from src/data/type.ts)
+2. Type damage multipliers: IMMUNE=0, EIGHTH=0.125, QUARTER=0.25, HALF=0.5, NORMAL=1, DOUBLE=2, QUADRUPLE=4, OCTUPLE=8
+3. Dual-type target effectiveness calculation (multiply individual type multipliers)
+4. STAB (Same-Type Attack Bonus) calculation: 1.5× for matching types, 1.0× otherwise
+5. Ability-modified effectiveness (Levitate, Flash Fire, Volt Absorb, etc.)
+6. Type effectiveness integration with move benefit scoring
+7. Unit tests for type effectiveness calculations (15+ tests)
+8. Parity tests vs TypeScript type system (20+ scenarios)
+
+## Story 17.1b: AI Move Selection Damage Calculation
+As a **AI move selection engineer**,
+I want **complete damage calculation formulas for KO detection**,
+so that **AI accurately predicts which moves can KO opponents**.
+
+### Acceptance Criteria
+1. Base damage formula implementation: `((2 * Level / 5 + 2) * Power * (Atk / Def) / 50) + 2`
+2. Damage modifiers: STAB, type effectiveness, critical hits, random variance
+3. Stat-based damage calculation (Attack/Defense or SpAtk/SpDef based on move category)
+4. Critical hit detection: crit-only moves, Laser Focus tag, critical hit rates
+5. Special move conditions: Sucker Punch, Upper Hand, Thunderclap priority checks
+6. Move condition checking (applyConditions equivalent)
+7. Ability interactions affecting damage (Thick Fat, Filter, Solid Rock, etc.)
+8. Weather/terrain damage modifiers
+9. KO detection accuracy validation (unit tests: 12+ scenarios)
+10. Parity tests vs TypeScript damage calculations (15+ scenarios)
+
+## Story 17.1c: AI Move Selection Target Selection & Testing
+As a **AI move selection engineer**,
+I want **complex target selection logic and comprehensive test coverage**,
+so that **AI move selection matches TypeScript behavior exactly with 100% test parity**.
+
+### Acceptance Criteria
+1. Target selection logic from getNextTargets() (lines 6717-6800)
+2. Multi-target move handling (AoE moves like Earthquake, Surf)
+3. Single-target optimization (select best target based on benefit scores)
+4. Move target type filtering (MoveTarget enums: USER, OTHER, ALL_OTHERS, etc.)
+5. Double battle target selection with ally considerations
+6. Unit test suite: 40+ tests covering all algorithms (move queue, usability, benefit scoring, KO detection, AI selection)
+7. Integration test suite: 15+ tests with full battle context
+8. Parity test suite: 50+ scenarios validating 100% behavioral match with TypeScript
+9. AO compliance validation: 100% (no forbidden patterns)
+10. Performance validation: <500ms for typical scenarios, <5s execution limit
 
 ## Story 17.2: AI Switch Decision Logic Migration
 As a **AI switch decision engineer**,  
