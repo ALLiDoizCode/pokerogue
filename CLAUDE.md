@@ -17,6 +17,22 @@ This file contains information and commands for Claude to help with development 
 - Validate process sizes: `npm run validate:size`
 - Full test suite: `npm run test:all`
 
+### CRITICAL: Test File Requirements
+**⚠️ ALL TEST FILES MUST BE LUA FORMAT (.test.lua), NOT TYPESCRIPT (.test.ts)**
+
+This project follows an **AO-first testing strategy** with Lua-based testing:
+- **Unit tests**: `testing/unit/*.test.lua` (using aolite framework)
+- **Parity tests**: `testing/parity/*-parity.test.lua` (comparing Lua vs TS behavior)
+- **Integration tests**: `testing/integration/*.test.js` (Node.js/aos-local)
+
+**Never create TypeScript test files** (`.test.ts` or `.spec.ts`) for process testing:
+- ❌ WRONG: `testing/unit/my-process.test.ts`
+- ❌ WRONG: `testing/parity/my-feature-parity.test.ts`
+- ✅ CORRECT: `testing/unit/my-process.test.lua`
+- ✅ CORRECT: `testing/parity/my-feature-parity.test.lua`
+
+The TDD validation system (`scripts/hooks/tdd-pre-commit.sh`) only recognizes Lua test files. TypeScript test files will cause CI failures.
+
 ### Legacy Commands (Archived)
 - Build: `npm run build`
 - Test: `npm test`
