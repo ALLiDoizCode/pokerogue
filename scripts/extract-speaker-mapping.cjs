@@ -23,7 +23,7 @@ const lines = dialogueContent.split('\n');
 let currentTrainerId = null;
 let currentVariants = [];
 let inVariantBlock = false;
-let braceDepth = 0;
+// braceDepth variable removed as unused
 let variantDialogueKeys = new Set();
 
 for (let i = 0; i < lines.length; i++) {
@@ -40,9 +40,8 @@ for (let i = 0; i < lines.length; i++) {
       }
     }
 
-    currentTrainerId = parseInt(trainerMatch[1]);
+    currentTrainerId = Number.parseInt(trainerMatch[1]);
     currentVariants = [];
-    braceDepth = 1;
     inVariantBlock = false;
     continue;
   }
@@ -124,7 +123,7 @@ luaOutput += 'local TRAINER_SPEAKERS = {\n';
 // Sort by trainer type ID for readability
 const sortedIds = Object.keys(speakerMap).map(Number).sort((a, b) => a - b);
 
-sortedIds.forEach((id, index) => {
+for (const id of sortedIds) {
   const speaker = speakerMap[id];
 
   if (Array.isArray(speaker)) {
@@ -135,7 +134,7 @@ sortedIds.forEach((id, index) => {
     // Single speaker
     luaOutput += `  [${id}] = "${speaker}",\n`;
   }
-});
+}
 
 luaOutput += '}\n\nreturn TRAINER_SPEAKERS\n';
 
