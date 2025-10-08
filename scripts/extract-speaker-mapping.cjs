@@ -46,7 +46,9 @@ for (let i = 0; i < lines.length; i++) {
     continue;
   }
 
-  if (currentTrainerId === null) continue;
+  if (currentTrainerId === null) {
+    continue;
+  }
 
   // Detect variant start: "    {" (4 spaces + opening brace)
   if (line.match(/^\s{4}\{$/)) {

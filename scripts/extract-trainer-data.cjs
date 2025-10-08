@@ -263,9 +263,9 @@ function extractSignatureSpecies(content) {
 
     for (const token of tokens) {
       if (token.includes("__NESTED_")) {
-        const nestedMatch = token.match(/__NESTED_(\d+)__/);
-        if (nestedMatch) {
-          const nestedIndex = Number.parseInt(nestedMatch[1]);
+        const nestedTokenMatch = token.match(/__NESTED_(\d+)__/);
+        if (nestedTokenMatch) {
+          const nestedIndex = Number.parseInt(nestedTokenMatch[1]);
           species.push(nestedArrays[nestedIndex]);
         }
       } else {
