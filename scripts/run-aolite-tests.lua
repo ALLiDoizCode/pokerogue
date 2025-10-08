@@ -4,24 +4,41 @@
 -- Runs comprehensive unit tests with enhanced framework features
 
 -- Add current directory to package path for requiring local modules
-package.path = package.path .. ";./?.lua;./testing/unit/?.lua;./testing/aolite/?.lua;./processes/?.lua;./test/unit/?.lua"
+package.path = package.path .. ";./?.lua;./testing/unit/?.lua;./testing/aolite/?.lua;./processes/?.lua;./test/unit/?.lua;./development-tools/aolite/lua/?.lua;./development-tools/aolite/lua/aolite/?.lua"
 
 -- Load enhanced testing framework
 local EnhancedFramework = require('testing.aolite.enhanced-test-framework')
 local TestGenerators = require('testing.aolite.test-generators')
 
--- Simple mock for aolite framework (backward compatibility)
-local aolite = {
-  spawnProcess = function(code) 
-    return { id = "test-process-" .. math.random(1000, 9999) }
-  end,
-  send = function(processId, action, data)
-    return { success = true, response = data }
-  end,
-  eval = function(processId, code)
-    return { success = true, result = "eval complete" }
-  end
-}
+-- Try to load real aolite first, fallback to mock if not available
+local aolite
+local aoliteAvailable, aoliteModule = pcall(require, "aolite")
+
+if aoliteAvailable then
+  -- Use real aolite from development-tools
+  aolite = aoliteModule
+  print("✅ Loaded real aolite framework from development-tools")
+else
+  -- Fallback to simple mock for backward compatibility
+  print("⚠️  Using mock aolite (real aolite not found)")
+  aolite = {
+    spawnProcess = function(originalId, dataOrPath, tags)
+      return "test-process-" .. math.random(1000, 9999)
+    end,
+    send = function(msg)
+      -- msg should be a table with From, Target, Action, etc.
+      return {
+        Action = "SaveState",
+        Success = "true",
+        From = msg.Target or "test-process",
+        Target = msg.From or "test-sender"
+      }
+    end,
+    eval = function(processId, code)
+      return { success = true, result = "eval complete" }
+    end
+  }
+end
 
 -- Mock require for aolite
 package.loaded.aolite = aolite
@@ -83,9 +100,45 @@ local function main()
     "testing/unit/ai-move-selection-benefit-scoring.test.lua",
     "testing/unit/ai-move-selection-special-cases.test.lua",
     "testing/unit/ai-move-selection-target-resolution.test.lua",
-    "testing/unit/ai-move-selection-weight-normalization.test.lua"
+    "testing/unit/ai-move-selection-weight-normalization.test.lua",
+    "testing/unit/ai-switch-matchup-scoring.test.lua",
+    "testing/unit/ai-switch-decision-logic.test.lua",
+    -- Daily Run Engine tests (Story 18.1)
+    "testing/unit/daily-run-generation.test.lua",
+    -- Daily Run Engine additional tests (Story 18.1a)
+    "testing/unit/daily-run-biome-selection.test.lua",
+    "testing/unit/daily-run-difficulty.test.lua",
+    "testing/unit/daily-run-trainer-waves.test.lua",
+    "testing/unit/daily-run-event-seed-parsing.test.lua",
+    -- Game Mode Engine tests (Story 18.3)
+    "testing/unit/game-mode-creation.test.lua",
+    "testing/unit/game-mode-wave-detection.test.lua",
+    "testing/unit/game-mode-rewards.test.lua",
+    "testing/unit/game-mode-challenge-integration.test.lua",
+    -- Difficulty Scaling tests (Story 18.4)
+    "testing/unit/difficulty-scaling.test.lua",
+    -- Dialogue Navigation tests (Story 19.2)
+    "testing/unit/dialogue-flow-navigation.test.lua",
+    "testing/unit/dialogue-option-validation.test.lua",
+    "testing/unit/dialogue-token-replacement.test.lua",
+    "testing/unit/dialogue-consequence-calculation.test.lua",
+    -- Character Dialogue Engine tests (Story 19.3)
+    "testing/unit/character-dialogue-selection.test.lua",
+    "testing/unit/character-personality-consistency.test.lua",
+    "testing/unit/character-context-awareness.test.lua",
+    "testing/unit/character-speaker-mapping.test.lua",
+    "testing/parity/character-dialogue-parity.test.lua",
+    "testing/performance/character-dialogue-performance.test.lua",
+    -- Special Event Engine tests (Story 19.5)
+    "testing/unit/special-event-trigger.test.lua",
+    "testing/unit/special-event-duration.test.lua",
+    "testing/unit/special-event-effects.test.lua",
+    "testing/unit/special-event-rewards.test.lua",
+    "testing/unit/special-event-encounters.test.lua",
+    "testing/parity/special-event-parity.test.lua",
+    "testing/performance/special-event-performance.test.lua"
   }
-  
+
   local totalLegacyTests = 0
   local passedLegacyTests = 0
   local failedLegacyTests = 0

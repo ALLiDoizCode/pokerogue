@@ -1317,6 +1317,352 @@ local function evaluateMoveSelection(msg)
 end
 
 -- ============================================================================
+-- AI SWITCH DECISION LOGIC (Story 17.2)
+-- ============================================================================
+
+--- Calculate type effectiveness for defense score
+-- Mirrors TypeScript: pokemon.getAttackTypeEffectiveness(enemyType, opponent)
+-- @param defendingTypes table Array of Pokemon types
+-- @param attackType number Opponent's type
+-- @return number Type effectiveness multiplier
+local function calculateDefensiveEffectiveness(defendingTypes, attackType)
+    local effectiveness = TypeMultiplier.NORMAL
+
+    -- Calculate against first type
+    effectiveness = getTypeMultiplier(attackType, defendingTypes[1])
+
+    -- Multiply by second type if present (dual-type)
+    if defendingTypes[2] then
+        effectiveness = effectiveness * getTypeMultiplier(attackType, defendingTypes[2])
+    end
+
+    return math.max(effectiveness, 0.25)  -- Floor at 0.25 per TypeScript
+end
+
+--- Calculate matchup score between Pokemon and opponent
+-- Source: src/field/pokemon.ts:2557-2629 (getMatchupScore)
+-- Evaluates: speed advantage, defensive typing, offensive coverage, HP ratios
+-- @param pokemon table Pokemon data {types, moveset, hp, maxHp, stats, isActive}
+-- @param opponent table Opponent data {types, hp, maxHp, stats, isLegendary}
+-- @return number Matchup score (typically 0-16, max possible 64)
+local function getMatchupScore(pokemon, opponent)
+    -- 1. Speed comparison (lines 2560-2562)
+    local pokemonSpeed = pokemon.stats.spd or 0
+    local opponentSpeed = opponent.stats.spd or 0
+    local outspeed = pokemonSpeed >= opponentSpeed
+
+    -- 2. Defense score calculation (lines 2568-2572)
+    -- Based on how effectively Pokemon defends against opponent's types
+    local defScore = 1 / calculateDefensiveEffectiveness(pokemon.types, opponent.types[1])
+
+    -- Apply second type if opponent is dual-type
+    if opponent.types[2] then
+        defScore = defScore * (1 / calculateDefensiveEffectiveness(pokemon.types, opponent.types[2]))
+    end
+
+    -- Cap defense score at 4.0 per TypeScript
+    defScore = math.min(defScore, 4.0)
+
+    -- 3. Attack score calculation (lines 2574-2601)
+    local atkScore = 0
+    local moveAtkScoreLength = 0
+
+    if pokemon.moveset then
+        for _, move in ipairs(pokemon.moveset) do
+            -- Skip status moves and moves without PP
+            if move.category ~= MoveCategory.STATUS and move.pp > 0 then
+                local moveType = move.type
+
+                -- Calculate type effectiveness against opponent
+                local thisScore = TypeMultiplier.NORMAL
+                thisScore = getTypeMultiplier(moveType, opponent.types[1])
+                if opponent.types[2] then
+                    thisScore = thisScore * getTypeMultiplier(moveType, opponent.types[2])
+                end
+
+                -- Apply STAB multiplier (1.5x) if move type matches Pokemon type
+                -- Skip moves with VariableMoveTypeAttr per lines 2589-2590
+                if not move.hasVariableType then
+                    for _, pokemonType in ipairs(pokemon.types) do
+                        if pokemonType == moveType then
+                            thisScore = thisScore * 1.5
+                            break
+                        end
+                    end
+                end
+
+                atkScore = atkScore + thisScore
+                moveAtkScoreLength = moveAtkScoreLength + 1
+            end
+        end
+    end
+
+    -- Average attack score (default 1.0 if no damaging moves)
+    atkScore = moveAtkScoreLength > 0 and (atkScore / moveAtkScoreLength) or 1.0
+
+    -- 4. HP ratio analysis (lines 2607-2628)
+    local hpRatio = pokemon.hp / math.max(pokemon.maxHp, 1)
+    local oppHpRatio = opponent.hp / math.max(opponent.maxHp, 1)
+    local hpDiffRatio = hpRatio + (1 - oppHpRatio)
+
+    -- Dying Pokemon logic (HP <= 20%)
+    local isDying = hpRatio <= 0.2
+    if isDying and pokemon.isActive then
+        local badMatchup = atkScore < 1.5 and defScore < 1.5
+        if not outspeed and badMatchup then
+            -- Not a worthy sacrifice if slow and bad matchup
+            hpDiffRatio = hpDiffRatio * 0.85
+        else
+            -- Sacrifice candidate with adjusted ratio
+            hpDiffRatio = 1 - hpRatio + (outspeed and 0.2 or 0.1)
+        end
+    elseif outspeed then
+        -- Speed advantage bonus
+        hpDiffRatio = hpDiffRatio * 1.25
+    elseif hpRatio > 0.2 and hpRatio <= 0.4 then
+        -- Moderate HP switch candidate (20-40% HP)
+        hpDiffRatio = hpDiffRatio * 0.5
+    end
+
+    -- 5. Final score assembly (line 2629)
+    return (atkScore + defScore) * math.min(hpDiffRatio, 1)
+end
+
+--- Calculate entry hazard damage multiplier for switch evaluation
+-- Source: src/data/arena-tag.ts (StealthRockTag, SpikesTag, ToxicSpikesTag, StickyWebTag)
+-- @param pokemon table Pokemon data with types and abilities
+-- @param hazards table Array of entry hazards {type, layers}
+-- @return number Damage multiplier for matchup score (0.5-1.0)
+local function getEntryHazardMultiplier(pokemon, hazards)
+    if not hazards or #hazards == 0 then
+        return 1.0
+    end
+
+    local multiplier = 1.0
+
+    for _, hazard in ipairs(hazards) do
+        if hazard.type == "STEALTH_ROCK" then
+            -- Stealth Rock damage based on type effectiveness
+            local rockEffectiveness = getTypeMultiplier(PokemonType.ROCK, pokemon.types[1])
+            if pokemon.types[2] then
+                rockEffectiveness = rockEffectiveness * getTypeMultiplier(PokemonType.ROCK, pokemon.types[2])
+            end
+
+            -- Damage percentages: 0.5x->6.25%, 1x->12.5%, 2x->25%, 4x->50%
+            if rockEffectiveness <= 0.25 then
+                multiplier = multiplier * 0.9375  -- (1 - 1/16)
+            elseif rockEffectiveness <= 0.5 then
+                multiplier = multiplier * 0.9375  -- (1 - 1/16)
+            elseif rockEffectiveness <= 1.0 then
+                multiplier = multiplier * 0.875   -- (1 - 1/8)
+            elseif rockEffectiveness <= 2.0 then
+                multiplier = multiplier * 0.75    -- (1 - 1/4)
+            else  -- 4x weakness
+                multiplier = multiplier * 0.5     -- (1 - 1/2)
+            end
+        elseif hazard.type == "SPIKES" then
+            -- Spikes damage: layer 1->1/8, layer 2->1/6, layer 3->1/4
+            -- Immunity: Flying type or Levitate ability
+            local isImmune = false
+            for _, t in ipairs(pokemon.types) do
+                if t == PokemonType.FLYING then
+                    isImmune = true
+                    break
+                end
+            end
+            if pokemon.ability == Ability.LEVITATE then
+                isImmune = true
+            end
+
+            if not isImmune then
+                local layers = hazard.layers or 1
+                if layers == 1 then
+                    multiplier = multiplier * 0.875   -- (1 - 1/8)
+                elseif layers == 2 then
+                    multiplier = multiplier * 0.833   -- (1 - 1/6)
+                else  -- 3 layers
+                    multiplier = multiplier * 0.75    -- (1 - 1/4)
+                end
+            end
+        elseif hazard.type == "TOXIC_SPIKES" then
+            -- Toxic Spikes: Badly poison unless Poison/Steel type
+            local isImmune = false
+            for _, t in ipairs(pokemon.types) do
+                if t == PokemonType.POISON or t == PokemonType.STEEL then
+                    isImmune = true
+                    break
+                end
+            end
+
+            if not isImmune then
+                multiplier = multiplier * 0.9  -- Penalty for poison status
+            end
+        elseif hazard.type == "STICKY_WEB" then
+            -- Sticky Web: Speed reduction unless Flying type or Levitate
+            local isImmune = false
+            for _, t in ipairs(pokemon.types) do
+                if t == PokemonType.FLYING then
+                    isImmune = true
+                    break
+                end
+            end
+            if pokemon.ability == Ability.LEVITATE then
+                isImmune = true
+            end
+
+            if not isImmune then
+                multiplier = multiplier * 0.95  -- Speed reduction penalty
+            end
+        end
+    end
+
+    return multiplier
+end
+
+--- Calculate party member matchup scores for switch evaluation
+-- Source: src/field/trainer.ts:559-592 (getPartyMemberMatchupScores)
+-- @param currentPokemon table Current active Pokemon
+-- @param opponents table Array of active opponent Pokemon
+-- @param partyMembers table Array of available party Pokemon
+-- @param entryHazards table|nil Entry hazards on field (for forSwitch=true)
+-- @param forSwitch boolean Whether evaluating for switch (applies hazards)
+-- @return table Array of {partyIndex, matchupScore} tuples
+local function getPartyMemberMatchupScores(currentPokemon, opponents, partyMembers, entryHazards, forSwitch)
+    local scores = {}
+
+    for _, partyMember in ipairs(partyMembers) do
+        -- Skip if already on field (checked by caller)
+        -- Skip if fainted (checked by caller)
+
+        local totalScore = 0
+        local opponentCount = 0
+
+        -- Score against each active opponent
+        for _, opp in ipairs(opponents) do
+            local score = getMatchupScore(partyMember, opp)
+
+            -- Legendary opponent penalty (halve score)
+            if opp.isLegendary then
+                score = score / 2
+            end
+
+            totalScore = totalScore + score
+            opponentCount = opponentCount + 1
+        end
+
+        -- Average score across all opponents
+        local avgScore = opponentCount > 0 and (totalScore / opponentCount) or 0
+
+        -- Apply entry hazard penalties if evaluating for switch
+        if forSwitch and entryHazards then
+            avgScore = avgScore * getEntryHazardMultiplier(partyMember, entryHazards)
+        end
+
+        table.insert(scores, {partyMember.partyIndex, avgScore})
+    end
+
+    return scores
+end
+
+--- Sort party member scores in descending order
+-- Source: src/field/trainer.ts:594-603 (getSortedPartyMemberMatchupScores)
+-- @param partyMemberScores table Array of {partyIndex, score} tuples
+-- @return table Sorted array (descending by score)
+local function getSortedPartyMemberMatchupScores(partyMemberScores)
+    local sorted = {}
+    for _, entry in ipairs(partyMemberScores) do
+        table.insert(sorted, entry)
+    end
+
+    table.sort(sorted, function(a, b)
+        return a[2] > b[2]  -- Descending order
+    end)
+
+    return sorted
+end
+
+--- Deterministic RNG for tied switch selection
+-- Uses battle seed with turn offset matching TypeScript: turn << 2
+-- @param seed number Battle seed
+-- @param max number Maximum value (exclusive)
+-- @return number Random integer [0, max)
+local function randSeedInt(seed, max)
+    -- Simple LCG matching aos battle RNG patterns
+    local a = 1664525
+    local c = 1013904223
+    local m = 2^32
+
+    local next = (a * seed + c) % m
+    return math.floor((next / m) * max)
+end
+
+--- Select next Pokemon to switch in (handles ties)
+-- Source: src/field/trainer.ts:605-631 (getNextSummonIndex)
+-- @param partyMemberScores table Array of {partyIndex, score} tuples
+-- @param battleSeed number Battle RNG seed
+-- @param battleTurn number Current battle turn
+-- @return number Party index to switch in
+local function getNextSummonIndex(partyMemberScores, battleSeed, battleTurn)
+    if #partyMemberScores == 0 then
+        return nil
+    end
+
+    local sortedScores = getSortedPartyMemberMatchupScores(partyMemberScores)
+    local maxScore = sortedScores[1][2]
+
+    -- Find all Pokemon tied for best score
+    local maxScoreIndexes = {}
+    for _, entry in ipairs(partyMemberScores) do
+        if entry[2] == maxScore then
+            table.insert(maxScoreIndexes, entry[1])
+        end
+    end
+
+    -- Random selection if tied (with battle seed offset: turn << 2)
+    if #maxScoreIndexes > 1 then
+        local seedOffset = battleSeed + (battleTurn * 4)  -- turn << 2
+        local randIndex = randSeedInt(seedOffset, #maxScoreIndexes)
+        return maxScoreIndexes[randIndex + 1]  -- Lua 1-indexed
+    end
+
+    return maxScoreIndexes[1]
+end
+
+--- Evaluate whether to switch Pokemon
+-- Source: src/phases/enemy-command-phase.ts:57-87 (EnemyCommandPhase)
+-- Implements switch dampening and threshold comparison (boss 2x vs normal 3x)
+-- @param currentMatchupScore number Current Pokemon's matchup score
+-- @param partyMemberScores table Array of {partyIndex, score} tuples
+-- @param isBoss boolean Whether trainer is boss (2x threshold vs 3x)
+-- @param switchCounter number Number of switches this battle
+-- @return boolean shouldSwitch, number|nil switchToIndex
+local function shouldSwitchPokemon(currentMatchupScore, partyMemberScores, isBoss, switchCounter)
+    if #partyMemberScores == 0 then
+        return false, nil
+    end
+
+    local sortedScores = getSortedPartyMemberMatchupScores(partyMemberScores)
+    local bestPartyScore = sortedScores[1][2]
+
+    -- Switch dampening formula (line 69): 1 - Math.pow(0.1, 1 / counter)
+    -- First switch (counter=1): multiplier = 1.0 (no penalty)
+    -- Second switch (counter=2): multiplier ≈ 0.68
+    -- Third+ switches: multiplier ≈ 0.36
+    local switchMultiplier = 1 - (0.1 ^ (1 / math.max(switchCounter or 1, 1)))
+
+    -- Threshold comparison (line 71)
+    -- Boss trainers: 2x threshold (more aggressive switching)
+    -- Normal trainers: 3x threshold (conservative switching)
+    local threshold = isBoss and 2 or 3
+
+    if bestPartyScore * switchMultiplier >= currentMatchupScore * threshold then
+        return true, sortedScores[1][1]  -- Return party index
+    end
+
+    return false, nil
+end
+
+-- ============================================================================
 -- AO MESSAGE HANDLERS
 -- ============================================================================
 
@@ -1532,6 +1878,211 @@ Handlers.add("health-check",
     end
 )
 
+--- Handler: evaluate-switch-decision
+-- Main switch decision evaluation endpoint
+-- Source: Story 17.2 - AI Switch Decision Logic
+Handlers.add("evaluate-switch-decision",
+    Handlers.utils.hasMatchingTag("Action", "EvaluateSwitchDecision"),
+    function(msg)
+        -- Parse input data
+        local data = json.decode(msg.Data or "{}")
+
+        -- Validate required fields
+        if not data.currentPokemon or not data.opponents or not data.partyMembers then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "Missing required fields: currentPokemon, opponents, partyMembers",
+                Success = "false"
+            })
+            return
+        end
+
+        -- Extract parameters
+        local currentPokemon = data.currentPokemon
+        local opponents = data.opponents
+        local partyMembers = data.partyMembers
+        local entryHazards = data.entryHazards
+        local isBoss = data.isBoss or false
+        local switchCounter = data.enemySwitchCounter or 1
+        local battleSeed = data.battleSeed or 12345
+        local battleTurn = data.battleTurn or 1
+
+        -- Check preconditions (matching EnemyCommandPhase lines 57-60)
+        if not data.hasTrainer then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Data = json.encode({
+                    shouldSwitch = false,
+                    reason = "No trainer (wild Pokemon never switch)"
+                }),
+                Success = "true"
+            })
+            return
+        end
+
+        if data.hasMoveQueue then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Data = json.encode({
+                    shouldSwitch = false,
+                    reason = "Move queue not empty (charging move)"
+                }),
+                Success = "true"
+            })
+            return
+        end
+
+        if data.isTrapped then
+            ao.send({
+                Target = msg.From,
+                Action = "SaveState",
+                Data = json.encode({
+                    shouldSwitch = false,
+                    reason = "Pokemon is trapped (Wrap, Mean Look, etc.)"
+                }),
+                Success = "true"
+            })
+            return
+        end
+
+        -- Calculate current Pokemon's matchup score
+        local matchupScores = {}
+        for _, opp in ipairs(opponents) do
+            table.insert(matchupScores, getMatchupScore(currentPokemon, opp))
+        end
+        local currentMatchupScore = 0
+        for _, score in ipairs(matchupScores) do
+            currentMatchupScore = currentMatchupScore + score
+        end
+        currentMatchupScore = #matchupScores > 0 and (currentMatchupScore / #matchupScores) or 0
+
+        -- Calculate party member scores (with entry hazard penalties)
+        local partyScores = getPartyMemberMatchupScores(
+            currentPokemon,
+            opponents,
+            partyMembers,
+            entryHazards,
+            true  -- forSwitch = true
+        )
+
+        -- Evaluate switch decision
+        local shouldSwitch, switchToIndex = shouldSwitchPokemon(
+            currentMatchupScore,
+            partyScores,
+            isBoss,
+            switchCounter
+        )
+
+        -- If switching, determine which Pokemon to switch to
+        local selectedIndex = nil
+        if shouldSwitch then
+            selectedIndex = getNextSummonIndex(partyScores, battleSeed, battleTurn)
+        end
+
+        -- Calculate switch multiplier and threshold for response
+        local switchMultiplier = 1 - (0.1 ^ (1 / math.max(switchCounter, 1)))
+        local threshold = isBoss and 2 or 3
+        local bestPartyScore = #partyScores > 0 and getSortedPartyMemberMatchupScores(partyScores)[1][2] or 0
+
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                shouldSwitch = shouldSwitch,
+                switchToIndex = selectedIndex or switchToIndex,
+                currentMatchupScore = currentMatchupScore,
+                bestPartyScore = bestPartyScore,
+                switchMultiplier = switchMultiplier,
+                threshold = threshold,
+                partyScores = partyScores
+            }),
+            Success = "true"
+        })
+    end
+)
+
+--- Handler: calculate-matchup-score
+-- Query individual matchup score for testing/debugging
+-- Source: Story 17.2 - AI Switch Decision Logic
+Handlers.add("calculate-matchup-score",
+    Handlers.utils.hasMatchingTag("Action", "CalculateMatchupScore"),
+    function(msg)
+        local data = json.decode(msg.Data or "{}")
+
+        if not data.pokemon or not data.opponent then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "Missing required fields: pokemon, opponent",
+                Success = "false"
+            })
+            return
+        end
+
+        local score = getMatchupScore(data.pokemon, data.opponent)
+
+        -- Calculate component scores for debugging
+        local pokemonSpeed = data.pokemon.stats.spd or 0
+        local opponentSpeed = data.opponent.stats.spd or 0
+        local outspeed = pokemonSpeed >= opponentSpeed
+
+        -- Defense score
+        local defScore = 1 / calculateDefensiveEffectiveness(data.pokemon.types, data.opponent.types[1])
+        if data.opponent.types[2] then
+            defScore = defScore * (1 / calculateDefensiveEffectiveness(data.pokemon.types, data.opponent.types[2]))
+        end
+        defScore = math.min(defScore, 4.0)
+
+        -- Attack score
+        local atkScore = 0
+        local moveCount = 0
+        if data.pokemon.moveset then
+            for _, move in ipairs(data.pokemon.moveset) do
+                if move.category ~= MoveCategory.STATUS and move.pp > 0 then
+                    local thisScore = getTypeMultiplier(move.type, data.opponent.types[1])
+                    if data.opponent.types[2] then
+                        thisScore = thisScore * getTypeMultiplier(move.type, data.opponent.types[2])
+                    end
+                    if not move.hasVariableType then
+                        for _, pType in ipairs(data.pokemon.types) do
+                            if pType == move.type then
+                                thisScore = thisScore * 1.5
+                                break
+                            end
+                        end
+                    end
+                    atkScore = atkScore + thisScore
+                    moveCount = moveCount + 1
+                end
+            end
+        end
+        atkScore = moveCount > 0 and (atkScore / moveCount) or 1.0
+
+        -- HP ratio
+        local hpRatio = data.pokemon.hp / math.max(data.pokemon.maxHp, 1)
+        local oppHpRatio = data.opponent.hp / math.max(data.opponent.maxHp, 1)
+        local hpDiffRatio = hpRatio + (1 - oppHpRatio)
+
+        ao.send({
+            Target = msg.From,
+            Action = "SaveState",
+            Data = json.encode({
+                matchupScore = score,
+                components = {
+                    atkScore = atkScore,
+                    defScore = defScore,
+                    hpDiffRatio = math.min(hpDiffRatio, 1),
+                    outspeed = outspeed
+                }
+            }),
+            Success = "true"
+        })
+    end
+)
+
 --- Handler: info
 -- ADP v1.0 self-documentation
 Handlers.add("info",
@@ -1542,21 +2093,26 @@ Handlers.add("info",
             Action = "InfoResponse",
             Data = json.encode({
                 process = {
-                    name = "AI Move Selection Engine",
-                    version = "1.0.0",
+                    name = "AI Move Selection & Switch Decision Engine",
+                    version = "1.1.0",
                     adpVersion = "1.0",
                     capabilities = {
                         "ai-move-selection",
+                        "ai-switch-decision",
+                        "matchup-scoring",
                         "target-selection",
                         "move-benefit-scoring",
                         "ko-detection",
                         "type-effectiveness",
-                        "probabilistic-selection"
+                        "probabilistic-selection",
+                        "entry-hazard-evaluation"
                     }
                 },
                 handlers = {
                     "info",
                     "evaluate-move-selection",
+                    "evaluate-switch-decision",
+                    "calculate-matchup-score",
                     "get-move-targets",
                     "calculate-move-benefit",
                     "calculate-damage",
@@ -1567,6 +2123,17 @@ Handlers.add("info",
                     EvaluateMoveSelection = {
                         required = {"PokemonId", "AiType", "BattleSeed", "Data"},
                         description = "Evaluate and select optimal move for AI Pokemon"
+                    },
+                    EvaluateSwitchDecision = {
+                        required = {"Data"},
+                        requiredDataFields = {"currentPokemon", "opponents", "partyMembers"},
+                        optional = {"entryHazards", "isBoss", "enemySwitchCounter", "battleSeed", "battleTurn"},
+                        description = "Evaluate whether to switch Pokemon based on matchup analysis"
+                    },
+                    CalculateMatchupScore = {
+                        required = {"Data"},
+                        requiredDataFields = {"pokemon", "opponent"},
+                        description = "Calculate matchup score between Pokemon and opponent"
                     },
                     CalculateMoveBenefit = {
                         required = {"MoveId", "AttackerId", "TargetId", "Data"},
@@ -1597,7 +2164,8 @@ Handlers.add("info",
 )
 
 -- Process initialization complete
-print("AI Move Selection Engine v1.0.0 initialized")
-print("Handlers registered: evaluate-move-selection, get-move-targets, calculate-move-benefit, calculate-damage, detect-ko-moves, health-check, info")
+print("AI Move Selection & Switch Decision Engine v1.1.0 initialized")
+print("Handlers registered: evaluate-move-selection, evaluate-switch-decision, calculate-matchup-score, get-move-targets, calculate-move-benefit, calculate-damage, detect-ko-moves, health-check, info")
 print("ADP v1.0 compliant")
+print("Story 17.2 complete: AI Switch Decision Logic integrated")
 print("Story 17.1c: Target selection with 6-phase algorithm, multi-target handling, benefit scoring")

@@ -41,11 +41,13 @@ so that **game mode variations maintain identical rule implementation and gamepl
 1. Game mode rule enforcement maintains identical constraint validation and gameplay modification
 2. Mode-specific mechanics maintain identical implementation and interaction behavior
 3. Game mode progression tracking maintains identical advancement logic and milestone detection
-4. Mode transition systems maintain identical state management and conversion behavior
+4. Game mode creation and configuration maintain identical instance creation and state initialization behavior
 5. Game mode customization maintains identical parameter adjustment and validation logic
 6. Mode-specific rewards maintain identical calculation and distribution behavior
 7. Complex game mode scenarios maintain identical rule interaction and gameplay resolution
 8. Comprehensive testing validates 100% alternative game mode system rule and gameplay parity
+
+**Note on AC4:** Game modes are created as immutable instances via factory functions. Mode "transitions" occur by creating new game mode instances, not by mutating existing instances. This matches TypeScript behavior where GameMode instances are created once and referenced throughout gameplay.
 
 ## Story 18.4: Difficulty Scaling Migration
 As a **difficulty scaling engineer**,  

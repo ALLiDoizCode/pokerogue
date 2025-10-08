@@ -619,8 +619,9 @@ print(string.format("Failed: %d (%.1f%%)", failCount, (failCount / (passCount + 
 
 if failCount == 0 then
     print("\n✅ All tests passed!")
-    os.exit(0)
 else
     print(string.format("\n⚠️  %d tests failed", failCount))
-    os.exit(1)
 end
+
+-- Return success status for test runner (don't call os.exit in test files)
+return failCount == 0

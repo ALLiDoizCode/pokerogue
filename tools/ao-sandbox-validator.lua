@@ -94,7 +94,7 @@ for _, processFile in ipairs(processes) do
         "debug%.", "loadfile", "dofile", "loadstring", "os%.time%("  -- Add os.time() as forbidden
     }
     for _, op in ipairs(forbiddenOps) do
-        if content:match(op) then
+        if contentNoComments:match(op) then  -- Check content without comments
             print("❌ Contains forbidden operation: " .. op:gsub("%%", ""))
             forbidden = true
             break

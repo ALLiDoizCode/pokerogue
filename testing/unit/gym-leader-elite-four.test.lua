@@ -562,8 +562,9 @@ print(string.rep("=", 60))
 
 if failCount == 0 then
     print("\n🎉 All unit tests passed!\n")
-    os.exit(0)
 else
     print(string.format("\n⚠️  %d test(s) failed\n", failCount))
-    os.exit(1)
 end
+
+-- Return success status for test runner (don't call os.exit in test files)
+return failCount == 0

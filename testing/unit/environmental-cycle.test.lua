@@ -395,8 +395,9 @@ print("Success Rate: " .. string.format("%.1f%%", ((assertionCount - failedAsser
 
 if failedAssertions == 0 then
     print("\n✓ ALL TESTS PASSED!")
-    os.exit(0)
 else
     print("\n✗ SOME TESTS FAILED")
-    os.exit(1)
 end
+
+-- Return success status for test runner
+return failedAssertions == 0

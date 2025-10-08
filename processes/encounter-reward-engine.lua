@@ -919,6 +919,7 @@ Handlers.add("info",
                 name = "Encounter Reward Engine",
                 version = "1.0.0",
                 adpVersion = "1.0",
+                processId = ao.id or "encounter-reward-engine-adp",
                 description = "Handles reward calculation, consequence application, and outcome determination for mystery encounters",
                 capabilities = {
                     "CalculateRewards",
