@@ -210,8 +210,29 @@ jobs:
     - name: Run Integration Tests
       run: |
         echo "🔄 Running multi-process integration tests"
-        npm run test:aos-local
-        npm run test:aolite
+        echo "📋 Environment check:"
+        echo "  Node: $(node -v)"
+        echo "  Lua: $(lua -v)"
+        echo "  Working directory: $(pwd)"
+        echo "  Submodule status:"
+        git submodule status
+
+        echo ""
+        echo "🧪 Running aos-local integration tests..."
+        npm run test:aos-local || {
+          echo "❌ aos-local tests failed with exit code $?"
+          exit 1
+        }
+
+        echo ""
+        echo "🧪 Running aolite unit tests..."
+        npm run test:aolite || {
+          echo "❌ aolite tests failed with exit code $?"
+          exit 1
+        }
+
+        echo ""
+        echo "✅ All integration tests passed!"
       env:
         TEST_TIMEOUT: ${{ env.TIMEOUT_INTEGRATION }}
     
