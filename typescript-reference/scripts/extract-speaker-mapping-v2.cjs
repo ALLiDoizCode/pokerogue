@@ -31,7 +31,7 @@ let currentId = null;
 let currentVariants = [];
 let currentVariantSpeakers = new Set();
 let inVariant = false;
-let indentLevel = 0;
+// indentLevel removed as unused
 
 for (const line of lines) {
   // Detect trainer ID: [123]: {
@@ -49,7 +49,6 @@ for (const line of lines) {
     currentVariants = [];
     currentVariantSpeakers = new Set();
     inVariant = false;
-    indentLevel = 0;
     continue;
   }
 

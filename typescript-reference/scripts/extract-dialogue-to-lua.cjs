@@ -82,7 +82,7 @@ luaDialogue = luaDialogue
   .replace(/defeat:/g, "defeat =");
 
 // Step 4: Restore trainer type keys with proper Lua syntax
-for (const [name, value] of Object.entries(trainerTypeMap)) {
+for (const [_name, value] of Object.entries(trainerTypeMap)) {
   const regex = new RegExp(`___TRAINER_${value}___`, "g");
   luaDialogue = luaDialogue.replace(regex, `[${value}]`);
 }
