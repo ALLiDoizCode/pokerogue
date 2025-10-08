@@ -218,18 +218,38 @@ jobs:
         git submodule status
 
         echo ""
+        echo "📁 Checking critical directories and files:"
+        ls -la testing/aos-local/ || echo "⚠️ testing/aos-local/ not found"
+        ls -la testing/aos-local/scenarios/ || echo "⚠️ scenarios dir not found"
+        ls -la development-tools/aolite/ || echo "⚠️ aolite submodule not found"
+
+        echo ""
         echo "🧪 Running aos-local integration tests..."
-        npm run test:aos-local || {
-          echo "❌ aos-local tests failed with exit code $?"
+        set -x
+        npm run test:aos-local 2>&1 | tee aos-local-output.log
+        AOS_EXIT=$?
+        set +x
+
+        if [ $AOS_EXIT -ne 0 ]; then
+          echo "❌ aos-local tests failed with exit code $AOS_EXIT"
+          echo "Last 50 lines of output:"
+          tail -50 aos-local-output.log
           exit 1
-        }
+        fi
 
         echo ""
         echo "🧪 Running aolite unit tests..."
-        npm run test:aolite || {
-          echo "❌ aolite tests failed with exit code $?"
+        set -x
+        npm run test:aolite 2>&1 | tee aolite-output.log
+        AOLITE_EXIT=$?
+        set +x
+
+        if [ $AOLITE_EXIT -ne 0 ]; then
+          echo "❌ aolite tests failed with exit code $AOLITE_EXIT"
+          echo "Last 50 lines of output:"
+          tail -50 aolite-output.log
           exit 1
-        }
+        fi
 
         echo ""
         echo "✅ All integration tests passed!"
