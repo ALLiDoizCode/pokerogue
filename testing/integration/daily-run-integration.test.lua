@@ -7,7 +7,7 @@ Coverage: 20 tests for complex scenarios, edge cases, multi-handler coordination
 --]]
 
 -- Load aolite test framework
-local aolite = require('@aolite')
+local aolite = require('aolite')
 
 -- Test counters
 local totalTests = 0
