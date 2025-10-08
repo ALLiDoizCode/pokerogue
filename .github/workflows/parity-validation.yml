@@ -196,18 +196,13 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
 
-    - name: Setup Lua
-      uses: leafo/gh-actions-lua@v10
-      with:
-        luaVersion: ${{ env.LUA_VERSION }}
-      continue-on-error: false
-      timeout-minutes: 5
-
-    - name: Verify Lua installation
+    - name: Setup Lua via apt
       run: |
-        echo "Verifying Lua installation..."
-        lua -v || (echo "❌ Lua installation failed" && exit 1)
-        echo "✅ Lua ${{ env.LUA_VERSION }} installed successfully"
+        echo "Installing Lua ${{ env.LUA_VERSION }} via apt..."
+        sudo apt-get update -qq
+        sudo apt-get install -y lua5.3
+        lua -v
+        echo "✅ Lua installed successfully"
 
     - name: Install dependencies
       run: npm ci
