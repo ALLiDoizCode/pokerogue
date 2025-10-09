@@ -33,6 +33,126 @@ This project follows an **AO-first testing strategy** with Lua-based testing:
 
 The TDD validation system (`scripts/hooks/tdd-pre-commit.sh`) only recognizes Lua test files. TypeScript test files will cause CI failures.
 
+### CRITICAL: Aolite Test Pattern (REQUIRED)
+**⚠️ ALL UNIT TESTS MUST USE THE REAL AOLITE FRAMEWORK**
+
+**Current Migration Status** (as of 2025-10-09):
+- ✅ Using real aolite: 39 tests (31%)
+- ⚠️ Need migration: 84 tests (66%) - See Story 20.1 for migration plan
+- 🎯 Target: 100% aolite compliance
+
+**ONLY ACCEPTABLE PATTERN** - Real Aolite Framework:
+
+```lua
+-- Required imports
+local aolite = require("aolite")  -- Real framework from development-tools/
+local json = require("json")
+
+-- Test configuration
+local TEST_TIMEOUT = 30000  -- 30 seconds
+local PROCESS_PATH = "processes/my-process.lua"
+
+-- Initialize test process
+local process = aolite.spawnProcess(PROCESS_PATH)
+if not process then
+    error("Failed to spawn process from " .. PROCESS_PATH)
+end
+
+print("🧪 Starting Aolite Tests for My Process")
+print("Process ID:", process.id)
+
+-- Test utilities
+local function sendMessage(action, tags, data, timeout)
+    local msg = {
+        Target = process.id,
+        Action = action,
+        Data = data or "",
+        Timestamp = tostring(os.time() * 1000)
+    }
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
+    end
+    return aolite.send(msg, timeout or TEST_TIMEOUT)
+end
+
+-- Test 1: Basic functionality
+print("📝 Test 1: Ping handler")
+local response = sendMessage("Ping")
+if response and response.Action == "Pong" then
+    print("✅ Test passed")
+else
+    error("❌ Test failed: Expected Pong action")
+end
+
+-- Test 2: Error handling
+print("📝 Test 2: Error handling for invalid input")
+local errorResponse = sendMessage("ProcessData", {
+    InvalidParam = "test"
+})
+if errorResponse and errorResponse.Action == "Error" then
+    print("✅ Error handling test passed")
+else
+    error("❌ Test failed: Expected Error action")
+end
+
+-- Test Summary
+print("==================================================")
+print("🎉 All tests passed!")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)
+```
+
+**FORBIDDEN PATTERNS** - Do NOT use these:
+
+```lua
+-- ❌ FORBIDDEN: Custom mock setup
+if not ao then
+    ao = { send = function(msg) end, id = "test_id" }
+end
+if not Handlers then
+    Handlers = { add = function() end }
+end
+dofile("processes/my-process.lua")
+
+-- ❌ FORBIDDEN: mock-aolite (deprecated)
+package.path = package.path .. ";./testing/aolite/?.lua"
+local aolite = require("mock-aolite")
+
+-- ❌ FORBIDDEN: describe/it blocks (not supported)
+describe("My Process", function()
+    it("should handle ping", function()
+        -- ...
+    end)
+end)
+```
+
+**Key Requirements:**
+1. ✅ Use `require("aolite")` from real framework
+2. ✅ Use `aolite.spawnProcess()` to create process instance
+3. ✅ Use `aolite.send()` for message passing
+4. ✅ Use `error()` for test failures (not assertions)
+5. ✅ Use `print()` for test output with emojis (📝, ✅, ❌)
+6. ✅ Linear test execution (no describe/it blocks)
+7. ✅ Include test summary at end
+
+**Why This Matters:**
+- Real aolite provides proper process isolation
+- Simulates actual AO message passing and scheduling
+- Catches issues that custom mocks miss
+- Consistent with 39+ existing tests
+- Required for CI/CD validation
+
+**TDD Validation:**
+- Process file: `processes/X.lua` requires test: `testing/unit/X.test.lua`
+- Test must use real aolite framework
+- Test must execute successfully with `npm run test:aolite`
+
+**Reference Examples:**
+- ✅ `testing/unit/abilities-nature-manager.test.lua`
+- ✅ `testing/unit/seasonal-event-engine.test.lua`
+- ✅ `testing/unit/community-event-creation.test.lua`
+
 ### Legacy Commands (Archived)
 - Build: `npm run build`
 - Test: `npm test`
