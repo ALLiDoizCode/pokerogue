@@ -14,17 +14,17 @@
  * - Handle complex modifier interactions
  */
 
-const AOLocal = require('aos-local');
-const fs = require('fs');
-const path = require('path');
+const AOLocal = require("aos-local");
+const fs = require("fs");
+const path = require("path");
 
 // Load modifier process code
 function loadModifierProcess() {
-  const processPath = path.join(__dirname, '../../processes/modifier-engine.lua');
-  return fs.readFileSync(processPath, 'utf8');
+  const processPath = path.join(__dirname, "../../processes/modifier-engine.lua");
+  return fs.readFileSync(processPath, "utf8");
 }
 
-describe('Modifier Integration Tests', () => {
+describe("Modifier Integration Tests", () => {
   let process;
 
   beforeEach(() => {
@@ -40,44 +40,44 @@ describe('Modifier Integration Tests', () => {
     }
   });
 
-  test('Query modifier type information', async () => {
-    console.log('Test: Query Modifier Type Information');
+  test("Query modifier type information", async () => {
+    console.log("Test: Query Modifier Type Information");
 
     const result = await AOLocal.send(process, {
-      Action: 'GetModifierInfo',
-      ModifierId: 'POKEBALL'
+      Action: "GetModifierInfo",
+      ModifierId: "POKEBALL",
     });
 
-    expect(result.Action).toBe('SaveState');
-    expect(result.Success).toBe('true');
+    expect(result.Action).toBe("SaveState");
+    expect(result.Success).toBe("true");
 
     const data = JSON.parse(result.Data);
     expect(data.modifier).toBeDefined();
-    expect(data.modifier.id).toBe('POKEBALL');
+    expect(data.modifier.id).toBe("POKEBALL");
     expect(data.modifier.tier).toBe(0); // COMMON
-    expect(data.modifier.category).toBe('Consumable');
+    expect(data.modifier.category).toBe("Consumable");
 
-    console.log('✅ Modifier type query validated');
+    console.log("✅ Modifier type query validated");
   });
 
-  test('Generate modifier options for shop selection', async () => {
-    console.log('Test: Generate Modifier Options');
+  test("Generate modifier options for shop selection", async () => {
+    console.log("Test: Generate Modifier Options");
 
     const result = await AOLocal.send(process, {
-      Action: 'GenerateModifierOptions',
-      PoolType: 'player',
-      Tier: '1', // GREAT
-      Seed: '12345'
+      Action: "GenerateModifierOptions",
+      PoolType: "player",
+      Tier: "1", // GREAT
+      Seed: "12345",
     });
 
-    expect(result.Action).toBe('SaveState');
-    expect(result.Success).toBe('true');
+    expect(result.Action).toBe("SaveState");
+    expect(result.Success).toBe("true");
 
     const data = JSON.parse(result.Data);
     expect(data.options).toBeDefined();
     expect(Array.isArray(data.options)).toBe(true);
     expect(data.options.length).toBeGreaterThan(0);
-    expect(data.poolType).toBe('player');
+    expect(data.poolType).toBe("player");
     expect(data.tier).toBe(1);
 
     // Verify options have required fields
@@ -87,79 +87,79 @@ describe('Modifier Integration Tests', () => {
       expect(option.tier).toBeDefined();
     });
 
-    console.log('✅ Modifier option generation validated');
+    console.log("✅ Modifier option generation validated");
   });
 
-  test('Apply modifier and verify state changes', async () => {
-    console.log('Test: Apply Modifier');
+  test("Apply modifier and verify state changes", async () => {
+    console.log("Test: Apply Modifier");
 
     const gameState = {
-      modifiers: []
+      modifiers: [],
     };
 
     const result = await AOLocal.send(process, {
-      Action: 'ApplyModifier',
-      ModifierId: 'POTION',
-      Data: JSON.stringify(gameState)
+      Action: "ApplyModifier",
+      ModifierId: "POTION",
+      Data: JSON.stringify(gameState),
     });
 
-    expect(result.Action).toBe('SaveState');
-    expect(result.Success).toBe('true');
+    expect(result.Action).toBe("SaveState");
+    expect(result.Success).toBe("true");
 
     const data = JSON.parse(result.Data);
     expect(data.modifier).toBeDefined();
-    expect(data.modifier.id).toBe('POTION');
+    expect(data.modifier.id).toBe("POTION");
     expect(data.modifier.applied).toBe(true);
     expect(data.effects.heal).toBeDefined();
     expect(data.effects.heal.healPercent).toBe(0.2);
 
-    console.log('✅ Modifier application validated');
+    console.log("✅ Modifier application validated");
   });
 
-  test('Stack multiple modifiers and verify max stack behavior', async () => {
-    console.log('Test: Modifier Stacking');
+  test("Stack multiple modifiers and verify max stack behavior", async () => {
+    console.log("Test: Modifier Stacking");
 
     // Query max stack count for POKEBALL
     const validation1 = await AOLocal.send(process, {
-      Action: 'ValidateModifier',
-      ModifierId: 'POKEBALL'
+      Action: "ValidateModifier",
+      ModifierId: "POKEBALL",
     });
 
-    expect(validation1.Success).toBe('true');
+    expect(validation1.Success).toBe("true");
     const data1 = JSON.parse(validation1.Data);
     expect(data1.constraints.maxStackCount).toBe(999);
 
     // Query max stack count for SHINY_CHARM (limited stacks)
     const validation2 = await AOLocal.send(process, {
-      Action: 'ValidateModifier',
-      ModifierId: 'SHINY_CHARM'
+      Action: "ValidateModifier",
+      ModifierId: "SHINY_CHARM",
     });
 
-    expect(validation2.Success).toBe('true');
+    expect(validation2.Success).toBe("true");
     const data2 = JSON.parse(validation2.Data);
     expect(data2.constraints.maxStackCount).toBe(3);
 
-    console.log('✅ Modifier stacking validated');
+    console.log("✅ Modifier stacking validated");
   });
 
-  test('Serialize and deserialize modifier state', async () => {
-    console.log('Test: Modifier Persistence');
+  test("Serialize and deserialize modifier state", async () => {
+    console.log("Test: Modifier Persistence");
 
     // Serialize game state with modifiers
     const gameState = {
       modifiers: [
-        { id: 'POKEBALL', stackCount: 10 },
-        { id: 'RARE_CANDY', stackCount: 5 }
-      ]
+        { id: "POKEBALL", stackCount: 10 },
+        { id: "RARE_CANDY", stackCount: 5 },
+      ],
     };
 
     const serializeResult = await AOLocal.send(process, {
-      Action: 'SerializeModifiers',
+      Action: "SerializeModifiers",
       Data: JSON.stringify(gameState),
-      Timestamp: '1234567890'
+      Timestamp: "1234567890",
     });
 
-    expect(serializeResult.Success).toBe('true');
+    expect(serializeResult.Success).toBe("true");
     const serialized = JSON.parse(serializeResult.Data);
     expect(serialized.modifiers).toBeDefined();
     expect(serialized.modifiers.length).toBe(2);
@@ -168,187 +168,187 @@ describe('Modifier Integration Tests', () => {
 
     // Deserialize modifier state
     const deserializeResult = await AOLocal.send(process, {
-      Action: 'DeserializeModifiers',
-      Data: JSON.stringify(serialized)
+      Action: "DeserializeModifiers",
+      Data: JSON.stringify(serialized),
     });
 
-    expect(deserializeResult.Success).toBe('true');
+    expect(deserializeResult.Success).toBe("true");
     const deserialized = JSON.parse(deserializeResult.Data);
     expect(deserialized.modifiers.length).toBe(2);
-    expect(deserialized.modifiers[0].id).toBe('POKEBALL');
+    expect(deserialized.modifiers[0].id).toBe("POKEBALL");
     expect(deserialized.modifiers[0].valid).toBe(true);
-    expect(deserialized.modifiers[1].id).toBe('RARE_CANDY');
+    expect(deserialized.modifiers[1].id).toBe("RARE_CANDY");
 
-    console.log('✅ Modifier serialization/deserialization validated');
+    console.log("✅ Modifier serialization/deserialization validated");
   });
 
-  test('Filter modifier pools based on game mode', async () => {
-    console.log('Test: Pool Filtering');
+  test("Filter modifier pools based on game mode", async () => {
+    console.log("Test: Pool Filtering");
 
     // Test player pool
     const playerResult = await AOLocal.send(process, {
-      Action: 'GenerateModifierOptions',
-      PoolType: 'player',
-      Tier: '0',
-      Seed: '12345'
+      Action: "GenerateModifierOptions",
+      PoolType: "player",
+      Tier: "0",
+      Seed: "12345",
     });
 
-    expect(playerResult.Success).toBe('true');
+    expect(playerResult.Success).toBe("true");
     const playerData = JSON.parse(playerResult.Data);
-    expect(playerData.poolType).toBe('player');
+    expect(playerData.poolType).toBe("player");
 
     // Test wild pool
     const wildResult = await AOLocal.send(process, {
-      Action: 'GenerateModifierOptions',
-      PoolType: 'wild',
-      Tier: '0',
-      Seed: '12345'
+      Action: "GenerateModifierOptions",
+      PoolType: "wild",
+      Tier: "0",
+      Seed: "12345",
     });
 
-    expect(wildResult.Success).toBe('true');
+    expect(wildResult.Success).toBe("true");
     const wildData = JSON.parse(wildResult.Data);
-    expect(wildData.poolType).toBe('wild');
+    expect(wildData.poolType).toBe("wild");
 
     // Wild pool should have different options than player pool
     const playerIds = playerData.options.map(o => o.modifierId).sort();
     const wildIds = wildData.options.map(o => o.modifierId).sort();
     expect(JSON.stringify(playerIds)).not.toBe(JSON.stringify(wildIds));
 
-    console.log('✅ Pool filtering validated');
+    console.log("✅ Pool filtering validated");
   });
 
-  test('Validate modifier constraints and conflicts', async () => {
-    console.log('Test: Modifier Constraints');
+  test("Validate modifier constraints and conflicts", async () => {
+    console.log("Test: Modifier Constraints");
 
     // Validate consumable modifier
     const result1 = await AOLocal.send(process, {
-      Action: 'ValidateModifier',
-      ModifierId: 'POTION'
+      Action: "ValidateModifier",
+      ModifierId: "POTION",
     });
 
-    expect(result1.Success).toBe('true');
+    expect(result1.Success).toBe("true");
     const data1 = JSON.parse(result1.Data);
     expect(data1.valid).toBe(true);
-    expect(data1.constraints.category).toBe('Consumable');
+    expect(data1.constraints.category).toBe("Consumable");
 
     // Validate held item modifier
     const result2 = await AOLocal.send(process, {
-      Action: 'ValidateModifier',
-      ModifierId: 'LUCKY_EGG'
+      Action: "ValidateModifier",
+      ModifierId: "LUCKY_EGG",
     });
 
-    expect(result2.Success).toBe('true');
+    expect(result2.Success).toBe("true");
     const data2 = JSON.parse(result2.Data);
     expect(data2.valid).toBe(true);
-    expect(data2.constraints.category).toBe('PokemonHeld');
+    expect(data2.constraints.category).toBe("PokemonHeld");
 
-    console.log('✅ Modifier constraints validated');
+    console.log("✅ Modifier constraints validated");
   });
 
-  test('Handle complex modifier interactions', async () => {
-    console.log('Test: Complex Modifier Interactions');
+  test("Handle complex modifier interactions", async () => {
+    console.log("Test: Complex Modifier Interactions");
 
     // Apply multiple modifiers to game state
     const gameState = { modifiers: [] };
 
     // Apply BASE_STAT_BOOSTER
     const result1 = await AOLocal.send(process, {
-      Action: 'ApplyModifier',
-      ModifierId: 'BASE_STAT_BOOSTER',
-      Data: JSON.stringify(gameState)
+      Action: "ApplyModifier",
+      ModifierId: "BASE_STAT_BOOSTER",
+      Data: JSON.stringify(gameState),
     });
 
-    expect(result1.Success).toBe('true');
+    expect(result1.Success).toBe("true");
     const data1 = JSON.parse(result1.Data);
     expect(data1.effects.statBoost).toBeDefined();
 
     // Apply LUCKY_EGG
     const result2 = await AOLocal.send(process, {
-      Action: 'ApplyModifier',
-      ModifierId: 'LUCKY_EGG',
-      Data: JSON.stringify(gameState)
+      Action: "ApplyModifier",
+      ModifierId: "LUCKY_EGG",
+      Data: JSON.stringify(gameState),
     });
 
-    expect(result2.Success).toBe('true');
+    expect(result2.Success).toBe("true");
     const data2 = JSON.parse(result2.Data);
     expect(data2.effects.expMultiplier).toBeDefined();
 
-    console.log('✅ Complex modifier interactions validated');
+    console.log("✅ Complex modifier interactions validated");
   });
 
-  test('Error handling for invalid requests', async () => {
-    console.log('Test: Error Handling');
+  test("Error handling for invalid requests", async () => {
+    console.log("Test: Error Handling");
 
     // Missing ModifierId
     const result1 = await AOLocal.send(process, {
-      Action: 'GetModifierInfo'
+      Action: "GetModifierInfo",
     });
 
-    expect(result1.Action).toBe('Error');
-    expect(result1.Success).toBe('false');
-    expect(result1.Error).toContain('ModifierId required');
+    expect(result1.Action).toBe("Error");
+    expect(result1.Success).toBe("false");
+    expect(result1.Error).toContain("ModifierId required");
 
     // Invalid ModifierId
     const result2 = await AOLocal.send(process, {
-      Action: 'GetModifierInfo',
-      ModifierId: 'INVALID_MODIFIER'
+      Action: "GetModifierInfo",
+      ModifierId: "INVALID_MODIFIER",
     });
 
-    expect(result2.Action).toBe('Error');
-    expect(result2.Error).toContain('not found');
+    expect(result2.Action).toBe("Error");
+    expect(result2.Error).toContain("not found");
 
     // Missing PoolType
     const result3 = await AOLocal.send(process, {
-      Action: 'GenerateModifierOptions',
-      Tier: '0',
-      Seed: '12345'
+      Action: "GenerateModifierOptions",
+      Tier: "0",
+      Seed: "12345",
     });
 
-    expect(result3.Action).toBe('Error');
-    expect(result3.Error).toContain('PoolType required');
+    expect(result3.Action).toBe("Error");
+    expect(result3.Error).toContain("PoolType required");
 
-    console.log('✅ Error handling validated');
+    console.log("✅ Error handling validated");
   });
 
-  test('Info handler returns process metadata (ADP v1.0)', async () => {
-    console.log('Test: Info Handler (ADP v1.0)');
+  test("Info handler returns process metadata (ADP v1.0)", async () => {
+    console.log("Test: Info Handler (ADP v1.0)");
 
     const result = await AOLocal.send(process, {
-      Action: 'Info'
+      Action: "Info",
     });
 
-    expect(result.Action).toBe('SaveState');
-    expect(result.Success).toBe('true');
+    expect(result.Action).toBe("SaveState");
+    expect(result.Success).toBe("true");
 
     const data = JSON.parse(result.Data);
-    expect(data.name).toBe('Modifier Engine');
-    expect(data.version).toBe('1.0.0');
-    expect(data.adpVersion).toBe('1.0');
+    expect(data.name).toBe("Modifier Engine");
+    expect(data.version).toBe("1.0.0");
+    expect(data.adpVersion).toBe("1.0");
     expect(data.capabilities).toBeDefined();
     expect(data.handlers).toBeDefined();
     expect(data.handlers.length).toBeGreaterThan(0);
 
     // Verify handler metadata
-    const getModifierInfoHandler = data.handlers.find(h => h.action === 'GetModifierInfo');
+    const getModifierInfoHandler = data.handlers.find(h => h.action === "GetModifierInfo");
     expect(getModifierInfoHandler).toBeDefined();
     expect(getModifierInfoHandler.parameters).toBeDefined();
 
-    console.log('✅ ADP v1.0 compliance validated');
+    console.log("✅ ADP v1.0 compliance validated");
   });
 
-  test('Ping handler responds correctly', async () => {
-    console.log('Test: Ping Handler');
+  test("Ping handler responds correctly", async () => {
+    console.log("Test: Ping Handler");
 
     const result = await AOLocal.send(process, {
-      Action: 'Ping'
+      Action: "Ping",
     });
 
-    expect(result.Action).toBe('Pong');
-    expect(result.Success).toBe('true');
-    expect(result.Data).toBe('pong');
+    expect(result.Action).toBe("Pong");
+    expect(result.Success).toBe("true");
+    expect(result.Data).toBe("pong");
 
-    console.log('✅ Ping handler validated');
+    console.log("✅ Ping handler validated");
   });
 });
 
-console.log('\n✅ Modifier Integration Test Suite Complete\n');
+console.log("\n✅ Modifier Integration Test Suite Complete\n");
