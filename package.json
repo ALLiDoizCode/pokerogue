@@ -38,6 +38,7 @@
     "typecheck": "tsc --noEmit",
     "biome": "biome check --write --changed --no-errors-on-unmatched --diagnostic-level=error",
     "biome-ci": "biome ci --diagnostic-level=error --reporter=github --no-errors-on-unmatched",
+    "ls-lint": "ls-lint",
     "docs": "typedoc",
     "depcruise": "depcruise src test",
     "postinstall": "lefthook install; git submodule update --init --recursive",
