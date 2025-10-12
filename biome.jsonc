@@ -28,6 +28,7 @@
       "!**/.vscode/**/*",
       "!**/typedoc/**/*",
       "!**/development-tools/aolite/**/*",
+      "!**/testing/reports/**/*",
       // TODO: lint css and html?
       "!**/*.css",
       "!**/*.html",
