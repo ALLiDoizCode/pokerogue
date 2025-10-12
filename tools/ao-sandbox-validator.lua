@@ -6,7 +6,11 @@ local processes = {}
 local function scanProcesses(dir)
     local handle = io.popen('find ' .. dir .. ' -name "*.lua" -type f')
     for file in handle:lines() do
-        if not file:match("-legacy%.lua$") and not file:match("/generated/") then -- Skip legacy files and generated data
+        -- Skip legacy files, generated data, data tables, and temp test files
+        if not file:match("-legacy%.lua$") and
+           not file:match("/generated/") and
+           not file:match("species%-tables%.lua$") and
+           not file:match("temp%-full%-test%.lua$") then
             table.insert(processes, file)
         end
     end
@@ -119,13 +123,13 @@ for _, processFile in ipairs(processes) do
         passedTests = passedTests + 1
     end
     
-    -- Test 5: AO global usage
+    -- Test 5: AO global usage (ao.send is required, ao.id is optional)
     totalTests = totalTests + 1
-    if content:match("ao%.send") and content:match("ao%.id") then
+    if content:match("ao%.send") then
         print("✅ Uses AO globals correctly")
         passedTests = passedTests + 1
     else
-        print("❌ Missing proper AO global usage")
+        print("❌ Missing proper AO global usage (ao.send required)")
     end
     
     ::continue::

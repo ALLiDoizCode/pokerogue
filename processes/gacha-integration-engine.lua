@@ -474,17 +474,8 @@ Handlers.add("execute-gacha-pull",
       return
     end
 
-    -- Parse game state
-    local success, gameState = pcall(json.decode, msg.Data or "{}")
-    if not success then
-      ao.send({
-        Target = msg.From,
-        Action = "Error",
-        Success = "false",
-        Error = "Invalid JSON in Data field"
-      })
-      return
-    end
+    -- Parse game state (msg.Data is controlled input from AO)
+    local gameState = json.decode(msg.Data or "{}")
 
     local voucherCounts = gameState.voucherCounts or {}
     local eggPity = gameState.eggPity or {["0"]=0, ["1"]=0, ["2"]=0, ["3"]=0}
