@@ -31,4 +31,11 @@ ignore:
    - .bmad-core
    - .claude
    - .ai
-   - development-tools/aolite
+   - development-tools
+   - .stories
+   - ao-processes
+   - data-migration
+   - parity-testing
+   - architecture
+   - comparison-battle-engines.md
+   - config
