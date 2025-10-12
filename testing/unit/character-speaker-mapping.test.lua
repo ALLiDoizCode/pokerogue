@@ -1,22 +1,74 @@
--- Unit tests for Character Speaker Mapping
-local testMessages, testHandlers = {}, {}
-local mockAO = {id = "test", send = function(msg) table.insert(testMessages, msg) return true end}
-local mockHandlers = {add = function(n, m, h) testHandlers[n] = {matcher = m, handler = h} end, utils = {hasMatchingTag = function(t, v) return function(msg) return msg[t] == v end end}}
-local mockJSON = {encode = function(t) return "json" end, decode = function(s) return {} end}
-local function setup() testMessages, testHandlers = {}, {}; _G.ao, _G.Handlers, _G.json = mockAO, mockHandlers, mockJSON; package.loaded.json = mockJSON end
-local function send(h, m) local handler = testHandlers[h]; if not handler then error("Handler not found") end; if not handler.matcher(m) then error("Mismatch") end; testMessages = {}; handler.handler(m); return testMessages end
-local function load() setup(); dofile("processes/character-dialogue-engine.lua") end
+-- Aolite Unit Tests for Character Speaker Mapping (CORRECT API)
+-- Tests speaker name mapping for UI rendering
+-- Compatible with aolite testing framework
 
-local function test()
-    local tests, total, passed, failed = {}, 0, 0, 0
-    
-    tests["speaker_youngster"] = function() load(); local r = send("get-speaker-name", {From="c", Action="GetSpeakerName", TrainerType="50"}); assert(r[1].Action == "SaveState"); print("✓ Youngster speaker"); return true end
-    tests["speaker_ace_trainer"] = function() load(); local r = send("get-speaker-name", {From="c", Action="GetSpeakerName", TrainerType="1"}); assert(r[1].Action == "SaveState"); print("✓ Ace Trainer speaker"); return true end
-    tests["speaker_invalid"] = function() load(); local r = send("get-speaker-name", {From="c", Action="GetSpeakerName", TrainerType="999"}); assert(r[1].Action ~= nil); print("✓ Invalid speaker"); return true end
-    
-    for name, func in pairs(tests) do total = total + 1; print("\n" .. name); local ok, err = pcall(func); if ok then passed = passed + 1 else failed = failed + 1; print("❌ " .. tostring(err)) end end
-    print("\n" .. string.rep("=", 60)); print("Speaker Mapping Tests: " .. passed .. "/" .. total .. " passed"); print(string.rep("=", 60)); return failed == 0
+local aolite = require("aolite")
+local json = require("json")
+
+-- Test configuration
+local PROCESS_PATH = "processes.character-dialogue-engine"
+local processId = "test-character-dialogue-engine"
+
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Character Speaker Mapping")
+print("Process ID:", processId)
+
+-- Test utilities
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
+    }
+
+    -- Add additional tags
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
+    end
+
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
-local success = test()
-return {runTests = function() return success end}
+-- Test 1: Youngster speaker mapping
+print("📝 Test 1: Youngster speaker mapping")
+local youngsterResponse = sendMessage("GetSpeakerName", {
+    TrainerType = "50"
+})
+if youngsterResponse and youngsterResponse.Action == "SaveState" then
+    print("✅ Youngster speaker test passed")
+else
+    error("❌ Youngster speaker test failed")
+end
+
+-- Test 2: Ace Trainer speaker mapping
+print("📝 Test 2: Ace Trainer speaker mapping")
+local aceTrainerResponse = sendMessage("GetSpeakerName", {
+    TrainerType = "1"
+})
+if aceTrainerResponse and aceTrainerResponse.Action == "SaveState" then
+    print("✅ Ace Trainer speaker test passed")
+else
+    error("❌ Ace Trainer speaker test failed")
+end
+
+-- Test 3: Invalid trainer type speaker mapping
+print("📝 Test 3: Invalid trainer type speaker mapping")
+local invalidResponse = sendMessage("GetSpeakerName", {
+    TrainerType = "999"
+})
+if invalidResponse then
+    print("✅ Invalid speaker test passed")
+else
+    error("❌ Invalid speaker test failed")
+end
+
+-- Test Summary
+print("==================================================")
+print("🎉 All Character Speaker Mapping tests passed!")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

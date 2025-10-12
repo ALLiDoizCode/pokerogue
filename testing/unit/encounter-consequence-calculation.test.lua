@@ -1,8 +1,37 @@
 -- Unit Tests: Encounter Consequence Calculation
 -- Tests consequence calculation logic for encounter failures
 
-package.path = package.path .. ";./testing/aolite/?.lua;./development-tools/aolite/lua/aolite/lib/?.lua"
-local aolite = require("mock-aolite")
+local aolite = require("aolite")
+local json = require("json")
+
+-- Test configuration
+local PROCESS_PATH = "processes.encounter-reward-engine"
+local processId = "test-encounter-reward-engine"
+
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Encounter Reward Engine")
+print("Process ID:", processId)
+
+-- Test utilities
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
+    }
+
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
+    end
+
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
+end
 
 local tests = {}
 local currentTest = ""
@@ -25,18 +54,12 @@ local function assertNotNil(value, message)
     end
 end
 
-local function setup()
-    local process = aolite.spawnProcess("encounter-reward-engine", "./processes/encounter-reward-engine.lua")
-    return process
-end
-
 -- ============================================================================
 -- Test: Damage Consequence
 -- ============================================================================
 
 tests["consequence calculation for damage type"] = function()
     currentTest = "consequence calculation for damage type"
-    local process = setup()
 
     local partyState = {
         pokemon = {
@@ -45,26 +68,18 @@ tests["consequence calculation for damage type"] = function()
         }
     }
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateConsequences",
+    local response = sendMessage("CalculateConsequences", {
         EncounterType = "MYSTERIOUS_CHEST",
         OptionIndex = "0",
         Outcome = "failure",
-        PartyState = aolite.json.encode(partyState)
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
+        PartyState = json.encode(partyState)
+    })
 
     assertEquals(response.Action, "SaveState", "Response should be SaveState")
     assertEquals(response.Success, "true", "Success should be true")
     assertEquals(response.ConsequenceType, "DAMAGE", "ConsequenceType should be DAMAGE")
 
-    local data = aolite.json.decode(response.Data)
+    local data = json.decode(response.Data)
     assertEquals(data.type, "DAMAGE", "Consequence type should be DAMAGE")
     assertNotNil(data.targets, "Should have targets")
     assertNotNil(data.value, "Should have damage value")
@@ -79,7 +94,6 @@ end
 
 tests["consequence calculation for status effect type"] = function()
     currentTest = "consequence calculation for status effect type"
-    local process = setup()
 
     local partyState = {
         pokemon = {
@@ -88,21 +102,14 @@ tests["consequence calculation for status effect type"] = function()
         }
     }
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateConsequences",
+    local response = sendMessage("CalculateConsequences", {
         EncounterType = "DARK_CAVE",
         OptionIndex = "0",
         Outcome = "failure",
-        PartyState = aolite.json.encode(partyState)
-    }
+        PartyState = json.encode(partyState)
+    })
 
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-    local data = aolite.json.decode(response.Data)
+    local data = json.decode(response.Data)
 
     -- DARK_CAVE can return STATUS or DAMAGE (depends on implementation)
     assert(data.type == "STATUS" or data.type == "DAMAGE", "Should have valid consequence type")
@@ -122,7 +129,6 @@ end
 
 tests["consequence calculation for item loss type"] = function()
     currentTest = "consequence calculation for item loss type"
-    local process = setup()
 
     local partyState = {
         pokemon = {{id = 1}},
@@ -132,21 +138,14 @@ tests["consequence calculation for item loss type"] = function()
         }
     }
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateConsequences",
+    local response = sendMessage("CalculateConsequences", {
         EncounterType = "RISKY_TRADE",
         OptionIndex = "0",
         Outcome = "failure",
-        PartyState = aolite.json.encode(partyState)
-    }
+        PartyState = json.encode(partyState)
+    })
 
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-    local data = aolite.json.decode(response.Data)
+    local data = json.decode(response.Data)
 
     -- RISKY_TRADE can return ITEM_LOSS or MONEY_LOSS
     assert(data.type == "ITEM_LOSS" or data.type == "MONEY_LOSS", "Should have valid consequence type")
@@ -166,28 +165,20 @@ end
 
 tests["consequence calculation for money loss type"] = function()
     currentTest = "consequence calculation for money loss type"
-    local process = setup()
 
     local partyState = {
         pokemon = {{id = 1}},
         money = 10000
     }
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateConsequences",
+    local response = sendMessage("CalculateConsequences", {
         EncounterType = "RISKY_TRADE",
         OptionIndex = "0",
         Outcome = "failure",
-        PartyState = aolite.json.encode(partyState)
-    }
+        PartyState = json.encode(partyState)
+    })
 
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-    local data = aolite.json.decode(response.Data)
+    local data = json.decode(response.Data)
 
     if data.type == "MONEY_LOSS" then
         assertNotNil(data.amount, "Should have money loss amount")
@@ -204,7 +195,6 @@ end
 
 tests["target selection random mode"] = function()
     currentTest = "target selection random mode"
-    local process = setup()
 
     local partyState = {
         pokemon = {
@@ -214,21 +204,14 @@ tests["target selection random mode"] = function()
         }
     }
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateConsequences",
+    local response = sendMessage("CalculateConsequences", {
         EncounterType = "MYSTERIOUS_CHEST",
         OptionIndex = "0",
         Outcome = "failure",
-        PartyState = aolite.json.encode(partyState)
-    }
+        PartyState = json.encode(partyState)
+    })
 
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-    local data = aolite.json.decode(response.Data)
+    local data = json.decode(response.Data)
 
     if data.targets then
         assert(#data.targets > 0, "Should have at least one target")
@@ -244,7 +227,6 @@ end
 
 tests["target selection all mode"] = function()
     currentTest = "target selection all mode"
-    local process = setup()
 
     local partyState = {
         pokemon = {
@@ -254,21 +236,14 @@ tests["target selection all mode"] = function()
         }
     }
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateConsequences",
+    local response = sendMessage("CalculateConsequences", {
         EncounterType = "DARK_CAVE",
         OptionIndex = "0",
         Outcome = "failure",
-        PartyState = aolite.json.encode(partyState)
-    }
+        PartyState = json.encode(partyState)
+    })
 
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-    local data = aolite.json.decode(response.Data)
+    local data = json.decode(response.Data)
 
     -- STATUS consequences typically target all Pokemon
     if data.type == "STATUS" and data.targets then
@@ -284,28 +259,20 @@ end
 
 tests["consequence value ranges"] = function()
     currentTest = "consequence value ranges"
-    local process = setup()
 
     local partyState = {
         pokemon = {{id = 1, hp = 100}},
         money = 5000
     }
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateConsequences",
+    local response = sendMessage("CalculateConsequences", {
         EncounterType = "MYSTERIOUS_CHEST",
         OptionIndex = "0",
         Outcome = "failure",
-        PartyState = aolite.json.encode(partyState)
-    }
+        PartyState = json.encode(partyState)
+    })
 
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-    local data = aolite.json.decode(response.Data)
+    local data = json.decode(response.Data)
 
     -- Validate consequence values are within reasonable ranges
     if data.type == "DAMAGE" then
@@ -328,27 +295,19 @@ end
 
 tests["no consequences for success outcome"] = function()
     currentTest = "no consequences for success outcome"
-    local process = setup()
 
     local partyState = {
         pokemon = {{id = 1, hp = 100}}
     }
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateConsequences",
+    local response = sendMessage("CalculateConsequences", {
         EncounterType = "MYSTERIOUS_CHEST",
         OptionIndex = "0",
         Outcome = "success",
-        PartyState = aolite.json.encode(partyState)
-    }
+        PartyState = json.encode(partyState)
+    })
 
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-    local data = aolite.json.decode(response.Data)
+    local data = json.decode(response.Data)
 
     assertEquals(response.ConsequenceType, "NONE", "Success should have no consequences")
     assert(not data.type or data.type == nil, "Should have no consequence type for success")

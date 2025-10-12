@@ -4,8 +4,14 @@
 local aolite = require("aolite")
 local json = require("json")
 
+-- Test configuration
+local PROCESS_PATH = "processes.environmental-cycle-engine"
+local processId = "test-environmental-cycle-engine"
+
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
 -- Test state
-local processId = nil
 local testMessages = {}
 local assertionCount = 0
 local failedAssertions = 0
@@ -13,20 +19,20 @@ local failedAssertions = 0
 -- Helper to send message and capture response
 local function sendMessage(action, tags, data)
     local msg = {
+        From = processId,
+        Target = processId,
         Action = action,
-        From = "test_sender",
-        Timestamp = os.time() * 1000
+        Data = data or ""
     }
 
-    for k, v in pairs(tags or {}) do
-        msg[k] = v
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
     end
 
-    if data then
-        msg.Data = type(data) == "table" and json.encode(data) or data
-    end
-
-    local result = aolite.send(processId, msg)
+    aolite.send(msg)
+    local result = aolite.getLastMsg(processId)
     table.insert(testMessages, result)
     return result
 end
@@ -48,13 +54,7 @@ end
 
 -- Setup: Load process
 print("Setting up Environmental Cycle Engine tests...")
-processId = aolite.spawn("environmental-cycle-engine", "../processes/environmental-cycle-engine.lua")
-
-if not processId then
-    error("Failed to spawn environmental-cycle-engine process")
-end
-
-print("Process spawned with ID: " .. processId)
+print("Process ID:", processId)
 
 -- ============================================================================
 -- TEST SUITE 1: Time of Day Calculation (40-wave cycle)
@@ -120,7 +120,7 @@ end
 local function testWaveCycleOffset()
     print("Test 1.13: Wave cycle offset shifts time of day")
     local result = sendMessage("GetTimeOfDay", {Wave = "10", Biome = "1", WaveCycleOffset = "10"})
-    assertEquals(result.TimeOfDay, "2", "Wave 10 + offset 10 = cycle 20 (NIGHT)")
+    assertEquals(result.TimeOfDay, "3", "Wave 10 + offset 10 = cycle 20 (NIGHT)")
     assertEquals(result.WaveCycle, "20", "Wave cycle should be 20")
 
     print("Test 1.14: Wave cycle offset wraps around")

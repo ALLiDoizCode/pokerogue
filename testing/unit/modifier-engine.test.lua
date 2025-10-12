@@ -6,25 +6,22 @@ local aolite = require("aolite")
 local json = require("json")
 
 -- Test configuration
-local TEST_TIMEOUT = 30000 -- 30 seconds
-local PROCESS_PATH = "processes/modifier-engine.lua"
+local PROCESS_PATH = "processes.modifier-engine"
+local processId = "test-modifier-engine"
 
--- Initialize test process
-local process = aolite.spawnProcess(PROCESS_PATH)
-if not process then
-    error("Failed to spawn process from " .. PROCESS_PATH)
-end
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
 
 print("🧪 Starting Aolite Tests for Modifier Engine")
-print("Process ID:", process.id)
+print("Process ID:", processId)
 
 -- Test utilities
-local function sendMessage(action, tags, data, timeout)
+local function sendMessage(action, tags, data)
     local msg = {
-        Target = process.id,
+        From = processId,
+        Target = processId,
         Action = action,
-        Data = data or "",
-        Timestamp = tostring(os.time() * 1000)
+        Data = data or ""
     }
 
     -- Add additional tags
@@ -34,7 +31,8 @@ local function sendMessage(action, tags, data, timeout)
         end
     end
 
-    return aolite.send(msg, timeout or TEST_TIMEOUT)
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
 -- Test 1: Ping Handler

@@ -1,316 +1,258 @@
--- Unit Tests: Encounter Reward Calculation
+-- Aolite Unit Tests for Encounter Reward Calculation (CORRECT API)
 -- Tests reward calculation logic for mystery encounters with various outcomes
 
--- Load test framework
-package.path = package.path .. ";./testing/aolite/?.lua;./development-tools/aolite/lua/aolite/lib/?.lua"
-local aolite = require("mock-aolite")
+local aolite = require("aolite")
+local json = require("json")
 
--- Test state
-local tests = {}
-local currentTest = ""
+-- Test configuration
+local PROCESS_PATH = "processes.encounter-reward-engine"
+local processId = "test-encounter-reward-engine"
 
--- Test helper functions
-local function assert(condition, message)
-    if not condition then
-        error(currentTest .. " FAILED: " .. message)
-    end
-end
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
 
-local function assertEquals(actual, expected, message)
-    if actual ~= expected then
-        error(currentTest .. " FAILED: " .. message .. " (expected: " .. tostring(expected) .. ", got: " .. tostring(actual) .. ")")
-    end
-end
+print("🧪 Starting Aolite Tests for Encounter Reward Engine")
+print("Process ID:", processId)
 
-local function assertNotNil(value, message)
-    if value == nil then
-        error(currentTest .. " FAILED: " .. message .. " (value is nil)")
-    end
-end
-
--- Setup test environment
-local function setup()
-    -- Load the process
-    local process = aolite.spawnProcess("encounter-reward-engine", "./processes/encounter-reward-engine.lua")
-    return process
-end
-
--- ============================================================================
--- Test Suite: Reward Calculation with Success Outcome
--- ============================================================================
-
-tests["reward calculation with success outcome"] = function()
-    currentTest = "reward calculation with success outcome"
-    local process = setup()
-
-    -- Send CalculateRewards message with success outcome
+-- Test utilities
+local function sendMessage(action, tags, data)
     local msg = {
-        From = "test_player",
-        Action = "CalculateRewards",
-        EncounterType = "MYSTERIOUS_CHEST",
-        OptionIndex = "0",
-        Outcome = "success",
-        WaveIndex = "10"
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
     }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    assertNotNil(responses[1], "Should receive response")
-
-    local response = responses[1]
-    assertEquals(response.Action, "SaveState", "Response should be SaveState")
-    assertEquals(response.Success, "true", "Success should be true")
-    assertEquals(response.HasRewards, "true", "Should have rewards for success")
-
-    -- Parse response data
-    local data = aolite.json.decode(response.Data)
-    assertNotNil(data.customShopRewards, "Should have customShopRewards")
-    assertEquals(data.customShopRewards.allowLuckUpgrades, true, "Should allow luck upgrades on success")
-    assertEquals(data.customShopRewards.rerollMultiplier, 1, "Should have normal reroll cost on success")
-
-    print("✓ " .. currentTest)
-end
-
--- ============================================================================
--- Test Suite: Reward Calculation with Failure Outcome
--- ============================================================================
-
-tests["reward calculation with failure outcome"] = function()
-    currentTest = "reward calculation with failure outcome"
-    local process = setup()
-
-    local msg = {
-        From = "test_player",
-        Action = "CalculateRewards",
-        EncounterType = "MYSTERIOUS_CHEST",
-        OptionIndex = "0",
-        Outcome = "failure",
-        WaveIndex = "10"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-
-    assertEquals(response.Success, "true", "Request should succeed")
-    assertEquals(response.HasRewards, "false", "Should have no rewards for failure")
-
-    local data = aolite.json.decode(response.Data)
-    assertEquals(data.customShopRewards, nil, "Should have no customShopRewards on failure")
-
-    print("✓ " .. currentTest)
-end
-
--- ============================================================================
--- Test Suite: Reward Calculation with Partial Outcome
--- ============================================================================
-
-tests["reward calculation with partial outcome"] = function()
-    currentTest = "reward calculation with partial outcome"
-    local process = setup()
-
-    local msg = {
-        From = "test_player",
-        Action = "CalculateRewards",
-        EncounterType = "MYSTERIOUS_CHEST",
-        OptionIndex = "0",
-        Outcome = "partial",
-        WaveIndex = "10"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-
-    assertEquals(response.HasRewards, "true", "Should have some rewards for partial success")
-
-    local data = aolite.json.decode(response.Data)
-    assertNotNil(data.customShopRewards, "Should have customShopRewards")
-    assertEquals(data.customShopRewards.allowLuckUpgrades, false, "Should not allow luck upgrades on partial")
-    assertEquals(data.customShopRewards.rerollMultiplier, 2, "Should have increased reroll cost on partial")
-
-    local tiers = data.customShopRewards.guaranteedModifierTiers
-    assert(#tiers == 2, "Should have 2 guaranteed tiers for partial success")
-    assertEquals(tiers[1], "COMMON", "First tier should be COMMON")
-    assertEquals(tiers[2], "UNCOMMON", "Second tier should be UNCOMMON")
-
-    print("✓ " .. currentTest)
-end
-
--- ============================================================================
--- Test Suite: Guaranteed Modifier Inclusion
--- ============================================================================
-
-tests["guaranteed modifier inclusion"] = function()
-    currentTest = "guaranteed modifier inclusion"
-    local process = setup()
-
-    local msg = {
-        From = "test_player",
-        Action = "CalculateRewards",
-        EncounterType = "MYSTERIOUS_CHEST",
-        OptionIndex = "0",
-        Outcome = "success",
-        WaveIndex = "10"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-    local data = aolite.json.decode(response.Data)
-
-    local guaranteedModifiers = data.customShopRewards.guaranteedModifierTypeFuncs
-    assertNotNil(guaranteedModifiers, "Should have guaranteed modifiers")
-    assert(#guaranteedModifiers > 0, "Should have at least one guaranteed modifier for MYSTERIOUS_CHEST")
-
-    print("✓ " .. currentTest)
-end
-
--- ============================================================================
--- Test Suite: Egg Reward Generation
--- ============================================================================
-
-tests["egg reward generation"] = function()
-    currentTest = "egg reward generation"
-    local process = setup()
-
-    -- Test encounter with egg reward
-    local msg = {
-        From = "test_player",
-        Action = "CalculateRewards",
-        EncounterType = "POKEMON_BREEDER",
-        OptionIndex = "0",
-        Outcome = "success",
-        WaveIndex = "10"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-    local data = aolite.json.decode(response.Data)
-
-    assertNotNil(data.eggRewards, "Should have egg rewards for POKEMON_BREEDER")
-    assert(#data.eggRewards > 0, "Should have at least one egg")
-
-    local egg = data.eggRewards[1]
-    assertNotNil(egg.tier, "Egg should have tier")
-    assertNotNil(egg.sourceType, "Egg should have sourceType")
-    assertNotNil(egg.hatchWaves, "Egg should have hatchWaves")
-    assertEquals(egg.pulled, false, "Egg should not be pulled initially")
-
-    print("✓ " .. currentTest)
-end
-
--- ============================================================================
--- Test Suite: Reward Configuration Validity
--- ============================================================================
-
-tests["reward configuration validity"] = function()
-    currentTest = "reward configuration validity"
-    local process = setup()
-
-    local msg = {
-        From = "test_player",
-        Action = "CalculateRewards",
-        EncounterType = "MYSTERIOUS_CHEST",
-        OptionIndex = "0",
-        Outcome = "success",
-        WaveIndex = "50"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-
-    -- Validate response structure
-    assertNotNil(response.Action, "Response should have Action")
-    assertNotNil(response.Success, "Response should have Success")
-    assertNotNil(response.HasRewards, "Response should have HasRewards")
-    assertNotNil(response.HasExp, "Response should have HasExp")
-    assertNotNil(response.Data, "Response should have Data")
-
-    -- Validate data structure
-    local data = aolite.json.decode(response.Data)
-    assert(type(data) == "table", "Data should be a table")
-    assert(data.customShopRewards ~= nil or data.eggRewards ~= nil or response.HasRewards == "false",
-        "Should have rewards or HasRewards should be false")
-
-    print("✓ " .. currentTest)
-end
-
--- ============================================================================
--- Test Suite: Missing Parameters Error
--- ============================================================================
-
-tests["missing parameters error"] = function()
-    currentTest = "missing parameters error"
-    local process = setup()
-
-    -- Missing EncounterType
-    local msg = {
-        From = "test_player",
-        Action = "CalculateRewards",
-        OptionIndex = "0",
-        Outcome = "success"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
-
-    assertEquals(response.Action, "Error", "Should return Error for missing parameters")
-    assertNotNil(response.Error, "Should have error message")
-
-    print("✓ " .. currentTest)
-end
-
--- ============================================================================
--- Run all tests
--- ============================================================================
-
-local function runTests()
-    local passed = 0
-    local failed = 0
-
-    print("\n=== Encounter Reward Calculation Tests ===\n")
-
-    for name, test in pairs(tests) do
-        local success, err = pcall(test)
-        if success then
-            passed = passed + 1
-        else
-            failed = failed + 1
-            print("✗ " .. name .. ": " .. err)
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
         end
     end
-
-    print("\n=== Test Summary ===")
-    print("Passed: " .. passed)
-    print("Failed: " .. failed)
-    print("Total: " .. (passed + failed))
-
-    if failed == 0 then
-        print("\n✓ All tests passed!")
-        return 0
-    else
-        print("\n✗ Some tests failed")
-        return 1
-    end
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
--- Run tests
-return runTests()
+-- Test 1: Reward Calculation with Success Outcome
+print("📝 Test 1: Reward calculation with success outcome")
+local response = sendMessage("CalculateRewards", {
+    EncounterType = "MYSTERIOUS_CHEST",
+    OptionIndex = "0",
+    Outcome = "success",
+    WaveIndex = "10"
+})
+
+if not response then
+    error("❌ Test 1 failed: No response received")
+end
+
+if response.Action ~= "SaveState" then
+    error("❌ Test 1 failed: Expected SaveState action, got " .. tostring(response.Action))
+end
+
+if response.Success ~= "true" then
+    error("❌ Test 1 failed: Expected Success to be true")
+end
+
+if response.HasRewards ~= "true" then
+    error("❌ Test 1 failed: Should have rewards for success")
+end
+
+local data = json.decode(response.Data)
+if not data.customShopRewards then
+    error("❌ Test 1 failed: Should have customShopRewards")
+end
+
+if data.customShopRewards.allowLuckUpgrades ~= true then
+    error("❌ Test 1 failed: Should allow luck upgrades on success")
+end
+
+if data.customShopRewards.rerollMultiplier ~= 1 then
+    error("❌ Test 1 failed: Should have normal reroll cost on success")
+end
+
+print("✅ Test 1 passed")
+
+-- Test 2: Reward Calculation with Failure Outcome
+print("📝 Test 2: Reward calculation with failure outcome")
+response = sendMessage("CalculateRewards", {
+    EncounterType = "MYSTERIOUS_CHEST",
+    OptionIndex = "0",
+    Outcome = "failure",
+    WaveIndex = "10"
+})
+
+if response.Success ~= "true" then
+    error("❌ Test 2 failed: Request should succeed")
+end
+
+if response.HasRewards ~= "false" then
+    error("❌ Test 2 failed: Should have no rewards for failure")
+end
+
+data = json.decode(response.Data)
+if data.customShopRewards ~= nil then
+    error("❌ Test 2 failed: Should have no customShopRewards on failure")
+end
+
+print("✅ Test 2 passed")
+
+-- Test 3: Reward Calculation with Partial Outcome
+print("📝 Test 3: Reward calculation with partial outcome")
+response = sendMessage("CalculateRewards", {
+    EncounterType = "MYSTERIOUS_CHEST",
+    OptionIndex = "0",
+    Outcome = "partial",
+    WaveIndex = "10"
+})
+
+if response.HasRewards ~= "true" then
+    error("❌ Test 3 failed: Should have some rewards for partial success")
+end
+
+data = json.decode(response.Data)
+if not data.customShopRewards then
+    error("❌ Test 3 failed: Should have customShopRewards")
+end
+
+if data.customShopRewards.allowLuckUpgrades ~= false then
+    error("❌ Test 3 failed: Should not allow luck upgrades on partial")
+end
+
+if data.customShopRewards.rerollMultiplier ~= 2 then
+    error("❌ Test 3 failed: Should have increased reroll cost on partial")
+end
+
+local tiers = data.customShopRewards.guaranteedModifierTiers
+if #tiers ~= 2 then
+    error("❌ Test 3 failed: Should have 2 guaranteed tiers for partial success")
+end
+
+if tiers[1] ~= "COMMON" then
+    error("❌ Test 3 failed: First tier should be COMMON")
+end
+
+if tiers[2] ~= "UNCOMMON" then
+    error("❌ Test 3 failed: Second tier should be UNCOMMON")
+end
+
+print("✅ Test 3 passed")
+
+-- Test 4: Guaranteed Modifier Inclusion
+print("📝 Test 4: Guaranteed modifier inclusion")
+response = sendMessage("CalculateRewards", {
+    EncounterType = "MYSTERIOUS_CHEST",
+    OptionIndex = "0",
+    Outcome = "success",
+    WaveIndex = "10"
+})
+
+data = json.decode(response.Data)
+local guaranteedModifiers = data.customShopRewards.guaranteedModifierTypeFuncs
+if not guaranteedModifiers then
+    error("❌ Test 4 failed: Should have guaranteed modifiers")
+end
+
+if #guaranteedModifiers <= 0 then
+    error("❌ Test 4 failed: Should have at least one guaranteed modifier for MYSTERIOUS_CHEST")
+end
+
+print("✅ Test 4 passed")
+
+-- Test 5: Egg Reward Generation
+print("📝 Test 5: Egg reward generation")
+response = sendMessage("CalculateRewards", {
+    EncounterType = "POKEMON_BREEDER",
+    OptionIndex = "0",
+    Outcome = "success",
+    WaveIndex = "10"
+})
+
+data = json.decode(response.Data)
+if not data.eggRewards then
+    error("❌ Test 5 failed: Should have egg rewards for POKEMON_BREEDER")
+end
+
+if #data.eggRewards <= 0 then
+    error("❌ Test 5 failed: Should have at least one egg")
+end
+
+local egg = data.eggRewards[1]
+if not egg.tier then
+    error("❌ Test 5 failed: Egg should have tier")
+end
+
+if not egg.sourceType then
+    error("❌ Test 5 failed: Egg should have sourceType")
+end
+
+if not egg.hatchWaves then
+    error("❌ Test 5 failed: Egg should have hatchWaves")
+end
+
+if egg.pulled ~= false then
+    error("❌ Test 5 failed: Egg should not be pulled initially")
+end
+
+print("✅ Test 5 passed")
+
+-- Test 6: Reward Configuration Validity
+print("📝 Test 6: Reward configuration validity")
+response = sendMessage("CalculateRewards", {
+    EncounterType = "MYSTERIOUS_CHEST",
+    OptionIndex = "0",
+    Outcome = "success",
+    WaveIndex = "50"
+})
+
+if not response.Action then
+    error("❌ Test 6 failed: Response should have Action")
+end
+
+if not response.Success then
+    error("❌ Test 6 failed: Response should have Success")
+end
+
+if not response.HasRewards then
+    error("❌ Test 6 failed: Response should have HasRewards")
+end
+
+if not response.HasExp then
+    error("❌ Test 6 failed: Response should have HasExp")
+end
+
+if not response.Data then
+    error("❌ Test 6 failed: Response should have Data")
+end
+
+data = json.decode(response.Data)
+if type(data) ~= "table" then
+    error("❌ Test 6 failed: Data should be a table")
+end
+
+if not (data.customShopRewards ~= nil or data.eggRewards ~= nil or response.HasRewards == "false") then
+    error("❌ Test 6 failed: Should have rewards or HasRewards should be false")
+end
+
+print("✅ Test 6 passed")
+
+-- Test 7: Missing Parameters Error
+print("📝 Test 7: Missing parameters error")
+response = sendMessage("CalculateRewards", {
+    OptionIndex = "0",
+    Outcome = "success"
+    -- Missing EncounterType
+})
+
+if response.Action ~= "Error" then
+    error("❌ Test 7 failed: Should return Error for missing parameters")
+end
+
+if not response.Error then
+    error("❌ Test 7 failed: Should have error message")
+end
+
+print("✅ Test 7 passed")
+
+-- Test Summary
+print("==================================================")
+print("🎉 All Encounter Reward Calculation tests passed!")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

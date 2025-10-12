@@ -9080,7 +9080,7 @@ Handlers.add("get-species",
         else
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = error or "Species not found",
             })
         end
@@ -9096,7 +9096,7 @@ Handlers.add("get-base-stats",
         if not speciesId then
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "GetBaseStats requires 'SpeciesId' or 'Id' tag",
             })
             return
@@ -9119,7 +9119,7 @@ Handlers.add("get-base-stats",
         else
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "Base stats not found for species ID: " .. speciesId,
             })
         end
@@ -9152,7 +9152,7 @@ Handlers.add("preload-generation",
         if not generation then
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "PreloadGeneration requires 'Generation' tag",
             })
             return
@@ -9183,7 +9183,7 @@ Handlers.add("get-evolution-chain",
         if not speciesId then
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "GetEvolutionChain requires 'SpeciesId' or 'Id' tag",
             })
             return
@@ -9231,7 +9231,7 @@ Handlers.add("get-level-moves",
         if not speciesId then
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "GetLevelMoves requires 'SpeciesId' tag",
             })
             return

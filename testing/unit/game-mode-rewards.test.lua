@@ -1,53 +1,95 @@
 -- Unit tests for Game Mode Engine - Rewards Tests
 -- Tests reward calculation for all game modes
 
-local testMessages, testHandlers = {}, {}
-local mockAO = {id = "test-game-mode-process", send = function(msg) table.insert(testMessages, msg); return true end}
-local mockHandlers = {add = function(name, matcher, handler) testHandlers[name] = {matcher = matcher, handler = handler} end, utils = {hasMatchingTag = function(tag, value) return function(msg) return msg[tag] == value end end}}
-local mockJSON = {encode = function(t) return "{}" end, decode = function(s) return {} end}
+-- Required imports
+local aolite = require("aolite")
+local json = require("json")
 
-local function setupTestEnvironment() _G.ao, _G.Handlers, _G.json = mockAO, mockHandlers, mockJSON end
-local function invokeHandler(handlerName, msg) testMessages = {}; local handler = testHandlers[handlerName]; if handler and handler.handler then handler.handler(msg); return testMessages[1] end; return nil end
+-- Test configuration
+local PROCESS_PATH = "processes.game-mode-engine"
+local processId = "test-game-mode-rewards"
 
-local function runTests()
-    print("Running ADP v1.0 Game Mode Engine Unit Tests - Rewards")
-    print("=" .. string.rep("=", 50))
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
 
-    setupTestEnvironment()
-    dofile("processes/game-mode-engine.lua")
+print("🧪 Starting Aolite Tests for Game Mode Engine - Rewards")
+print("Process ID:", processId)
 
-    local testsRun, testsPassed = 0, 0
-
-    -- Test: Clear bonus for CLASSIC
-    testsRun = testsRun + 1
-    local response = invokeHandler("get-mode-rewards", {From = "test", Action = "GetModeRewards", ModeId = "0"})
-    if response and response.ClearScoreBonus == "5000" then testsPassed = testsPassed + 1; print("✓ CLASSIC clear bonus 5000") else print("✗ CLASSIC clear bonus failed") end
-
-    -- Test: Clear bonus for DAILY
-    testsRun = testsRun + 1
-    response = invokeHandler("get-mode-rewards", {From = "test", Action = "GetModeRewards", ModeId = "3"})
-    if response and response.ClearScoreBonus == "2500" then testsPassed = testsPassed + 1; print("✓ DAILY clear bonus 2500") else print("✗ DAILY clear bonus failed") end
-
-    -- Test: Enemy modifier chance CLASSIC non-boss
-    testsRun = testsRun + 1
-    response = invokeHandler("get-mode-rewards", {From = "test", Action = "GetModeRewards", ModeId = "0", IsBoss = "false"})
-    if response and response.EnemyModifierChance == "18" then testsPassed = testsPassed + 1; print("✓ CLASSIC non-boss modifier 18") else print("✗ CLASSIC non-boss modifier failed") end
-
-    -- Test: Override species for DAILY final wave
-    testsRun = testsRun + 1
-    response = invokeHandler("get-override-species", {From = "test", Action = "GetOverrideSpecies", ModeId = "3", WaveIndex = "50"})
-    if response and response.HasOverride == "true" then testsPassed = testsPassed + 1; print("✓ DAILY override species") else print("✗ DAILY override species failed") end
-
-    print("\n" .. string.rep("=", 50))
-    print("Tests run: " .. testsRun .. ", Tests passed: " .. testsPassed)
-
-    if testsPassed == testsRun then
-        print("✅ All rewards tests passed!")
-        return true
-    else
-        print("❌ Some rewards tests failed!")
-        return false
+-- Test utilities
+local function sendMessage(action, tags)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action
+    }
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
     end
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
-return {runTests = runTests}
+-- Test counter
+local testsRun = 0
+local testsPassed = 0
+
+-- Test 1: Clear bonus for CLASSIC
+testsRun = testsRun + 1
+print("\n📝 Test 1: CLASSIC clear bonus 5000")
+local response = sendMessage("GetModeRewards", {ModeId = "0"})
+if response and response.ClearScoreBonus == "5000" then
+    print("✅ CLASSIC clear bonus 5000")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CLASSIC clear bonus failed")
+end
+
+-- Test 2: Clear bonus for DAILY
+testsRun = testsRun + 1
+print("\n📝 Test 2: DAILY clear bonus 2500")
+response = sendMessage("GetModeRewards", {ModeId = "3"})
+if response and response.ClearScoreBonus == "2500" then
+    print("✅ DAILY clear bonus 2500")
+    testsPassed = testsPassed + 1
+else
+    error("❌ DAILY clear bonus failed")
+end
+
+-- Test 3: Enemy modifier chance CLASSIC non-boss
+testsRun = testsRun + 1
+print("\n📝 Test 3: CLASSIC non-boss modifier 18")
+response = sendMessage("GetModeRewards", {ModeId = "0", IsBoss = "false"})
+if response and response.EnemyModifierChance == "18" then
+    print("✅ CLASSIC non-boss modifier 18")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CLASSIC non-boss modifier failed")
+end
+
+-- Test 4: Override species for DAILY final wave
+testsRun = testsRun + 1
+print("\n📝 Test 4: DAILY override species")
+response = sendMessage("GetOverrideSpecies", {ModeId = "3", WaveIndex = "50"})
+if response and response.HasOverride == "true" then
+    print("✅ DAILY override species")
+    testsPassed = testsPassed + 1
+else
+    error("❌ DAILY override species failed")
+end
+
+-- Results summary
+print("\n" .. string.rep("=", 50))
+print("Tests run: " .. testsRun)
+print("Tests passed: " .. testsPassed)
+print("Tests failed: " .. (testsRun - testsPassed))
+
+if testsPassed == testsRun then
+    print("✅ All rewards tests passed!")
+    print("✅ Test file executed successfully: " .. PROCESS_PATH)
+    return true
+else
+    print("❌ Some rewards tests failed!")
+    return false
+end

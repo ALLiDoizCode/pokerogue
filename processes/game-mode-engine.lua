@@ -533,6 +533,49 @@ local function getShopStatus(gameMode)
 end
 
 -- =======================
+-- HELPER FUNCTIONS FOR JSON SERIALIZATION
+-- =======================
+
+-- Convert gameMode to JSON-safe format
+-- Handles sparse battleConfig arrays that can't be JSON encoded
+local function toJsonSafeGameMode(gameMode)
+    if not gameMode then
+        return nil
+    end
+
+    -- Convert battleConfig sparse array to dense array
+    local battleConfigArray = {}
+    if gameMode.battleConfig then
+        for waveIndex, battleData in pairs(gameMode.battleConfig) do
+            table.insert(battleConfigArray, {
+                waveIndex = waveIndex,
+                battleType = battleData.battleType,
+                trainerType = battleData.trainerType
+            })
+        end
+    end
+
+    return {
+        modeId = gameMode.modeId,
+        isClassic = gameMode.isClassic,
+        isEndless = gameMode.isEndless,
+        isDaily = gameMode.isDaily,
+        hasTrainers = gameMode.hasTrainers,
+        hasNoShop = gameMode.hasNoShop,
+        hasShortBiomes = gameMode.hasShortBiomes,
+        hasRandomBiomes = gameMode.hasRandomBiomes,
+        hasRandomBosses = gameMode.hasRandomBosses,
+        isSplicedOnly = gameMode.isSplicedOnly,
+        isChallenge = gameMode.isChallenge,
+        challenges = gameMode.challenges or {},
+        battleConfig = battleConfigArray,
+        hasMysteryEncounters = gameMode.hasMysteryEncounters,
+        minMysteryEncounterWave = gameMode.minMysteryEncounterWave,
+        maxMysteryEncounterWave = gameMode.maxMysteryEncounterWave
+    }
+end
+
+-- =======================
 -- MESSAGE HANDLERS
 -- =======================
 
@@ -572,7 +615,7 @@ Handlers.add("create-game-mode",
         ao.send({
             Target = msg.From,
             Action = "SaveState",
-            Data = json.encode(gameMode)
+            Data = json.encode(toJsonSafeGameMode(gameMode))
         })
     end
 )
@@ -598,16 +641,16 @@ Handlers.add("get-game-mode-info",
             ao.send({
                 Target = msg.From,
                 Action = "SaveState",
-                Data = json.encode(gameMode)
+                Data = json.encode(toJsonSafeGameMode(gameMode))
             })
         else
             -- Return all mode info
             local allModes = {
-                getGameMode(GAME_MODES.CLASSIC),
-                getGameMode(GAME_MODES.ENDLESS),
-                getGameMode(GAME_MODES.SPLICED_ENDLESS),
-                getGameMode(GAME_MODES.DAILY),
-                getGameMode(GAME_MODES.CHALLENGE)
+                toJsonSafeGameMode(getGameMode(GAME_MODES.CLASSIC)),
+                toJsonSafeGameMode(getGameMode(GAME_MODES.ENDLESS)),
+                toJsonSafeGameMode(getGameMode(GAME_MODES.SPLICED_ENDLESS)),
+                toJsonSafeGameMode(getGameMode(GAME_MODES.DAILY)),
+                toJsonSafeGameMode(getGameMode(GAME_MODES.CHALLENGE))
             }
 
             ao.send({

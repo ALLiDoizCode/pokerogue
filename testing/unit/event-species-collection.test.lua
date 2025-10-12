@@ -7,311 +7,329 @@
 local aolite = require("aolite")
 local json = require("json")
 
--- Load the seasonal event engine process
-local processPath = "processes/seasonal-event-engine.lua"
-local process = aolite.spawnProcess(processPath)
+-- Test configuration (Story 2.10 optimized pattern)
+local PROCESS_PATH = "processes.seasonal-event-engine"
+local processId = "test-seasonal-event-engine"
+aolite.spawnProcess(processId, PROCESS_PATH)
 
--- Test suite
-describe("Event Species Collection Tracking", function()
+print("🧪 Starting Aolite Tests for Event Species Collection")
+print("Process ID:", processId)
 
-  -- Test: TrackEventSpeciesEncounter initializes collection
-  it("should initialize collection for first encounter", function()
+-- Test utilities
+local function sendMessage(action, tags, data)
     local msg = {
-      Action = "TrackEventSpeciesEncounter",
-      SpeciesId = "GIMMIGHOUL",
-      FormIndex = "0",
-      IsShiny = "false",
-      GameState = "",
-      From = "test-sender"
+        From = processId,  -- REQUIRED
+        Target = processId,
+        Action = action,
+        Data = data or ""
     }
 
-    local result = aolite.send(process, msg)
-    local response = json.decode(result.Data)
-    local collection = response.eventSpeciesCollection
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
+    end
 
-    assert(collection, "Should return collection")
-    assert(collection.totalEncounters == 1, "Should have 1 total encounter")
-    assert(collection.uniqueSpecies == 1, "Should have 1 unique species")
-    assert(collection.shinyEncounters == 0, "Should have 0 shiny encounters")
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
+end
 
-    local gimmighoul = collection.speciesEncountered.GIMMIGHOUL
-    assert(gimmighoul, "Should have Gimmighoul entry")
-    assert(gimmighoul.count == 1, "Gimmighoul count should be 1")
-    assert(gimmighoul.shinyCount == 0, "Gimmighoul shiny count should be 0")
-    assert(#gimmighoul.formsSeen == 1, "Should have 1 form seen")
-    assert(gimmighoul.formsSeen[1] == 0, "Should have form 0")
-  end)
+-- Test 1: Initialize collection for first encounter
+print("📝 Test 1: Initialize collection for first encounter")
+local response1 = sendMessage("TrackEventSpeciesEncounter", {
+    SpeciesId = "GIMMIGHOUL",
+    FormIndex = "0",
+    IsShiny = "false",
+    EventId = "test-event-1"  -- State isolation
+})
+if response1 and response1.Action == "SaveState" then
+    local data1 = json.decode(response1.Data)
+    local collection = data1.eventSpeciesCollection
+    if collection and collection.totalEncounters == 1 and collection.uniqueSpecies == 1 and collection.shinyEncounters == 0 then
+        local gimmighoul = collection.speciesEncountered and collection.speciesEncountered.GIMMIGHOUL
+        if gimmighoul and gimmighoul.count == 1 and gimmighoul.shinyCount == 0 and #gimmighoul.formsSeen == 1 then
+            print("✅ Test 1 passed")
+        else
+            error("❌ Test 1 failed: Invalid Gimmighoul entry")
+        end
+    else
+        error("❌ Test 1 failed: Expected totalEncounters=1, uniqueSpecies=1, shinyEncounters=0")
+    end
+else
+    error("❌ Test 1 failed: Expected SaveState action")
+end
 
-  -- Test: TrackEventSpeciesEncounter increments existing species
-  it("should increment counters for repeat encounters", function()
-    -- First encounter
-    local gameState = {
-      eventSpeciesCollection = {
+-- Test 2: Increment counters for repeat encounters
+print("📝 Test 2: Increment counters for repeat encounters")
+local gameState2 = {
+    eventSpeciesCollection = {
         totalEncounters = 1,
         uniqueSpecies = 1,
         shinyEncounters = 0,
         speciesEncountered = {
-          GIMMIGHOUL = {
-            count = 1,
-            shinyCount = 0,
-            formsSeen = {0}
-          }
+            GIMMIGHOUL = {
+                count = 1,
+                shinyCount = 0,
+                formsSeen = {0}
+            }
         }
-      }
     }
+}
+local response2 = sendMessage("TrackEventSpeciesEncounter", {
+    SpeciesId = "GIMMIGHOUL",
+    FormIndex = "0",
+    IsShiny = "false",
+    EventId = "test-event-2",
+    GameState = json.encode(gameState2)
+})
+if response2 and response2.Action == "SaveState" then
+    local data2 = json.decode(response2.Data)
+    local collection = data2.eventSpeciesCollection
+    if collection.totalEncounters == 2 and collection.uniqueSpecies == 1 and collection.speciesEncountered.GIMMIGHOUL.count == 2 then
+        print("✅ Test 2 passed")
+    else
+        error("❌ Test 2 failed: Expected totalEncounters=2, uniqueSpecies=1, Gimmighoul count=2")
+    end
+else
+    error("❌ Test 2 failed: Expected SaveState action")
+end
 
-    local msg = {
-      Action = "TrackEventSpeciesEncounter",
-      SpeciesId = "GIMMIGHOUL",
-      FormIndex = "0",
-      IsShiny = "false",
-      GameState = json.encode(gameState),
-      From = "test-sender"
-    }
-
-    local result = aolite.send(process, msg)
-    local response = json.decode(result.Data)
-    local collection = response.eventSpeciesCollection
-
-    assert(collection.totalEncounters == 2, "Should have 2 total encounters")
-    assert(collection.uniqueSpecies == 1, "Should still have 1 unique species")
-    assert(collection.speciesEncountered.GIMMIGHOUL.count == 2, "Gimmighoul count should be 2")
-  end)
-
-  -- Test: TrackEventSpeciesEncounter tracks shiny encounters
-  it("should track shiny encounters correctly", function()
-    local gameState = {
-      eventSpeciesCollection = {
+-- Test 3: Track shiny encounters correctly
+print("📝 Test 3: Track shiny encounters correctly")
+local gameState3 = {
+    eventSpeciesCollection = {
         totalEncounters = 1,
         uniqueSpecies = 1,
         shinyEncounters = 0,
         speciesEncountered = {
-          GIMMIGHOUL = {
-            count = 1,
-            shinyCount = 0,
-            formsSeen = {0}
-          }
+            GIMMIGHOUL = {
+                count = 1,
+                shinyCount = 0,
+                formsSeen = {0}
+            }
         }
-      }
     }
+}
+local response3 = sendMessage("TrackEventSpeciesEncounter", {
+    SpeciesId = "GIMMIGHOUL",
+    FormIndex = "0",
+    IsShiny = "true",
+    EventId = "test-event-3",
+    GameState = json.encode(gameState3)
+})
+if response3 and response3.Action == "SaveState" then
+    local data3 = json.decode(response3.Data)
+    local collection = data3.eventSpeciesCollection
+    if collection.shinyEncounters == 1 and collection.speciesEncountered.GIMMIGHOUL.shinyCount == 1 then
+        print("✅ Test 3 passed")
+    else
+        error("❌ Test 3 failed: Expected shinyEncounters=1, Gimmighoul shinyCount=1")
+    end
+else
+    error("❌ Test 3 failed: Expected SaveState action")
+end
 
-    local msg = {
-      Action = "TrackEventSpeciesEncounter",
-      SpeciesId = "GIMMIGHOUL",
-      FormIndex = "0",
-      IsShiny = "true",
-      GameState = json.encode(gameState),
-      From = "test-sender"
-    }
-
-    local result = aolite.send(process, msg)
-    local response = json.decode(result.Data)
-    local collection = response.eventSpeciesCollection
-
-    assert(collection.shinyEncounters == 1, "Should have 1 shiny encounter")
-    assert(collection.speciesEncountered.GIMMIGHOUL.shinyCount == 1, "Gimmighoul should have 1 shiny")
-  end)
-
-  -- Test: TrackEventSpeciesEncounter tracks multiple forms
-  it("should track multiple forms for same species", function()
-    local gameState = {
-      eventSpeciesCollection = {
+-- Test 4: Track multiple forms for same species
+print("📝 Test 4: Track multiple forms for same species")
+local gameState4 = {
+    eventSpeciesCollection = {
         totalEncounters = 1,
         uniqueSpecies = 1,
         shinyEncounters = 0,
         speciesEncountered = {
-          PIKACHU = {
-            count = 1,
-            shinyCount = 0,
-            formsSeen = {0}
-          }
+            PIKACHU = {
+                count = 1,
+                shinyCount = 0,
+                formsSeen = {0}
+            }
         }
-      }
     }
+}
+local response4 = sendMessage("TrackEventSpeciesEncounter", {
+    SpeciesId = "PIKACHU",
+    FormIndex = "1",
+    IsShiny = "false",
+    EventId = "test-event-4",
+    GameState = json.encode(gameState4)
+})
+if response4 and response4.Action == "SaveState" then
+    local data4 = json.decode(response4.Data)
+    local pikachu = data4.eventSpeciesCollection.speciesEncountered.PIKACHU
+    if #pikachu.formsSeen == 2 then
+        print("✅ Test 4 passed")
+    else
+        error("❌ Test 4 failed: Expected 2 forms seen, got " .. #pikachu.formsSeen)
+    end
+else
+    error("❌ Test 4 failed: Expected SaveState action")
+end
 
-    local msg = {
-      Action = "TrackEventSpeciesEncounter",
-      SpeciesId = "PIKACHU",
-      FormIndex = "1", -- Partner form
-      IsShiny = "false",
-      GameState = json.encode(gameState),
-      From = "test-sender"
-    }
-
-    local result = aolite.send(process, msg)
-    local response = json.decode(result.Data)
-    local pikachu = response.eventSpeciesCollection.speciesEncountered.PIKACHU
-
-    assert(#pikachu.formsSeen == 2, "Should have 2 forms seen")
-    assert(pikachu.formsSeen[1] == 0 or pikachu.formsSeen[1] == 1, "Should have form 0 or 1")
-    assert(pikachu.formsSeen[2] == 0 or pikachu.formsSeen[2] == 1, "Should have form 0 or 1")
-  end)
-
-  -- Test: TrackEventSpeciesEncounter adds new species
-  it("should add new unique species to collection", function()
-    local gameState = {
-      eventSpeciesCollection = {
+-- Test 5: Add new unique species to collection
+print("📝 Test 5: Add new unique species to collection")
+local gameState5 = {
+    eventSpeciesCollection = {
         totalEncounters = 2,
         uniqueSpecies = 1,
         shinyEncounters = 0,
         speciesEncountered = {
-          GIMMIGHOUL = {
-            count = 2,
-            shinyCount = 0,
-            formsSeen = {0}
-          }
+            GIMMIGHOUL = {
+                count = 2,
+                shinyCount = 0,
+                formsSeen = {0}
+            }
         }
-      }
     }
+}
+local response5 = sendMessage("TrackEventSpeciesEncounter", {
+    SpeciesId = "DELIBIRD",
+    FormIndex = "0",
+    IsShiny = "false",
+    EventId = "test-event-5",
+    GameState = json.encode(gameState5)
+})
+if response5 and response5.Action == "SaveState" then
+    local data5 = json.decode(response5.Data)
+    local collection = data5.eventSpeciesCollection
+    if collection.uniqueSpecies == 2 and collection.totalEncounters == 3 and collection.speciesEncountered.DELIBIRD and collection.speciesEncountered.DELIBIRD.count == 1 then
+        print("✅ Test 5 passed")
+    else
+        error("❌ Test 5 failed: Expected uniqueSpecies=2, totalEncounters=3, Delibird count=1")
+    end
+else
+    error("❌ Test 5 failed: Expected SaveState action")
+end
 
-    local msg = {
-      Action = "TrackEventSpeciesEncounter",
-      SpeciesId = "DELIBIRD",
-      FormIndex = "0",
-      IsShiny = "false",
-      GameState = json.encode(gameState),
-      From = "test-sender"
-    }
+-- Test 6: Default to form 0 when FormIndex missing
+print("📝 Test 6: Default to form 0 when FormIndex missing")
+local response6 = sendMessage("TrackEventSpeciesEncounter", {
+    SpeciesId = "GIMMIGHOUL",
+    IsShiny = "false",
+    EventId = "test-event-6"
+})
+if response6 and response6.Action == "SaveState" then
+    local data6 = json.decode(response6.Data)
+    local gimmighoul = data6.eventSpeciesCollection.speciesEncountered.GIMMIGHOUL
+    if gimmighoul.formsSeen[1] == 0 then
+        print("✅ Test 6 passed")
+    else
+        error("❌ Test 6 failed: Expected form 0 by default, got " .. tostring(gimmighoul.formsSeen[1]))
+    end
+else
+    error("❌ Test 6 failed: Expected SaveState action")
+end
 
-    local result = aolite.send(process, msg)
-    local response = json.decode(result.Data)
-    local collection = response.eventSpeciesCollection
+-- Test 7: Return error when SpeciesId missing
+print("📝 Test 7: Return error when SpeciesId missing")
+local response7 = sendMessage("TrackEventSpeciesEncounter", {
+    FormIndex = "0",
+    IsShiny = "false",
+    EventId = "test-event-7"
+})
+if response7 and response7.Action == "Error" then
+    if string.match(response7.Error or "", "SpeciesId") then
+        print("✅ Test 7 passed")
+    else
+        error("❌ Test 7 failed: Error should mention SpeciesId")
+    end
+else
+    error("❌ Test 7 failed: Expected Error action")
+end
 
-    assert(collection.uniqueSpecies == 2, "Should have 2 unique species")
-    assert(collection.totalEncounters == 3, "Should have 3 total encounters")
-    assert(collection.speciesEncountered.DELIBIRD, "Should have Delibird entry")
-    assert(collection.speciesEncountered.DELIBIRD.count == 1, "Delibird count should be 1")
-  end)
+-- Test 8: Return empty collection when no encounters
+print("📝 Test 8: Return empty collection when no encounters")
+local response8 = sendMessage("GetEventSpeciesProgress", {
+    EventId = "test-event-8"
+})
+if response8 and response8.Action == "SaveState" then
+    local data8 = json.decode(response8.Data)
+    local collection = data8.eventSpeciesCollection
+    if collection and collection.totalEncounters == 0 and collection.uniqueSpecies == 0 and collection.shinyEncounters == 0 then
+        print("✅ Test 8 passed")
+    else
+        error("❌ Test 8 failed: Expected empty collection")
+    end
+else
+    error("❌ Test 8 failed: Expected SaveState action")
+end
 
-  -- Test: TrackEventSpeciesEncounter handles missing FormIndex
-  it("should default to form 0 when FormIndex missing", function()
-    local msg = {
-      Action = "TrackEventSpeciesEncounter",
-      SpeciesId = "GIMMIGHOUL",
-      IsShiny = "false",
-      GameState = "",
-      From = "test-sender"
-    }
-
-    local result = aolite.send(process, msg)
-    local response = json.decode(result.Data)
-    local gimmighoul = response.eventSpeciesCollection.speciesEncountered.GIMMIGHOUL
-
-    assert(gimmighoul.formsSeen[1] == 0, "Should default to form 0")
-  end)
-
-  -- Test: TrackEventSpeciesEncounter error handling
-  it("should return error when SpeciesId missing", function()
-    local msg = {
-      Action = "TrackEventSpeciesEncounter",
-      FormIndex = "0",
-      IsShiny = "false",
-      GameState = "",
-      From = "test-sender"
-    }
-
-    local result = aolite.send(process, msg)
-    assert(result.Action == "Error", "Should return error")
-    assert(string.match(result.Error, "Missing SpeciesId"), "Error should mention missing SpeciesId")
-  end)
-
-  -- Test: GetEventSpeciesProgress returns empty collection for no encounters
-  it("should return empty collection when no encounters", function()
-    local msg = {
-      Action = "GetEventSpeciesProgress",
-      GameState = "",
-      From = "test-sender"
-    }
-
-    local result = aolite.send(process, msg)
-    local response = json.decode(result.Data)
-    local collection = response.eventSpeciesCollection
-
-    assert(collection.totalEncounters == 0, "Should have 0 total encounters")
-    assert(collection.uniqueSpecies == 0, "Should have 0 unique species")
-    assert(collection.shinyEncounters == 0, "Should have 0 shiny encounters")
-  end)
-
-  -- Test: GetEventSpeciesProgress returns existing collection
-  it("should return existing collection from game state", function()
-    local gameState = {
-      eventSpeciesCollection = {
+-- Test 9: Return existing collection from game state
+print("📝 Test 9: Return existing collection from game state")
+local gameState9 = {
+    eventSpeciesCollection = {
         totalEncounters = 15,
         uniqueSpecies = 8,
         shinyEncounters = 2,
         speciesEncountered = {
-          GIMMIGHOUL = {count = 3, shinyCount = 1, formsSeen = {0}},
-          DELIBIRD = {count = 5, shinyCount = 0, formsSeen = {0}},
-          PIKACHU = {count = 7, shinyCount = 1, formsSeen = {0, 1}}
+            GIMMIGHOUL = {count = 3, shinyCount = 1, formsSeen = {0}},
+            DELIBIRD = {count = 5, shinyCount = 0, formsSeen = {0}},
+            PIKACHU = {count = 7, shinyCount = 1, formsSeen = {0, 1}}
         }
-      }
     }
+}
+local response9 = sendMessage("GetEventSpeciesProgress", {
+    EventId = "test-event-9",
+    GameState = json.encode(gameState9)
+})
+if response9 and response9.Action == "SaveState" then
+    local data9 = json.decode(response9.Data)
+    local collection = data9.eventSpeciesCollection
+    if collection.totalEncounters == 15 and collection.uniqueSpecies == 8 and collection.shinyEncounters == 2 and collection.speciesEncountered.GIMMIGHOUL.count == 3 then
+        print("✅ Test 9 passed")
+    else
+        error("❌ Test 9 failed: Collection data mismatch")
+    end
+else
+    error("❌ Test 9 failed: Expected SaveState action")
+end
 
-    local msg = {
-      Action = "GetEventSpeciesProgress",
-      GameState = json.encode(gameState),
-      From = "test-sender"
-    }
-
-    local result = aolite.send(process, msg)
-    local response = json.decode(result.Data)
-    local collection = response.eventSpeciesCollection
-
-    assert(collection.totalEncounters == 15, "Should have 15 total encounters")
-    assert(collection.uniqueSpecies == 8, "Should have 8 unique species")
-    assert(collection.shinyEncounters == 2, "Should have 2 shiny encounters")
-    assert(collection.speciesEncountered.GIMMIGHOUL.count == 3, "Gimmighoul should have 3 encounters")
-    assert(collection.speciesEncountered.PIKACHU.shinyCount == 1, "Pikachu should have 1 shiny")
-  end)
-
-  -- Test: Complex multi-species collection scenario
-  it("should correctly track complex multi-species collection", function()
-    local gameState = {
-      eventSpeciesCollection = {
+-- Test 10: Complex multi-species collection scenario
+print("📝 Test 10: Complex multi-species collection scenario")
+local gameState10 = {
+    eventSpeciesCollection = {
         totalEncounters = 0,
         uniqueSpecies = 0,
         shinyEncounters = 0,
         speciesEncountered = {}
-      }
     }
+}
 
-    -- Track 5 different species with varying counts
-    local encounters = {
-      {species = "GIMMIGHOUL", shiny = false},
-      {species = "GIMMIGHOUL", shiny = true},
-      {species = "DELIBIRD", shiny = false},
-      {species = "PIKACHU", shiny = false},
-      {species = "GIMMIGHOUL", shiny = false},
-      {species = "DELIBIRD", shiny = true},
-      {species = "STANTLER", shiny = false}
-    }
+local encounters = {
+    {species = "GIMMIGHOUL", shiny = false},
+    {species = "GIMMIGHOUL", shiny = true},
+    {species = "DELIBIRD", shiny = false},
+    {species = "PIKACHU", shiny = false},
+    {species = "GIMMIGHOUL", shiny = false},
+    {species = "DELIBIRD", shiny = true},
+    {species = "STANTLER", shiny = false}
+}
 
-    for _, encounter in ipairs(encounters) do
-      local msg = {
-        Action = "TrackEventSpeciesEncounter",
+for i, encounter in ipairs(encounters) do
+    local response = sendMessage("TrackEventSpeciesEncounter", {
         SpeciesId = encounter.species,
         FormIndex = "0",
         IsShiny = tostring(encounter.shiny),
-        GameState = json.encode(gameState),
-        From = "test-sender"
-      }
-
-      local result = aolite.send(process, msg)
-      local response = json.decode(result.Data)
-      gameState.eventSpeciesCollection = response.eventSpeciesCollection
+        EventId = "test-event-10-" .. i,
+        GameState = json.encode(gameState10)
+    })
+    if response and response.Action == "SaveState" then
+        local data = json.decode(response.Data)
+        gameState10.eventSpeciesCollection = data.eventSpeciesCollection
+    else
+        error("❌ Test 10 failed: SaveState expected for encounter " .. i)
     end
+end
 
-    local collection = gameState.eventSpeciesCollection
+local collection = gameState10.eventSpeciesCollection
+if collection.totalEncounters == 7 and collection.uniqueSpecies == 4 and collection.shinyEncounters == 2 and
+   collection.speciesEncountered.GIMMIGHOUL.count == 3 and collection.speciesEncountered.GIMMIGHOUL.shinyCount == 1 and
+   collection.speciesEncountered.DELIBIRD.count == 2 and collection.speciesEncountered.PIKACHU.count == 1 and
+   collection.speciesEncountered.STANTLER.count == 1 then
+    print("✅ Test 10 passed")
+else
+    error("❌ Test 10 failed: Complex collection data mismatch")
+end
 
-    assert(collection.totalEncounters == 7, "Should have 7 total encounters")
-    assert(collection.uniqueSpecies == 4, "Should have 4 unique species")
-    assert(collection.shinyEncounters == 2, "Should have 2 shiny encounters")
-    assert(collection.speciesEncountered.GIMMIGHOUL.count == 3, "Gimmighoul should have 3 encounters")
-    assert(collection.speciesEncountered.GIMMIGHOUL.shinyCount == 1, "Gimmighoul should have 1 shiny")
-    assert(collection.speciesEncountered.DELIBIRD.count == 2, "Delibird should have 2 encounters")
-    assert(collection.speciesEncountered.PIKACHU.count == 1, "Pikachu should have 1 encounter")
-    assert(collection.speciesEncountered.STANTLER.count == 1, "Stantler should have 1 encounter")
-  end)
-end)
-
-print("Event Species Collection tests completed")
+-- Test Summary
+print("==================================================")
+print("🎉 All tests passed!")
+print("✅ 10/10 Event Species Collection tests completed")

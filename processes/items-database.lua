@@ -153,8 +153,8 @@ end
 
 local function createErrorResponse(errorMessage, processId)
     return { 
-        Action = "SaveState", 
-        Error = errorMessage, 
+        Action = "Error",
+                Error = errorMessage, 
  
     }
 end
@@ -662,11 +662,11 @@ Handlers.add("get-item",
     function(msg)
         local itemId = msg.ItemId or msg.Id
         local itemName = msg.ItemName or msg.Name
-        
+
         if not itemId and not itemName then
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "GetItem requires either 'ItemId'/'Id' or 'ItemName'/'Name' tag",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
@@ -697,7 +697,7 @@ Handlers.add("get-item",
         else
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "Item not found",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
@@ -714,7 +714,7 @@ Handlers.add("get-items-by-category",
         if not category then
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "GetItemsByCategory requires 'Category' tag",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
@@ -741,7 +741,7 @@ Handlers.add("get-berry-effect",
         if not itemId then
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "GetBerryEffect requires 'ItemId' or 'Id' tag",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
@@ -768,7 +768,7 @@ Handlers.add("get-item-effect",
         if not itemId then
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "GetItemEffect requires 'ItemId' or 'Id' tag",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)

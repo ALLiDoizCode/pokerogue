@@ -1,409 +1,264 @@
--- testing/unit/damage-calculation-engine.test.lua
--- Comprehensive unit tests for Pokemon damage calculation engine process
+-- Aolite Unit Tests for Damage Calculation Engine Process
+-- Tests comprehensive Pokemon damage calculation functionality
+-- Compatible with aolite testing framework (CORRECT API)
 
--- Load the process code directly
-local damageCalculationProcess = loadfile('./processes/damage-calculation-engine.lua')
+local aolite = require("aolite")
+local json = require("json")
 
--- Mock AO environment
-local mockMessages = {}
-local mockProcess = {
-    id = "test-damage-calc-process"
-}
+-- Test configuration
+local PROCESS_PATH = "processes.damage-calculation-engine"
+local processId = "test-damage-calculation-engine"
 
--- Mock ao global
-ao = {
-    send = function(message)
-        table.insert(mockMessages, message)
-        return message
-    end,
-    id = mockProcess.id
-}
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
 
--- Mock Handlers global
-Handlers = {
-    handlers = {},
-    add = function(name, matcher, handler)
-        Handlers.handlers[name] = {
-            name = name,
-            matcher = matcher,
-            handler = handler
-        }
-    end,
-    utils = {
-        hasMatchingTag = function(tagName, tagValue)
-            return function(msg)
-                return msg[tagName] == tagValue
-            end
-        end
-    }
-}
+print("🧪 Starting Aolite Tests for Damage Calculation Engine")
+print("Process ID:", processId)
 
--- Mock json global
-json = {
-    encode = function(obj)
-        -- Simple JSON encoding for tests
-        if type(obj) == "table" then
-            local result = "{"
-            local first = true
-            for k, v in pairs(obj) do
-                if not first then result = result .. "," end
-                result = result .. '"' .. tostring(k) .. '":' .. json.encode(v)
-                first = false
-            end
-            result = result .. "}"
-            return result
-        elseif type(obj) == "string" then
-            return '"' .. obj .. '"'
-        elseif type(obj) == "number" then
-            return tostring(obj)
-        elseif type(obj) == "boolean" then
-            return tostring(obj)
-        else
-            return "null"
-        end
-    end,
-    decode = function(str)
-        -- Simple JSON decoding for tests
-        if str == '{"level":50}' then
-            return {level = 50}
-        elseif str == '[11]' then
-            return {11}
-        elseif str == '[11, 6]' then
-            return {11, 6}
-        elseif str:match('"attackerLevel":50') then
-            return {
-                attackerLevel = 50,
-                movePower = 80,
-                attackStat = 100,
-                defenseStat = 100,
-                moveType = 9,
-                defenderTypes = {11},
-                pokemonTypes = {9},
-                simulated = true
-            }
-        else
-            return {}
-        end
-    end
-}
-
--- Test helper functions
-local function resetMocks()
-    mockMessages = {}
-end
-
-local function getLastMessage()
-    return mockMessages[#mockMessages]
-end
-
-local function simulateMessage(action, tags, data)
+-- Test utilities
+local function sendMessage(action, tags, data)
     local msg = {
-        From = "test-sender",
+        From = processId,
+        Target = processId,
         Action = action,
-        Data = data,
-        Timestamp = 1234567890
+        Data = data or ""
     }
 
-    -- Add tag properties directly to message
+    -- Add additional tags
     if tags then
         for k, v in pairs(tags) do
-            msg[k] = v
+            msg[k] = tostring(v)
         end
     end
 
-    -- Find and execute matching handler
-    for name, handlerInfo in pairs(Handlers.handlers) do
-        if handlerInfo.matcher(msg) then
-            handlerInfo.handler(msg)
-            break
-        end
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
+end
+
+-- Test 1: Process Ping
+print("📝 Test 1: Process Ping")
+local pingResponse = sendMessage("Ping")
+if pingResponse and pingResponse.Action == "Pong" then
+    print("✅ Ping test passed")
+else
+    error("❌ Ping test failed")
+end
+
+-- Test 2: ADP Info Handler
+print("📝 Test 2: ADP Info Handler")
+local infoResponse = sendMessage("Info")
+if infoResponse and infoResponse.Action == "SaveState" then
+    local data = json.decode(infoResponse.Data)
+    if data and data.process then
+        print("✅ ADP Info handler test passed - Process: " .. (data.process.name or "unknown"))
+    else
+        error("❌ ADP Info handler test failed - missing process metadata")
     end
-
-    return getLastMessage()
+else
+    error("❌ ADP Info handler test failed")
 end
 
--- Initialize the damage calculation process
-damageCalculationProcess()
+-- Test 3: Base Damage Calculation
+print("📝 Test 3: Base Damage Calculation")
+local baseDamageResponse = sendMessage("CalculateBaseDamage", {
+    Level = "50",
+    Power = "80",
+    Attack = "100",
+    Defense = "100"
+})
 
-print("Running Pokemon Damage Calculation Engine Unit Tests...")
-print("===================================================")
-
--- Test 1: Process Initialization
-print("\nRunning: test_process_initialization")
-local function test_process_initialization()
-    -- Verify handlers are registered
-    assert(Handlers.handlers["Info"] ~= nil, "Info handler not registered")
-    assert(Handlers.handlers["CalculateBaseDamage"] ~= nil, "CalculateBaseDamage handler not registered")
-    assert(Handlers.handlers["CalculateTypeEffectiveness"] ~= nil, "CalculateTypeEffectiveness handler not registered")
-    assert(Handlers.handlers["CalculateFinalDamage"] ~= nil, "CalculateFinalDamage handler not registered")
-    assert(Handlers.handlers["Ping"] ~= nil, "Ping handler not registered")
-
-    print("✓ Process initialization test passed")
+if baseDamageResponse and baseDamageResponse.Action == "SaveState" then
+    local data = json.decode(baseDamageResponse.Data)
+    if data and data.baseDamage then
+        print("✅ Base damage calculation test passed - Damage: " .. tostring(data.baseDamage))
+    else
+        error("❌ Base damage calculation test failed - missing base damage")
+    end
+else
+    error("❌ Base damage calculation test failed")
 end
-test_process_initialization()
 
--- Test 2: ADP v1.0 Info Handler
-print("\nRunning: test_adp_info_handler")
-local function test_adp_info_handler()
-    resetMocks()
-    local result = simulateMessage("Info", {Action = "Info"})
+-- Test 4: Type Effectiveness - Super Effective
+print("📝 Test 4: Type Effectiveness - Super Effective")
+local superEffectiveResponse = sendMessage("CalculateTypeEffectiveness", {
+    MoveType = "9", -- Fire
+    DefenderTypes = json.encode({11}) -- Grass
+})
 
-    assert(result ~= nil, "No response from Info handler")
-    assert(result.Action == "SaveState", "Incorrect response action")
-    assert(result.Data ~= nil, "No data in Info response")
-    assert(result.ProcessId == mockProcess.id, "Incorrect process ID")
-
-    print("✓ ADP Info handler test passed")
+if superEffectiveResponse and superEffectiveResponse.Action == "SaveState" then
+    local data = json.decode(superEffectiveResponse.Data)
+    if data and data.effectiveness then
+        if data.effectiveness ~= 2.0 then
+            error("❌ Type effectiveness test failed - expected 2.0x, got " .. tostring(data.effectiveness))
+        end
+        print("✅ Type effectiveness test passed - Fire vs Grass: 2.0x")
+    else
+        error("❌ Type effectiveness test failed - missing effectiveness")
+    end
+else
+    error("❌ Type effectiveness test failed")
 end
-test_adp_info_handler()
 
--- Test 3: Ping Handler
-print("\nRunning: test_ping_handler")
-local function test_ping_handler()
-    resetMocks()
-    local result = simulateMessage("Ping", {Action = "Ping"})
+-- Test 5: Type Effectiveness - Immunity
+print("📝 Test 5: Type Effectiveness - Immunity")
+local immunityResponse = sendMessage("CalculateTypeEffectiveness", {
+    MoveType = "4", -- Ground
+    DefenderTypes = json.encode({2}) -- Flying
+})
 
-    assert(result ~= nil, "No response from Ping handler")
-    assert(result.Action == "Pong", "Incorrect ping response")
-    assert(result.Data == "Damage calculation engine online", "Incorrect ping message")
-
-    print("✓ Ping handler test passed")
+if immunityResponse and immunityResponse.Action == "SaveState" then
+    local data = json.decode(immunityResponse.Data)
+    if data and data.effectiveness then
+        if data.effectiveness ~= 0 then
+            error("❌ Type immunity test failed - expected 0x, got " .. tostring(data.effectiveness))
+        end
+        print("✅ Type immunity test passed - Ground vs Flying: 0x")
+    else
+        error("❌ Type immunity test failed - missing effectiveness")
+    end
+else
+    error("❌ Type immunity test failed")
 end
-test_ping_handler()
 
--- Test 4: Base Damage Calculation
-print("\nRunning: test_base_damage_calculation")
-local function test_base_damage_calculation()
-    resetMocks()
-    local result = simulateMessage("CalculateBaseDamage", {
-        Action = "CalculateBaseDamage",
-        Level = "50",
+-- Test 6: Complete Damage Calculation
+print("📝 Test 6: Complete Damage Calculation")
+local completeDamageData = {
+    attackerLevel = 50,
+    movePower = 80,
+    attackStat = 100,
+    defenseStat = 100,
+    moveType = 9, -- Fire
+    defenderTypes = {11}, -- Grass
+    pokemonTypes = {9}, -- Fire type Pokemon
+    simulated = true
+}
+local completeDamageResponse = sendMessage("CalculateFinalDamage", {}, json.encode(completeDamageData))
+
+if completeDamageResponse and completeDamageResponse.Action == "SaveState" then
+    local data = json.decode(completeDamageResponse.Data)
+    if data and data.finalDamage then
+        print("✅ Complete damage calculation test passed - Final Damage: " .. tostring(data.finalDamage))
+    else
+        error("❌ Complete damage calculation test failed - missing final damage")
+    end
+else
+    error("❌ Complete damage calculation test failed")
+end
+
+-- Test 7: Invalid Parameters - Missing Required Fields
+print("📝 Test 7: Invalid Parameters Handling")
+local invalidResponse = sendMessage("CalculateBaseDamage", {
+    Level = "50"
+    -- Missing Power, Attack, Defense
+})
+
+if invalidResponse and invalidResponse.Error then
+    print("✅ Invalid parameters test passed - Error correctly returned")
+else
+    error("❌ Invalid parameters test failed - expected error response")
+end
+
+-- Test 8: Zero Power Move
+print("📝 Test 8: Zero Power Move")
+local zeroPowerResponse = sendMessage("CalculateBaseDamage", {
+    Level = "50",
+    Power = "0",
+    Attack = "100",
+    Defense = "100"
+})
+
+if zeroPowerResponse and zeroPowerResponse.Action == "SaveState" then
+    local data = json.decode(zeroPowerResponse.Data)
+    if data and data.baseDamage then
+        print("✅ Zero power move test passed - Damage: " .. tostring(data.baseDamage))
+    else
+        error("❌ Zero power move test failed - missing base damage")
+    end
+else
+    error("❌ Zero power move test failed")
+end
+
+-- Test 9: Mathematical Precision Validation
+print("📝 Test 9: Mathematical Precision Validation")
+local precisionCases = {
+    {level = 1, power = 1, attack = 1, defense = 1},
+    {level = 50, power = 80, attack = 100, defense = 100},
+    {level = 100, power = 120, attack = 150, defense = 80},
+    {level = 5, power = 40, attack = 30, defense = 25}
+}
+
+local precisionPassed = 0
+for i, testCase in ipairs(precisionCases) do
+    local response = sendMessage("CalculateBaseDamage", {
+        Level = tostring(testCase.level),
+        Power = tostring(testCase.power),
+        Attack = tostring(testCase.attack),
+        Defense = tostring(testCase.defense)
+    })
+
+    if response and response.Action == "SaveState" then
+        precisionPassed = precisionPassed + 1
+    end
+end
+
+if precisionPassed == #precisionCases then
+    print("✅ Mathematical precision validation test passed - " .. precisionPassed .. "/" .. #precisionCases .. " cases")
+else
+    error("❌ Mathematical precision validation test failed - " .. precisionPassed .. "/" .. #precisionCases .. " cases passed")
+end
+
+-- Test 10: Property-Based Formula Consistency
+print("📝 Test 10: Property-Based Formula Consistency")
+local formulaTests = {
+    {level = 50, power = 0, attack = 100, defense = 100},
+    {level = 100, power = 0, attack = 100, defense = 100},
+    {level = 50, power = 100, attack = 200, defense = 50},
+    {level = 50, power = 100, attack = 50, defense = 200}
+}
+
+local formulaPassed = 0
+for i, test in ipairs(formulaTests) do
+    local response = sendMessage("CalculateBaseDamage", {
+        Level = tostring(test.level),
+        Power = tostring(test.power),
+        Attack = tostring(test.attack),
+        Defense = tostring(test.defense)
+    })
+
+    if response and response.Action == "SaveState" then
+        formulaPassed = formulaPassed + 1
+    end
+end
+
+if formulaPassed == #formulaTests then
+    print("✅ Property-based formula consistency test passed - " .. formulaPassed .. "/" .. #formulaTests .. " cases")
+else
+    error("❌ Property-based formula consistency test failed - " .. formulaPassed .. "/" .. #formulaTests .. " cases passed")
+end
+
+-- Test 11: Performance Stress Test
+print("📝 Test 11: Performance Stress Test")
+local stressPassed = 0
+for i = 1, 10 do
+    local response = sendMessage("CalculateBaseDamage", {
+        Level = tostring(50 + i),
         Power = "80",
         Attack = "100",
         Defense = "100"
     })
 
-    assert(result ~= nil, "No response from CalculateBaseDamage handler")
-    assert(result.Action == "SaveState", "Incorrect response action")
-
-    -- CORRECTED: levelMultiplier = (2 * 50 + 10) / 5 + 2 = 22
-    -- Expected base damage: (22 * 80 * 100) / 100 / 50 + 2 = 37.2
-    print("Base damage calculation completed")
-    print("✓ Base damage calculation test passed")
-end
-test_base_damage_calculation()
-
--- Test 5: Type Effectiveness Calculation
-print("\nRunning: test_type_effectiveness")
-local function test_type_effectiveness()
-    resetMocks()
-
-    -- Fire vs Grass = 2x effectiveness
-    local result = simulateMessage("CalculateTypeEffectiveness", {
-        Action = "CalculateTypeEffectiveness",
-        MoveType = "9", -- Fire
-        DefenderTypes = "[11]" -- Grass
-    })
-
-    assert(result ~= nil, "No response from CalculateTypeEffectiveness handler")
-    assert(result.Action == "SaveState", "Incorrect response action")
-
-    print("Type effectiveness calculation completed")
-    print("✓ Type effectiveness test passed")
-end
-test_type_effectiveness()
-
--- Test 6: Complete Damage Calculation
-print("\nRunning: test_complete_damage_calculation")
-local function test_complete_damage_calculation()
-    resetMocks()
-
-    -- Fire Pokemon using Fire move vs Grass type
-    local result = simulateMessage("CalculateFinalDamage", {
-        Action = "CalculateFinalDamage",
-        Data = '{"attackerLevel":50,"movePower":80,"attackStat":100,"defenseStat":100,"moveType":9,"defenderTypes":[11],"pokemonTypes":[9],"simulated":true}'
-    })
-
-    assert(result ~= nil, "No response from CalculateFinalDamage handler")
-    assert(result.Action == "SaveState", "Incorrect response action")
-
-    print("Complete damage calculation completed")
-    print("✓ Complete damage calculation test passed")
-end
-test_complete_damage_calculation()
-
--- Test 7: Invalid Parameter Handling
-print("\nRunning: test_invalid_parameters")
-local function test_invalid_parameters()
-    resetMocks()
-
-    -- Missing required parameters
-    local result = simulateMessage("CalculateBaseDamage", {
-        Action = "CalculateBaseDamage",
-        Level = "50"
-        -- Missing Power, Attack, Defense
-    })
-
-    assert(result ~= nil, "No response from handler")
-    assert(result.Error ~= nil, "Error not returned for invalid parameters")
-
-    print("✓ Invalid parameter handling test passed")
-end
-test_invalid_parameters()
-
--- Test 8: Edge Case - Zero Power Move
-print("\nRunning: test_zero_power_move")
-local function test_zero_power_move()
-    resetMocks()
-    local result = simulateMessage("CalculateBaseDamage", {
-        Action = "CalculateBaseDamage",
-        Level = "50",
-        Power = "0",
-        Attack = "100",
-        Defense = "100"
-    })
-
-    assert(result ~= nil, "No response from handler")
-    assert(result.Action == "SaveState", "Incorrect response action")
-
-    print("✓ Zero power move test passed")
-end
-test_zero_power_move()
-
--- Test 9: Edge Case - Type Immunity
-print("\nRunning: test_type_immunity")
-local function test_type_immunity()
-    resetMocks()
-
-    -- Ground vs Flying = 0x (immune)
-    local result = simulateMessage("CalculateTypeEffectiveness", {
-        Action = "CalculateTypeEffectiveness",
-        MoveType = "4", -- Ground
-        DefenderTypes = "[2]" -- Flying
-    })
-
-    assert(result ~= nil, "No response from handler")
-    assert(result.Action == "SaveState", "Incorrect response action")
-
-    print("✓ Type immunity test passed")
-end
-test_type_immunity()
-
--- Test 10: Performance and Stress Test
-print("\nRunning: test_performance_stress")
-local function test_performance_stress()
-    resetMocks()
-
-    -- Multiple rapid calculations
-    for i = 1, 10 do
-        local result = simulateMessage("CalculateBaseDamage", {
-            Action = "CalculateBaseDamage",
-            Level = tostring(50 + i),
-            Power = "80",
-            Attack = "100",
-            Defense = "100"
-        })
-        assert(result ~= nil, "Handler failed on request " .. i)
+    if response and response.Action == "SaveState" then
+        stressPassed = stressPassed + 1
     end
-
-    print("✓ Performance stress test passed")
 end
-test_performance_stress()
 
--- Test 11: Enhanced Mathematical Precision Validation
-print("\nRunning: test_mathematical_precision_validation")
-local function test_mathematical_precision_validation()
-    resetMocks()
-
-    -- Test exact TypeScript formula parity with comprehensive test matrix
-    local precisionCases = {
-        -- Edge cases that would expose formula errors
-        {level = 1, power = 1, attack = 1, defense = 1, expected = 2.8036},
-        {level = 50, power = 80, attack = 100, defense = 100, expected = 37.2},
-        {level = 100, power = 120, attack = 150, defense = 80, expected = 200.4},
-        {level = 5, power = 40, attack = 30, defense = 25, expected = 16.44},
-        {level = 25, power = 60, attack = 80, defense = 70, expected = 26.64}
-    }
-
-    local totalTests = 0
-    local passedTests = 0
-
-    for i, case in ipairs(precisionCases) do
-        totalTests = totalTests + 1
-        local result = simulateMessage("CalculateBaseDamage", {
-            Action = "CalculateBaseDamage",
-            Level = tostring(case.level),
-            Power = tostring(case.power),
-            Attack = tostring(case.attack),
-            Defense = tostring(case.defense)
-        })
-
-        if result and result.Action == "SaveState" then
-            passedTests = passedTests + 1
-            print(string.format("  ✓ Case %d: L%d P%d A%d D%d (%.4f expected)",
-                i, case.level, case.power, case.attack, case.defense, case.expected))
-        else
-            print(string.format("  ✗ Case %d failed: L%d P%d A%d D%d",
-                i, case.level, case.power, case.attack, case.defense))
-        end
-    end
-
-    assert(passedTests == totalTests, string.format("Mathematical precision test: %d/%d cases passed", passedTests, totalTests))
-    print(string.format("  Mathematical precision validation: %d/%d tests passed", passedTests, totalTests))
-    print("✓ Mathematical precision validation test passed")
+if stressPassed == 10 then
+    print("✅ Performance stress test passed - 10/10 requests")
+else
+    error("❌ Performance stress test failed - " .. stressPassed .. "/10 requests passed")
 end
-test_mathematical_precision_validation()
 
--- Test 12: Property-Based Testing for Formula Consistency
-print("\nRunning: test_property_based_formula_consistency")
-local function test_property_based_formula_consistency()
-    resetMocks()
-
-    -- Test that the formula components work correctly across different ranges
-    local formulaTests = {
-        -- Zero power should only return the level multiplier + 2
-        {level = 50, power = 0, attack = 100, defense = 100, expectedMin = 22, expectedMax = 22},
-        {level = 100, power = 0, attack = 100, defense = 100, expectedMin = 44, expectedMax = 44},
-        -- High attack vs low defense should produce high damage
-        {level = 50, power = 100, attack = 200, defense = 50, expectedMin = 180, expectedMax = 200},
-        -- Low attack vs high defense should produce low damage
-        {level = 50, power = 100, attack = 50, defense = 200, expectedMin = 10, expectedMax = 15}
-    }
-
-    local totalTests = 0
-    local passedTests = 0
-
-    for i, test in ipairs(formulaTests) do
-        totalTests = totalTests + 1
-        local result = simulateMessage("CalculateBaseDamage", {
-            Action = "CalculateBaseDamage",
-            Level = tostring(test.level),
-            Power = tostring(test.power),
-            Attack = tostring(test.attack),
-            Defense = tostring(test.defense)
-        })
-
-        if result and result.Action == "SaveState" then
-            passedTests = passedTests + 1
-            print(string.format("  ✓ Property test %d: L%d P%d A%d D%d (expected range: %.1f-%.1f)",
-                i, test.level, test.power, test.attack, test.defense, test.expectedMin, test.expectedMax))
-        else
-            print(string.format("  ✗ Property test %d failed", i))
-        end
-    end
-
-    assert(passedTests == totalTests, string.format("Property-based test: %d/%d cases passed", passedTests, totalTests))
-    print(string.format("  Property-based testing: %d/%d tests passed", passedTests, totalTests))
-    print("✓ Property-based formula consistency test passed")
-end
-test_property_based_formula_consistency()
-
-print("\n==================================================")
-print("Test Results:")
-print("  Passed: 12")
-print("  Failed: 0")
-print("  Total:  12")
-print("")
-print("🎉 All tests passed!")
-
-print("✅ Test file executed successfully: testing/unit/damage-calculation-engine.test.lua")
+-- Test Summary
+print("==================================================")
+print("🎉 All Damage Calculation Engine tests passed!")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

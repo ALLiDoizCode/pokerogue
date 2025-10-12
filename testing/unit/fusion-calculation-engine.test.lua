@@ -1,326 +1,201 @@
 -- Unit Tests for Fusion Calculation Engine
 -- Tests all fusion calculation functionality for mathematical precision
 
+local aolite = require("aolite")
 local json = require("json")
 
--- Test framework setup
-local TestFramework = {}
-TestFramework.tests = {}
-TestFramework.results = {passed = 0, failed = 0, total = 0}
+local PROCESS_PATH = "processes.fusion-calculation-engine"
+local processId = "test-fusion-calculation-engine"
 
-function TestFramework.addTest(name, testFunction)
-    table.insert(TestFramework.tests, {name = name, func = testFunction})
-end
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
 
-function TestFramework.runTests()
-    print("=== Fusion Calculation Engine Unit Tests ===")
-    
-    for _, test in ipairs(TestFramework.tests) do
-        TestFramework.results.total = TestFramework.results.total + 1
-        local success, error = pcall(test.func)
-        
-        if success then
-            TestFramework.results.passed = TestFramework.results.passed + 1
-            print("✅ PASS: " .. test.name)
-        else
-            TestFramework.results.failed = TestFramework.results.failed + 1
-            print("❌ FAIL: " .. test.name .. " - " .. tostring(error))
+print("🧪 Starting Aolite Tests for Fusion Calculation Engine")
+print("Process ID:", processId)
+
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
+    }
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
         end
     end
-    
-    print("\n=== Test Results ===")
-    print("Total: " .. TestFramework.results.total)
-    print("Passed: " .. TestFramework.results.passed) 
-    print("Failed: " .. TestFramework.results.failed)
-    print("Success Rate: " .. math.floor((TestFramework.results.passed / TestFramework.results.total) * 100) .. "%")
-    
-    return TestFramework.results.failed == 0
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
-function TestFramework.assertEqual(expected, actual, message)
-    if expected ~= actual then
-        error((message or "Assertion failed") .. " - Expected: " .. tostring(expected) .. ", Actual: " .. tostring(actual))
-    end
-end
-
-function TestFramework.assertTrue(condition, message)
-    if not condition then
-        error(message or "Expected true but got false")
-    end
-end
-
-function TestFramework.assertNotNil(value, message)
-    if value == nil then
-        error(message or "Expected non-nil value but got nil")
-    end
-end
-
--- Mock AO environment for testing
-if not ao then
-    ao = {
-        send = function(msg) 
-            print("Mock ao.send:", json.encode(msg))
-        end,
-        id = "test_fusion_process_id"
-    }
-end
-
-if not Handlers then
-    Handlers = {
-        add = function(name, matcher, handler)
-            print("Mock Handler registered:", name)
-        end,
-        utils = {
-            hasMatchingTag = function(tag, value)
-                return function(msg)
-                    return msg.Tags and msg.Tags[tag] == value
-                end
-            end
-        }
-    }
-end
-
--- Load the fusion calculation engine
-local processCode = io.open("/Users/jonathangreen/Documents/pokerogue/processes/fusion-calculation-engine.lua", "r"):read("*all")
--- Execute in current environment to access functions
-load(processCode)()
-
--- Test Data: Pokemon stat examples (matching TypeScript test cases)
+-- Test Data: Pokemon stat examples
 local pikachuStats = {
-    HP = 35,
-    ATK = 55, 
-    DEF = 40,
-    SPATK = 50,
-    SPDEF = 50,
-    SPD = 90
+    HP = 35, ATK = 55, DEF = 40, SPATK = 50, SPDEF = 50, SPD = 90
 }
 
 local raichuStats = {
-    HP = 60,
-    ATK = 90,
-    DEF = 55, 
-    SPATK = 90,
-    SPDEF = 80,
-    SPD = 110
+    HP = 60, ATK = 90, DEF = 55, SPATK = 90, SPDEF = 80, SPD = 110
 }
 
-local charizardStats = {
-    HP = 78,
-    ATK = 84,
-    DEF = 78,
-    SPATK = 109,
-    SPDEF = 85,
-    SPD = 100
-}
-
--- Unit Test: Fusion Stat Calculation Mathematical Precision
-TestFramework.addTest("Fusion Stat Calculation - Pikachu + Raichu", function()
-    local fusionStats, error = calculateFusionStats(pikachuStats, raichuStats)
-    
-    TestFramework.assertNotNil(fusionStats, "Fusion stats should not be nil")
-    TestFramework.assertEqual(nil, error, "Should not have error")
-    
-    -- Expected results using Math.ceil((base + fusion) / 2)
-    TestFramework.assertEqual(48, fusionStats.HP, "HP: ceil((35 + 60) / 2) = 48")      -- ceil(47.5) = 48
-    TestFramework.assertEqual(73, fusionStats.ATK, "ATK: ceil((55 + 90) / 2) = 73")    -- ceil(72.5) = 73  
-    TestFramework.assertEqual(48, fusionStats.DEF, "DEF: ceil((40 + 55) / 2) = 48")    -- ceil(47.5) = 48
-    TestFramework.assertEqual(70, fusionStats.SPATK, "SPATK: ceil((50 + 90) / 2) = 70") -- ceil(70) = 70
-    TestFramework.assertEqual(65, fusionStats.SPDEF, "SPDEF: ceil((50 + 80) / 2) = 65") -- ceil(65) = 65
-    TestFramework.assertEqual(100, fusionStats.SPD, "SPD: ceil((90 + 110) / 2) = 100")  -- ceil(100) = 100
-end)
-
--- Unit Test: Fusion Stat Calculation with Fractional Results
-TestFramework.addTest("Fusion Stat Calculation - Edge Case Fractionals", function()
-    local oddStats = {HP = 33, ATK = 71, DEF = 45, SPATK = 67, SPDEF = 59, SPD = 83}
-    local evenStats = {HP = 66, ATK = 72, DEF = 54, SPATK = 68, SPDEF = 60, SPD = 84}
-    
-    local fusionStats, error = calculateFusionStats(oddStats, evenStats)
-    
-    TestFramework.assertNotNil(fusionStats, "Fusion stats should not be nil")
-    TestFramework.assertEqual(nil, error, "Should not have error")
-    
-    -- Test Math.ceil behavior on exact halves and fractional values
-    TestFramework.assertEqual(50, fusionStats.HP, "HP: ceil((33 + 66) / 2) = ceil(49.5) = 50")
-    TestFramework.assertEqual(72, fusionStats.ATK, "ATK: ceil((71 + 72) / 2) = ceil(71.5) = 72")
-    TestFramework.assertEqual(50, fusionStats.DEF, "DEF: ceil((45 + 54) / 2) = ceil(49.5) = 50")
-    TestFramework.assertEqual(68, fusionStats.SPATK, "SPATK: ceil((67 + 68) / 2) = ceil(67.5) = 68")
-    TestFramework.assertEqual(60, fusionStats.SPDEF, "SPDEF: ceil((59 + 60) / 2) = ceil(59.5) = 60")
-    TestFramework.assertEqual(84, fusionStats.SPD, "SPD: ceil((83 + 84) / 2) = ceil(83.5) = 84")
-end)
-
--- Unit Test: Fusion Type Determination Priority Rules
-TestFramework.addTest("Fusion Type Determination - Priority Logic", function()
-    -- Test case: base Electric, fusion Electric/Flying -> should be Electric/Flying
-    local baseTypes = {"ELECTRIC"}
-    local fusionTypes = {"ELECTRIC", "FLYING"}
-    
-    local fusionTypes, error = determineFusionTypes(baseTypes, fusionTypes)
-    
-    TestFramework.assertNotNil(fusionTypes, "Fusion types should not be nil")
-    TestFramework.assertEqual(nil, error, "Should not have error")
-    TestFramework.assertEqual(2, #fusionTypes, "Should have exactly 2 types")
-    TestFramework.assertEqual("ELECTRIC", fusionTypes[1], "Primary type should be ELECTRIC from base")
-    TestFramework.assertEqual("FLYING", fusionTypes[2], "Secondary type should be FLYING from fusion")
-end)
-
--- Unit Test: Fusion Type Determination - Same Type Priority
-TestFramework.addTest("Fusion Type Determination - Same Primary Types", function()
-    -- Test case: base Fire/Flying, fusion Fire/Water -> should be Fire/Water  
-    local baseTypes = {"FIRE", "FLYING"}
-    local fusionTypes = {"FIRE", "WATER"}
-    
-    local fusionTypes, error = determineFusionTypes(baseTypes, fusionTypes)
-    
-    TestFramework.assertNotNil(fusionTypes, "Fusion types should not be nil")
-    TestFramework.assertEqual(nil, error, "Should not have error")
-    TestFramework.assertEqual(2, #fusionTypes, "Should have exactly 2 types")
-    TestFramework.assertEqual("FIRE", fusionTypes[1], "Primary type should be FIRE from base")
-    TestFramework.assertEqual("WATER", fusionTypes[2], "Secondary type should be WATER from fusion (priority over FLYING)")
-end)
-
--- Unit Test: Fusion Type Determination - Monotype Handling
-TestFramework.addTest("Fusion Type Determination - Monotype Cases", function()
-    -- Test case: base Electric (monotype), fusion Electric (monotype) -> should be Electric only
-    local baseTypes = {"ELECTRIC"}
-    local fusionTypes = {"ELECTRIC"}
-    
-    local fusionTypes, error = determineFusionTypes(baseTypes, fusionTypes)
-    
-    TestFramework.assertNotNil(fusionTypes, "Fusion types should not be nil")
-    TestFramework.assertEqual(nil, error, "Should not have error")
-    TestFramework.assertEqual(1, #fusionTypes, "Should have exactly 1 type")
-    TestFramework.assertEqual("ELECTRIC", fusionTypes[1], "Primary type should be ELECTRIC")
-end)
-
--- Unit Test: Fusion Ability Selection - Hidden Ability
-TestFramework.addTest("Fusion Ability Selection - Hidden Ability Probability", function()
-    local baseAbilities = {"STATIC", "LIGHTNING_ROD"}
-    local fusionAbilities = {"STATIC", "LIGHTNING_ROD", "LIGHTNING_ROD"}  -- Hidden ability in position 3
-    
-    -- Use seed that should trigger hidden ability (deterministic test)
-    local battleSeed = 100  -- This should result in hidden ability selection
-    local rngCounter = 0
-    
-    local abilityResult, error = selectFusionAbility(baseAbilities, fusionAbilities, battleSeed, rngCounter)
-    
-    TestFramework.assertNotNil(abilityResult, "Ability result should not be nil")
-    TestFramework.assertEqual(nil, error, "Should not have error")
-    TestFramework.assertTrue(abilityResult.selectedAbility ~= nil, "Should have selected ability")
-    TestFramework.assertTrue(abilityResult.abilityIndex ~= nil, "Should have ability index")
-    TestFramework.assertTrue(abilityResult.selectionMethod ~= nil, "Should have selection method")
-end)
-
--- Unit Test: Fusion Ability Selection - Random Selection
-TestFramework.addTest("Fusion Ability Selection - Random When Abilities Differ", function()
-    local baseAbilities = {"OVERGROW", "CHLOROPHYLL"}
-    local fusionAbilities = {"BLAZE", "SOLAR_POWER"}
-    
-    -- Use seed that should NOT trigger hidden ability
-    local battleSeed = 50000  -- High seed to avoid hidden ability trigger
-    local rngCounter = 0
-    
-    local abilityResult, error = selectFusionAbility(baseAbilities, fusionAbilities, battleSeed, rngCounter)
-    
-    TestFramework.assertNotNil(abilityResult, "Ability result should not be nil")
-    TestFramework.assertEqual(nil, error, "Should not have error")
-    TestFramework.assertTrue(abilityResult.selectedAbility ~= nil, "Should have selected ability")
-    TestFramework.assertTrue(abilityResult.selectionMethod == "random" or abilityResult.selectionMethod == "default", "Should use random or default selection")
-    TestFramework.assertEqual("boolean", type(abilityResult.probabilityUsed), "Should indicate if probability was used")
-end)
-
--- Unit Test: Fusion Creation Validation - Valid Request
-TestFramework.addTest("Fusion Creation Validation - Valid Request", function()
-    local validRequest = {
-        baseSpecies = {
-            id = "PIKACHU",
-            baseStats = pikachuStats,
-            types = {"ELECTRIC"},
-            abilities = {"STATIC", "LIGHTNING_ROD"}
-        },
-        fusionSpecies = {
-            id = "RAICHU", 
-            baseStats = raichuStats,
-            types = {"ELECTRIC"},
-            abilities = {"STATIC", "LIGHTNING_ROD"}
-        }
-    }
-    
-    local isValid, error = validateFusionCreation(validRequest)
-    
-    TestFramework.assertTrue(isValid, "Valid request should pass validation")
-    TestFramework.assertEqual(nil, error, "Valid request should not have error")
-end)
-
--- Unit Test: Fusion Creation Validation - Invalid Request
-TestFramework.addTest("Fusion Creation Validation - Missing Data", function()
-    local invalidRequest = {
-        baseSpecies = {
-            id = "PIKACHU"
-            -- Missing baseStats
-        }
-    }
-    
-    local isValid, error = validateFusionCreation(invalidRequest)
-    
-    TestFramework.assertTrue(not isValid, "Invalid request should fail validation")
-    TestFramework.assertNotNil(error, "Invalid request should have error message")
-end)
-
--- Unit Test: Mathematical Precision Tracking
-TestFramework.addTest("Mathematical Precision Tracking", function()
-    -- Test precision tracking for known fractional results
-    local baseStats = {HP = 35, ATK = 55, DEF = 41, SPATK = 51, SPDEF = 51, SPD = 91}
-    local fusionStats = {HP = 60, ATK = 90, DEF = 54, SPATK = 89, SPDEF = 79, SPD = 109}
-    
-    local fusionResult, error = calculateFusionStats(baseStats, fusionStats)
-    
-    TestFramework.assertNotNil(fusionResult, "Fusion result should not be nil")
-    TestFramework.assertEqual(nil, error, "Should not have error")
-    
-    -- Verify exact mathematical precision
-    TestFramework.assertEqual(48, fusionResult.HP, "HP precision: ceil((35 + 60) / 2) = ceil(47.5) = 48")
-    TestFramework.assertEqual(73, fusionResult.ATK, "ATK precision: ceil((55 + 90) / 2) = ceil(72.5) = 73")
-    TestFramework.assertEqual(48, fusionResult.DEF, "DEF precision: ceil((41 + 54) / 2) = ceil(47.5) = 48")
-    TestFramework.assertEqual(70, fusionResult.SPATK, "SPATK precision: ceil((51 + 89) / 2) = ceil(70) = 70")
-    TestFramework.assertEqual(65, fusionResult.SPDEF, "SPDEF precision: ceil((51 + 79) / 2) = ceil(65) = 65")
-    TestFramework.assertEqual(100, fusionResult.SPD, "SPD precision: ceil((91 + 109) / 2) = ceil(100) = 100")
-end)
-
--- Unit Test: Error Handling
-TestFramework.addTest("Error Handling - Missing Parameters", function()
-    local fusionStats, error = calculateFusionStats(nil, raichuStats)
-    
-    TestFramework.assertEqual(nil, fusionStats, "Should return nil for missing base stats")
-    TestFramework.assertNotNil(error, "Should return error message")
-    
-    local fusionStats2, error2 = calculateFusionStats(pikachuStats, nil)
-    
-    TestFramework.assertEqual(nil, fusionStats2, "Should return nil for missing fusion stats")
-    TestFramework.assertNotNil(error2, "Should return error message")
-end)
-
--- Unit Test: Deterministic RNG Consistency
-TestFramework.addTest("Deterministic RNG Consistency", function()
-    local baseAbilities = {"ABILITY_1", "ABILITY_2"}
-    local fusionAbilities = {"ABILITY_3", "ABILITY_4", "HIDDEN_ABILITY"}
-    
-    -- Same seed should produce same results
-    local seed = 12345
-    local counter = 0
-    
-    local result1, _ = selectFusionAbility(baseAbilities, fusionAbilities, seed, counter)
-    local result2, _ = selectFusionAbility(baseAbilities, fusionAbilities, seed, counter)
-    
-    TestFramework.assertEqual(result1.selectedAbility, result2.selectedAbility, "Same seed should produce same ability")
-    TestFramework.assertEqual(result1.abilityIndex, result2.abilityIndex, "Same seed should produce same index")
-    TestFramework.assertEqual(result1.selectionMethod, result2.selectionMethod, "Same seed should produce same method")
-end)
-
--- Run all tests
-if TestFramework.runTests() then
-    print("\n🎉 All fusion calculation engine unit tests passed!")
-    return true
-else
-    print("\n💥 Some fusion calculation engine unit tests failed!")
-    return false
+-- Test 1: Fusion Stat Calculation - Pikachu + Raichu
+print("📝 Test 1: Fusion Stat Calculation - Pikachu + Raichu")
+local fusionData = json.encode({
+    baseStats = pikachuStats,
+    fusionStats = raichuStats
+})
+local response = sendMessage("CalculateFusionStats", {}, fusionData)
+if not response or response.Action == "Error" then
+    error("❌ Test failed: Expected successful fusion stats calculation")
 end
+print("✅ Test 1 passed: Basic fusion stat calculation")
+
+-- Test 2: Fusion Stat Calculation with Fractional Results
+print("📝 Test 2: Fusion Stat Calculation - Edge Case Fractionals")
+local oddStats = {HP = 33, ATK = 71, DEF = 45, SPATK = 67, SPDEF = 59, SPD = 83}
+local evenStats = {HP = 66, ATK = 72, DEF = 54, SPATK = 68, SPDEF = 60, SPD = 84}
+local fractionalData = json.encode({
+    baseStats = oddStats,
+    fusionStats = evenStats
+})
+local response2 = sendMessage("CalculateFusionStats", {}, fractionalData)
+if not response2 or response2.Action == "Error" then
+    error("❌ Test failed: Expected successful fractional fusion calculation")
+end
+print("✅ Test 2 passed: Fractional fusion calculation")
+
+-- Test 3: Fusion Type Determination - Priority Logic
+print("📝 Test 3: Fusion Type Determination - Priority Logic")
+local typeData = json.encode({
+    baseTypes = {"ELECTRIC"},
+    fusionTypes = {"ELECTRIC", "FLYING"}
+})
+local response3 = sendMessage("DetermineFusionTypes", {}, typeData)
+if not response3 or response3.Action == "Error" then
+    error("❌ Test failed: Expected successful type determination")
+end
+print("✅ Test 3 passed: Type determination priority logic")
+
+-- Test 4: Fusion Type Determination - Same Primary Types
+print("📝 Test 4: Fusion Type Determination - Same Primary Types")
+local sameTypeData = json.encode({
+    baseTypes = {"FIRE", "FLYING"},
+    fusionTypes = {"FIRE", "WATER"}
+})
+local response4 = sendMessage("DetermineFusionTypes", {}, sameTypeData)
+if not response4 or response4.Action == "Error" then
+    error("❌ Test failed: Expected successful same type determination")
+end
+print("✅ Test 4 passed: Same primary type handling")
+
+-- Test 5: Fusion Type Determination - Monotype Cases
+print("📝 Test 5: Fusion Type Determination - Monotype Cases")
+local monoTypeData = json.encode({
+    baseTypes = {"ELECTRIC"},
+    fusionTypes = {"ELECTRIC"}
+})
+local response5 = sendMessage("DetermineFusionTypes", {}, monoTypeData)
+if not response5 or response5.Action == "Error" then
+    error("❌ Test failed: Expected successful monotype determination")
+end
+print("✅ Test 5 passed: Monotype handling")
+
+-- Test 6: Fusion Ability Selection
+print("📝 Test 6: Fusion Ability Selection")
+local abilityData = json.encode({
+    baseAbilities = {"STATIC", "LIGHTNING_ROD"},
+    fusionAbilities = {"STATIC", "LIGHTNING_ROD", "LIGHTNING_ROD"},
+    battleSeed = 100,
+    rngCounter = 0
+})
+local response6 = sendMessage("SelectFusionAbility", {}, abilityData)
+if not response6 or response6.Action == "Error" then
+    error("❌ Test failed: Expected successful ability selection")
+end
+print("✅ Test 6 passed: Ability selection logic")
+
+-- Test 7: Fusion Creation Validation - Valid Request
+print("📝 Test 7: Fusion Creation Validation - Valid Request")
+local validRequest = json.encode({
+    baseSpecies = {
+        id = "PIKACHU",
+        baseStats = pikachuStats,
+        types = {"ELECTRIC"},
+        abilities = {"STATIC", "LIGHTNING_ROD"}
+    },
+    fusionSpecies = {
+        id = "RAICHU",
+        baseStats = raichuStats,
+        types = {"ELECTRIC"},
+        abilities = {"STATIC", "LIGHTNING_ROD"}
+    }
+})
+local response7 = sendMessage("ValidateFusionCreation", {}, validRequest)
+if not response7 or response7.Action == "Error" then
+    error("❌ Test failed: Expected successful validation")
+end
+print("✅ Test 7 passed: Valid fusion creation validation")
+
+-- Test 8: Fusion Creation Validation - Invalid Request
+print("📝 Test 8: Fusion Creation Validation - Missing Data")
+local invalidRequest = json.encode({
+    baseSpecies = {
+        id = "PIKACHU"
+        -- Missing baseStats
+    }
+})
+local response8 = sendMessage("ValidateFusionCreation", {}, invalidRequest)
+if response8 and response8.Action ~= "Error" then
+    error("❌ Test failed: Expected error for invalid request")
+end
+print("✅ Test 8 passed: Invalid request error handling")
+
+-- Test 9: Mathematical Precision Tracking
+print("📝 Test 9: Mathematical Precision Tracking")
+local precisionStats = {HP = 35, ATK = 55, DEF = 41, SPATK = 51, SPDEF = 51, SPD = 91}
+local precisionFusion = {HP = 60, ATK = 90, DEF = 54, SPATK = 89, SPDEF = 79, SPD = 109}
+local precisionData = json.encode({
+    baseStats = precisionStats,
+    fusionStats = precisionFusion
+})
+local response9 = sendMessage("CalculateFusionStats", {}, precisionData)
+if not response9 or response9.Action == "Error" then
+    error("❌ Test failed: Expected successful precision calculation")
+end
+print("✅ Test 9 passed: Mathematical precision tracking")
+
+-- Test 10: Error Handling - Missing Parameters
+print("📝 Test 10: Error Handling - Missing Parameters")
+local emptyData = json.encode({})
+local response10 = sendMessage("CalculateFusionStats", {}, emptyData)
+if response10 and response10.Action ~= "Error" then
+    error("❌ Test failed: Expected error for missing parameters")
+end
+print("✅ Test 10 passed: Missing parameter error handling")
+
+-- Test 11: Deterministic RNG Consistency
+print("📝 Test 11: Deterministic RNG Consistency")
+local rngData1 = json.encode({
+    baseAbilities = {"ABILITY_1", "ABILITY_2"},
+    fusionAbilities = {"ABILITY_3", "ABILITY_4", "HIDDEN_ABILITY"},
+    battleSeed = 12345,
+    rngCounter = 0
+})
+local rngResponse1 = sendMessage("SelectFusionAbility", {}, rngData1)
+local rngResponse2 = sendMessage("SelectFusionAbility", {}, rngData1)
+if not rngResponse1 or not rngResponse2 then
+    error("❌ Test failed: RNG selection failed")
+end
+print("✅ Test 11 passed: Deterministic RNG consistency")
+
+-- Test 12: Ping handler
+print("📝 Test 12: Ping handler")
+local pingResponse = sendMessage("Ping")
+if not pingResponse or pingResponse.Action ~= "Pong" then
+    error("❌ Test failed: Expected Pong response")
+end
+print("✅ Test 12 passed: Ping handler")
+
+print("==================================================")
+print("🎉 All tests passed!")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

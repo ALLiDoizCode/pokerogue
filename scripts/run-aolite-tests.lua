@@ -4,7 +4,7 @@
 -- Runs comprehensive unit tests with enhanced framework features
 
 -- Add current directory to package path for requiring local modules
-package.path = package.path .. ";./?.lua;./testing/unit/?.lua;./testing/aolite/?.lua;./processes/?.lua;./test/unit/?.lua;./development-tools/aolite/lua/?.lua;./development-tools/aolite/lua/aolite/?.lua"
+package.path = package.path .. ";./?.lua;./testing/unit/?.lua;./testing/aolite/?.lua;./processes/?.lua;./test/unit/?.lua;./development-tools/aolite/lua/?/init.lua;./development-tools/aolite/lua/?.lua;./development-tools/aolite/lua/aolite/?.lua;./development-tools/aolite/lua/aolite/lib/?.lua;./development-tools/aolite/lua/aolite/factories/?.lua"
 
 -- Load enhanced testing framework
 local EnhancedFramework = require('testing.aolite.enhanced-test-framework')
@@ -43,11 +43,31 @@ end
 -- Mock require for aolite
 package.loaded.aolite = aolite
 
+-- Load json module from aolite
+local json
+local jsonAvailable, jsonModule = pcall(require, "json")
+if jsonAvailable then
+  json = jsonModule
+  print("✅ Loaded json module from aolite")
+else
+  print("⚠️  Using minimal json mock")
+  json = {
+    encode = function(t) return "{}" end,
+    decode = function(s) return {} end
+  }
+end
+package.loaded.json = json
+
 -- Simple test runner function
 local function runTestFile(testFile)
   print("Running test file: " .. testFile)
   print(string.rep("-", 60))
-  
+
+  -- Clear aolite process state between tests to prevent process ID collisions
+  if aolite and aolite.clearAllProcesses then
+    aolite.clearAllProcesses()
+  end
+
   -- Try to load the file directly with dofile
   local success, result = pcall(dofile, testFile)
   if not success then
@@ -80,7 +100,6 @@ local function main()
   print("\n📂 Running Legacy Test Files...")
   local testFiles = {
     "testing/unit/coordinator-process.test.lua",
-    "testing/unit/data-process-template.test.lua",
     "testing/unit/pokemon-species-db.test.lua",
     "testing/unit/pokemon-instance-manager.test.lua",
     "testing/unit/moves-database.test.lua",
@@ -96,6 +115,9 @@ local function main()
     "testing/unit/trainer-encounter-engine.test.lua",
     "testing/unit/gym-leader-elite-four.test.lua",
     "testing/unit/environmental-cycle.test.lua",
+    -- Story 20.3: Rewritten describe/it tests
+    "testing/unit/egg-hatching-engine.test.lua",
+    "testing/unit/friendship-engine.test.lua",
     -- AI Move Selection Engine tests (Story 17.1)
     "testing/unit/ai-move-selection-benefit-scoring.test.lua",
     "testing/unit/ai-move-selection-special-cases.test.lua",

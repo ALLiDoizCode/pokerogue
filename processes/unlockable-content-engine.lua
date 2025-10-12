@@ -486,10 +486,18 @@ Handlers.add("get-player-unlocks",
             return
         end
 
+        -- Initialize player data if needed
+        initializePlayerUnlocks(playerId)
+
         -- Get player unlock data
-        local playerData = getPlayerUnlocks(playerId)
-        local unlockedCount = countUnlocked(playerId)
-        local completionPercentage = getCompletionPercentage(playerId)
+        local playerData = playerUnlockData[playerId]
+        local unlockedCount = 0
+        for _, unlocked in pairs(playerData.unlocks) do
+            if unlocked then
+                unlockedCount = unlockedCount + 1
+            end
+        end
+        local completionPercentage = math.floor((unlockedCount / 4) * 100)
 
         ao.send({
             Target = msg.From,
@@ -503,7 +511,8 @@ Handlers.add("get-player-unlocks",
                 timestamps = playerData.timestamps
             }),
             Timestamp = tostring(msg.Timestamp or 0),
-            ProcessId = ao.id
+            ProcessId = ao.id,
+            Success = "true"
         })
     end
 )

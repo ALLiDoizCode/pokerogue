@@ -1,43 +1,38 @@
 -- Unit Tests for Biome Progression Engine
 -- Tests biome selection, transition, state management, and access validation
+-- Migrated to correct aolite API pattern
 
 local aolite = require("aolite")
 local json = require("json")
 
--- Test state
-local processId = nil
-local testMessages = {}
+-- Test configuration
+local PROCESS_PATH = "processes.biome-progression-engine"
+local processId = "test-biome-progression-engine"
 
--- Helper to send message and capture response
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Biome Progression Engine")
+print("Process ID:", processId)
+
+-- Test utilities
 local function sendMessage(action, tags, data)
     local msg = {
+        From = processId,
+        Target = processId,
         Action = action,
-        From = "test_sender",
-        Timestamp = os.time() * 1000
+        Data = data or ""
     }
 
-    for k, v in pairs(tags or {}) do
-        msg[k] = v
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
     end
 
-    if data then
-        msg.Data = type(data) == "table" and json.encode(data) or data
-    end
-
-    local result = aolite.send(processId, msg)
-    table.insert(testMessages, result)
-    return result
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
-
--- Setup: Load process
-print("Setting up Biome Progression Engine tests...")
-processId = aolite.spawn("biome-progression-engine", "../processes/biome-progression-engine.lua")
-
-if not processId then
-    error("Failed to spawn biome-progression-engine process")
-end
-
-print("Process spawned with ID: " .. processId)
 
 -- ============================================================================
 -- TEST SUITE 1: Info Handler (ADP v1.0 Compliance)
@@ -49,18 +44,29 @@ local function testInfoHandler()
     print("Test 1.1: Info handler returns process metadata")
 
     local result = sendMessage("Info", {}, nil)
-    assert(result, "Info handler should return response")
+    if not result then
+        error("❌ Info handler should return response")
+    end
 
-    local response = result[1]
-    assert(response.Action == "InfoResponse", "Should return InfoResponse action")
+    if result.Action ~= "InfoResponse" then
+        error("❌ Should return InfoResponse action, got: " .. tostring(result.Action))
+    end
 
-    local data = json.decode(response.Data)
-    assert(data.process.name == "Biome Progression Engine", "Process name should match")
-    assert(data.process.adpVersion == "1.0", "Should be ADP v1.0 compliant")
-    assert(#data.process.capabilities >= 5, "Should list all capabilities")
-    assert(data.biomeData.totalBiomes == 36, "Should report 36 biomes")
+    local data = json.decode(result.Data)
+    if data.process.name ~= "Biome Progression Engine" then
+        error("❌ Process name should match")
+    end
+    if data.process.adpVersion ~= "1.0" then
+        error("❌ Should be ADP v1.0 compliant")
+    end
+    if #data.process.capabilities < 5 then
+        error("❌ Should list all capabilities")
+    end
+    if data.biomeData.totalBiomes ~= 36 then
+        error("❌ Should report 36 biomes")
+    end
 
-    print("✓ Info handler test passed")
+    print("✅ Info handler test passed")
 end
 
 testInfoHandler()
@@ -83,14 +89,21 @@ local function testSinglePathSelection()
         Seed = "12345"
     }, nil)
 
-    assert(result, "Should return biome selection")
+    if not result then
+        error("❌ Should return biome selection")
+    end
 
-    local response = result[1]
-    assert(response.Action == "BiomeSelected", "Should return BiomeSelected")
-    assert(response.NextBiome == "1", "TOWN should progress to PLAINS (1)")
-    assert(response.RequiresPlayerChoice == "false", "Single path should not require choice")
+    if result.Action ~= "BiomeSelected" then
+        error("❌ Should return BiomeSelected")
+    end
+    if result.NextBiome ~= "1" then
+        error("❌ TOWN should progress to PLAINS (1)")
+    end
+    if result.RequiresPlayerChoice ~= "false" then
+        error("❌ Single path should not require choice")
+    end
 
-    print("✓ TOWN -> PLAINS selection test passed")
+    print("✅ TOWN -> PLAINS selection test passed")
 end
 
 local function testGrassToTallGrass()
@@ -104,10 +117,11 @@ local function testGrassToTallGrass()
         HasMapModifier = "false"
     }, nil)
 
-    local response = result[1]
-    assert(response.NextBiome == "3", "GRASS should progress to TALL_GRASS (3)")
+    if result.NextBiome ~= "3" then
+        error("❌ GRASS should progress to TALL_GRASS (3)")
+    end
 
-    print("✓ GRASS -> TALL_GRASS selection test passed")
+    print("✅ GRASS -> TALL_GRASS selection test passed")
 end
 
 testSinglePathSelection()
@@ -131,18 +145,23 @@ local function testPlainsMultiPath()
         Seed = "54321"
     }, nil)
 
-    local response = result[1]
-    assert(response.Action == "BiomeSelected", "Should return BiomeSelected")
+    if result.Action ~= "BiomeSelected" then
+        error("❌ Should return BiomeSelected")
+    end
 
-    local availableBiomes = json.decode(response.AvailableBiomes)
-    assert(#availableBiomes >= 1, "Should have at least one available biome")
+    local availableBiomes = json.decode(result.AvailableBiomes)
+    if #availableBiomes < 1 then
+        error("❌ Should have at least one available biome")
+    end
 
     -- PLAINS can lead to: GRASS (2), METROPOLIS (4), LAKE (9)
     local validBiomes = {[2] = true, [4] = true, [9] = true}
-    local nextBiome = tonumber(response.NextBiome)
-    assert(validBiomes[nextBiome], "Selected biome should be valid from PLAINS")
+    local nextBiome = tonumber(result.NextBiome)
+    if not validBiomes[nextBiome] then
+        error("❌ Selected biome should be valid from PLAINS")
+    end
 
-    print("✓ PLAINS multi-path selection test passed")
+    print("✅ PLAINS multi-path selection test passed")
 end
 
 local function testTallGrassTwoOptions()
@@ -156,13 +175,14 @@ local function testTallGrassTwoOptions()
         HasMapModifier = "false"
     }, nil)
 
-    local response = result[1]
-    local nextBiome = tonumber(response.NextBiome)
+    local nextBiome = tonumber(result.NextBiome)
 
     -- TALL_GRASS can lead to: FOREST (5), CAVE (13)
-    assert(nextBiome == 5 or nextBiome == 13, "Should select FOREST or CAVE")
+    if nextBiome ~= 5 and nextBiome ~= 13 then
+        error("❌ Should select FOREST or CAVE")
+    end
 
-    print("✓ TALL_GRASS multi-path selection test passed")
+    print("✅ TALL_GRASS multi-path selection test passed")
 end
 
 testPlainsMultiPath()
@@ -186,16 +206,19 @@ local function testSlumWeightedSelection()
         Seed = "99999"
     }, nil)
 
-    local response = result[1]
-    local availableBiomes = json.decode(response.AvailableBiomes)
+    local availableBiomes = json.decode(result.AvailableBiomes)
 
     -- SLUM can lead to: CONSTRUCTION_SITE (26, weight 1), SWAMP (7, weight 2)
-    assert(#availableBiomes >= 1, "Should have available biomes")
+    if #availableBiomes < 1 then
+        error("❌ Should have available biomes")
+    end
 
-    local nextBiome = tonumber(response.NextBiome)
-    assert(nextBiome == 26 or nextBiome == 7, "Should select CONSTRUCTION_SITE or SWAMP")
+    local nextBiome = tonumber(result.NextBiome)
+    if nextBiome ~= 26 and nextBiome ~= 7 then
+        error("❌ Should select CONSTRUCTION_SITE or SWAMP")
+    end
 
-    print("✓ SLUM weighted selection test passed")
+    print("✅ SLUM weighted selection test passed")
 end
 
 local function testBeachWeightedSelection()
@@ -209,13 +232,14 @@ local function testBeachWeightedSelection()
         HasMapModifier = "false"
     }, nil)
 
-    local response = result[1]
-    local nextBiome = tonumber(response.NextBiome)
+    local nextBiome = tonumber(result.NextBiome)
 
     -- BEACH can lead to: SEA (6, weight 1), ISLAND (40, weight 2)
-    assert(nextBiome == 6 or nextBiome == 40, "Should select SEA or ISLAND")
+    if nextBiome ~= 6 and nextBiome ~= 40 then
+        error("❌ Should select SEA or ISLAND")
+    end
 
-    print("✓ BEACH weighted selection test passed")
+    print("✅ BEACH weighted selection test passed")
 end
 
 testSlumWeightedSelection()
@@ -239,13 +263,16 @@ local function testMapModifierEnablesChoice()
         Seed = "11111"
     }, nil)
 
-    local response = result[1]
-    assert(response.RequiresPlayerChoice == "true", "Map modifier should enable choice")
+    if result.RequiresPlayerChoice ~= "true" then
+        error("❌ Map modifier should enable choice")
+    end
 
-    local availableBiomes = json.decode(response.AvailableBiomes)
-    assert(#availableBiomes >= 2, "Should have multiple biome options")
+    local availableBiomes = json.decode(result.AvailableBiomes)
+    if #availableBiomes < 2 then
+        error("❌ Should have multiple biome options")
+    end
 
-    print("✓ Map modifier choice enablement test passed")
+    print("✅ Map modifier choice enablement test passed")
 end
 
 local function testMapModifierNoEffectSinglePath()
@@ -259,11 +286,14 @@ local function testMapModifierNoEffectSinglePath()
         HasMapModifier = "true"
     }, nil)
 
-    local response = result[1]
-    assert(response.RequiresPlayerChoice == "false", "Single path should not require choice")
-    assert(response.NextBiome == "1", "Should still select PLAINS")
+    if result.RequiresPlayerChoice ~= "false" then
+        error("❌ Single path should not require choice")
+    end
+    if result.NextBiome ~= "1" then
+        error("❌ Should still select PLAINS")
+    end
 
-    print("✓ Map modifier single-path test passed")
+    print("✅ Map modifier single-path test passed")
 end
 
 testMapModifierEnablesChoice()
@@ -286,11 +316,14 @@ local function testWave50ClassicEndBiome()
         HasMapModifier = "false"
     }, nil)
 
-    local response = result[1]
-    assert(response.NextBiome == "50", "Wave 50 should select END biome")
-    assert(response.TransitionType == "end_biome", "Should be end_biome transition")
+    if result.NextBiome ~= "50" then
+        error("❌ Wave 50 should select END biome")
+    end
+    if result.TransitionType ~= "end_biome" then
+        error("❌ Should be end_biome transition")
+    end
 
-    print("✓ Wave 50 END biome test passed")
+    print("✅ Wave 50 END biome test passed")
 end
 
 local function testWave59EndBiome()
@@ -304,10 +337,11 @@ local function testWave59EndBiome()
         HasMapModifier = "false"
     }, nil)
 
-    local response = result[1]
-    assert(response.NextBiome == "50", "Wave 50+ should force END biome")
+    if result.NextBiome ~= "50" then
+        error("❌ Wave 50+ should force END biome")
+    end
 
-    print("✓ Wave 50+ END biome test passed")
+    print("✅ Wave 50+ END biome test passed")
 end
 
 testWave50ClassicEndBiome()
@@ -330,14 +364,23 @@ local function testFirstBiomeVisit()
         Timestamp = "1000000"
     }, nil)
 
-    local response = result[1]
-    assert(response.Action == "BiomeTransitioned", "Should return BiomeTransitioned")
-    assert(response.Success == "true", "Transition should succeed")
-    assert(response.FirstVisit == "true", "Should be first visit")
-    assert(response.NewBiome == "1", "Should transition to PLAINS")
-    assert(response.BiomeName == "Plains", "Should return biome name")
+    if result.Action ~= "BiomeTransitioned" then
+        error("❌ Should return BiomeTransitioned")
+    end
+    if result.Success ~= "true" then
+        error("❌ Transition should succeed")
+    end
+    if result.FirstVisit ~= "true" then
+        error("❌ Should be first visit")
+    end
+    if result.NewBiome ~= "1" then
+        error("❌ Should transition to PLAINS")
+    end
+    if result.BiomeName ~= "Plains" then
+        error("❌ Should return biome name")
+    end
 
-    print("✓ First visit unlock test passed")
+    print("✅ First visit unlock test passed")
 end
 
 local function testRevisitBiome()
@@ -361,11 +404,14 @@ local function testRevisitBiome()
         Timestamp = "3000000"
     }, nil)
 
-    local response = result[1]
-    assert(response.FirstVisit == "false", "Should not be first visit")
-    assert(response.UnlockedTimestamp == "2000000", "Unlock timestamp should not change")
+    if result.FirstVisit ~= "false" then
+        error("❌ Should not be first visit")
+    end
+    if result.UnlockedTimestamp ~= "2000000" then
+        error("❌ Unlock timestamp should not change")
+    end
 
-    print("✓ Revisit biome test passed")
+    print("✅ Revisit biome test passed")
 end
 
 testFirstBiomeVisit()
@@ -403,17 +449,28 @@ local function testGetPlayerBiomeState()
         IncludeHistory = "true"
     }, nil)
 
-    local response = result[1]
-    assert(response.Action == "PlayerBiomeData", "Should return PlayerBiomeData")
+    if result.Action ~= "PlayerBiomeData" then
+        error("❌ Should return PlayerBiomeData")
+    end
 
-    local data = json.decode(response.Data)
-    assert(data.currentBiome == 2, "Current biome should be GRASS")
-    assert(data.totalBiomesUnlocked >= 2, "Should have unlocked at least 2 biomes")
-    assert(data.unlockedBiomes[1], "PLAINS should be unlocked")
-    assert(data.unlockedBiomes[2], "GRASS should be unlocked")
-    assert(data.biomeHistory, "Should include history")
+    local data = json.decode(result.Data)
+    if data.currentBiome ~= 2 then
+        error("❌ Current biome should be GRASS")
+    end
+    if data.totalBiomesUnlocked < 2 then
+        error("❌ Should have unlocked at least 2 biomes")
+    end
+    if not data.unlockedBiomes[1] then
+        error("❌ PLAINS should be unlocked")
+    end
+    if not data.unlockedBiomes[2] then
+        error("❌ GRASS should be unlocked")
+    end
+    if not data.biomeHistory then
+        error("❌ Should include history")
+    end
 
-    print("✓ Get player state test passed")
+    print("✅ Get player state test passed")
 end
 
 local function testProgressionPercentage()
@@ -424,13 +481,16 @@ local function testProgressionPercentage()
         IncludeHistory = "false"
     }, nil)
 
-    local response = result[1]
-    local data = json.decode(response.Data)
+    local data = json.decode(result.Data)
 
-    assert(data.progressionPercentage >= 0, "Percentage should be non-negative")
-    assert(data.progressionPercentage <= 100, "Percentage should not exceed 100")
+    if data.progressionPercentage < 0 then
+        error("❌ Percentage should be non-negative")
+    end
+    if data.progressionPercentage > 100 then
+        error("❌ Percentage should not exceed 100")
+    end
 
-    print("✓ Progression percentage test passed")
+    print("✅ Progression percentage test passed")
 end
 
 testGetPlayerBiomeState()
@@ -452,12 +512,17 @@ local function testValidBiomeAccess()
         WaveIndex = "10"
     }, nil)
 
-    local response = result[1]
-    assert(response.Action == "BiomeAccessValidated", "Should return validation result")
-    assert(response.Accessible == "true", "PLAINS should be accessible from TOWN")
-    assert(response.IsLinked == "true", "Should be linked")
+    if result.Action ~= "BiomeAccessValidated" then
+        error("❌ Should return validation result")
+    end
+    if result.Accessible ~= "true" then
+        error("❌ PLAINS should be accessible from TOWN")
+    end
+    if result.IsLinked ~= "true" then
+        error("❌ Should be linked")
+    end
 
-    print("✓ Valid access test passed")
+    print("✅ Valid access test passed")
 end
 
 local function testInvalidBiomeAccess()
@@ -470,12 +535,17 @@ local function testInvalidBiomeAccess()
         WaveIndex = "10"
     }, nil)
 
-    local response = result[1]
-    assert(response.Accessible == "false", "MOUNTAIN should not be accessible from TOWN")
-    assert(response.IsLinked == "false", "Should not be linked")
-    assert(response.Reason ~= "", "Should provide reason")
+    if result.Accessible ~= "false" then
+        error("❌ MOUNTAIN should not be accessible from TOWN")
+    end
+    if result.IsLinked ~= "false" then
+        error("❌ Should not be linked")
+    end
+    if result.Reason == "" then
+        error("❌ Should provide reason")
+    end
 
-    print("✓ Invalid access test passed")
+    print("✅ Invalid access test passed")
 end
 
 local function testWaveMilestoneValidation()
@@ -488,11 +558,14 @@ local function testWaveMilestoneValidation()
         WaveIndex = "5"  -- Not a milestone
     }, nil)
 
-    local response = result[1]
-    assert(response.Accessible == "false", "Should not be accessible at non-milestone wave")
-    assert(response.Reason:find("milestone"), "Reason should mention milestone")
+    if result.Accessible ~= "false" then
+        error("❌ Should not be accessible at non-milestone wave")
+    end
+    if not string.find(result.Reason, "milestone") then
+        error("❌ Reason should mention milestone")
+    end
 
-    print("✓ Wave milestone validation test passed")
+    print("✅ Wave milestone validation test passed")
 end
 
 testValidBiomeAccess()
@@ -512,16 +585,25 @@ local function testGetSingleBiomeInfo()
         BiomeId = "3"  -- TALL_GRASS
     }, nil)
 
-    local response = result[1]
-    assert(response.Action == "BiomeInfo", "Should return BiomeInfo")
+    if result.Action ~= "BiomeInfo" then
+        error("❌ Should return BiomeInfo")
+    end
 
-    local data = json.decode(response.Data)
-    assert(data.biome, "Should have biome data")
-    assert(data.biome.id == 3, "Should be TALL_GRASS")
-    assert(data.biome.name == "Tall Grass", "Should have correct name")
-    assert(#data.biome.linkedBiomes >= 1, "Should have linked biomes")
+    local data = json.decode(result.Data)
+    if not data.biome then
+        error("❌ Should have biome data")
+    end
+    if data.biome.id ~= 3 then
+        error("❌ Should be TALL_GRASS")
+    end
+    if data.biome.name ~= "Tall Grass" then
+        error("❌ Should have correct name")
+    end
+    if #data.biome.linkedBiomes < 1 then
+        error("❌ Should have linked biomes")
+    end
 
-    print("✓ Single biome info test passed")
+    print("✅ Single biome info test passed")
 end
 
 local function testGetAllBiomesInfo()
@@ -529,13 +611,16 @@ local function testGetAllBiomesInfo()
 
     local result = sendMessage("GetBiomeInfo", {}, nil)
 
-    local response = result[1]
-    local data = json.decode(response.Data)
+    local data = json.decode(result.Data)
 
-    assert(data.biomes, "Should have biomes array")
-    assert(#data.biomes >= 36, "Should have at least 36 biomes")
+    if not data.biomes then
+        error("❌ Should have biomes array")
+    end
+    if #data.biomes < 36 then
+        error("❌ Should have at least 36 biomes")
+    end
 
-    print("✓ All biomes info test passed")
+    print("✅ All biomes info test passed")
 end
 
 testGetSingleBiomeInfo()
@@ -555,11 +640,14 @@ local function testMissingPlayerId()
         CurrentWaveIndex = "10"
     }, nil)
 
-    local response = result[1]
-    assert(response.Action == "Error", "Should return error")
-    assert(response.Error:find("PlayerId"), "Error should mention PlayerId")
+    if result.Action ~= "Error" then
+        error("❌ Should return error")
+    end
+    if not string.find(result.Error, "PlayerId") then
+        error("❌ Error should mention PlayerId")
+    end
 
-    print("✓ Missing PlayerId test passed")
+    print("✅ Missing PlayerId test passed")
 end
 
 local function testInvalidBiomeTransition()
@@ -572,10 +660,11 @@ local function testInvalidBiomeTransition()
         WaveIndex = "10"
     }, nil)
 
-    local response = result[1]
-    assert(response.Action == "Error", "Should return error for invalid transition")
+    if result.Action ~= "Error" then
+        error("❌ Should return error for invalid transition")
+    end
 
-    print("✓ Invalid transition test passed")
+    print("✅ Invalid transition test passed")
 end
 
 local function testInvalidBiomeId()
@@ -585,10 +674,11 @@ local function testInvalidBiomeId()
         BiomeId = "999"  -- Invalid
     }, nil)
 
-    local response = result[1]
-    assert(response.Action == "Error", "Should return error for invalid biome ID")
+    if result.Action ~= "Error" then
+        error("❌ Should return error for invalid biome ID")
+    end
 
-    print("✓ Invalid biome ID test passed")
+    print("✅ Invalid biome ID test passed")
 end
 
 testMissingPlayerId()
@@ -601,6 +691,6 @@ testInvalidBiomeId()
 
 print("\n" .. string.rep("=", 60))
 print("ALL TESTS PASSED")
-print("Total test messages sent: " .. #testMessages)
 print("Biome Progression Engine unit tests completed successfully")
 print(string.rep("=", 60))
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

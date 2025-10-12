@@ -1644,11 +1644,14 @@ local function shouldSwitchPokemon(currentMatchupScore, partyMemberScores, isBos
     local sortedScores = getSortedPartyMemberMatchupScores(partyMemberScores)
     local bestPartyScore = sortedScores[1][2]
 
-    -- Switch dampening formula (line 69): 1 - Math.pow(0.1, 1 / counter)
-    -- First switch (counter=1): multiplier = 1.0 (no penalty)
-    -- Second switch (counter=2): multiplier ≈ 0.68
-    -- Third+ switches: multiplier ≈ 0.36
-    local switchMultiplier = 1 - (0.1 ^ (1 / math.max(switchCounter or 1, 1)))
+    -- Switch dampening formula (line 69): 1 - (counter ? Math.pow(0.1, 1 / counter) : 0)
+    -- TypeScript enemySwitchCounter starts at 0, increments BEFORE each switch check
+    -- Counter 0 (no switches): multiplier = 1.0
+    -- Counter 1 (first switch): multiplier ≈ 0.9
+    -- Counter 2 (second switch): multiplier ≈ 0.68
+    -- Counter 3+ (third+ switches): multiplier ≈ 0.54, 0.44...
+    switchCounter = switchCounter or 0
+    local switchMultiplier = (switchCounter == 0) and 1.0 or (1 - (0.1 ^ (1 / switchCounter)))
 
     -- Threshold comparison (line 71)
     -- Boss trainers: 2x threshold (more aggressive switching)
@@ -1904,7 +1907,7 @@ Handlers.add("evaluate-switch-decision",
         local partyMembers = data.partyMembers
         local entryHazards = data.entryHazards
         local isBoss = data.isBoss or false
-        local switchCounter = data.enemySwitchCounter or 1
+        switchCounter = data.enemySwitchCounter or 1
         local battleSeed = data.battleSeed or 12345
         local battleTurn = data.battleTurn or 1
 
@@ -1983,7 +1986,8 @@ Handlers.add("evaluate-switch-decision",
         end
 
         -- Calculate switch multiplier and threshold for response
-        local switchMultiplier = 1 - (0.1 ^ (1 / math.max(switchCounter, 1)))
+        -- TypeScript enemySwitchCounter starts at 0
+        local switchMultiplier = (switchCounter == 0) and 1.0 or (1 - (0.1 ^ (1 / switchCounter)))
         local threshold = isBoss and 2 or 3
         local bestPartyScore = #partyScores > 0 and getSortedPartyMemberMatchupScores(partyScores)[1][2] or 0
 

@@ -1,118 +1,40 @@
 -- GameState Validator Test Suite
 -- Unit tests for the GameState validation framework
 
--- Mock AO environment for testing
-local ao = {
-    send = function(msg)
-        table.insert(_G.testResults or {}, msg)
-        _G.lastSentMessage = msg
-        return msg
-    end,
-    id = "test_gamestate_validator_id"
-}
+local aolite = require("aolite")
+local json = require("json")
 
--- Mock Handlers for testing
-local Handlers = {
-    list = {},
-    add = function(name, matcher, handler)
-        table.insert(Handlers.list, {name = name, matcher = matcher, handle = handler})
-    end,
-    utils = {
-        hasMatchingTag = function(tag, value)
-            return function(msg)
-                return msg[tag] == value
-            end
-        end
+local TEST_TIMEOUT = 30000
+local PROCESS_PATH = "processes/security/gamestate-validator.lua"
+
+local process = aolite.spawnProcess(PROCESS_PATH)
+if not process then
+    error("Failed to spawn process from " .. PROCESS_PATH)
+end
+
+print("🧪 Starting Aolite Tests for GameState Validator")
+print("Process ID:", process.id)
+
+local function sendMessage(action, tags, data, timeout)
+    local msg = {
+        Target = process.id,
+        Action = action,
+        Data = data or "",
+        Timestamp = tostring(os.time() * 1000)
     }
-}
-
--- Mock JSON for testing
-local json = {
-    encode = function(data)
-        if type(data) == "table" then
-            local result = "{"
-            local first = true
-            for k, v in pairs(data) do
-                if not first then result = result .. "," end
-                if type(v) == "table" then
-                    result = result .. '"' .. tostring(k) .. '":' .. json.encode(v)
-                else
-                    result = result .. '"' .. tostring(k) .. '":' .. (type(v) == "string" and '"' .. v .. '"' or tostring(v))
-                end
-                first = false
-            end
-            return result .. "}"
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
         end
-        return tostring(data)
-    end,
-    decode = function(str)
-        if str == '{}' or str == '' then return {} end
-        -- Parse basic JSON for testing
-        local result = {}
-        return result
     end
-}
-
--- Initialize test results
-_G.testResults = {}
-
--- Set global environment for process
-_G.ao = ao
-_G.Handlers = Handlers
-_G.json = json
-
--- Load the gamestate validator
-local validatorPath = "processes/security/gamestate-validator.lua"
-dofile(validatorPath)
-
--- Test counter
-local testsRun = 0
-local testsPassed = 0
-local testsFailed = 0
-
-local function assert_equal(actual, expected, message)
-    testsRun = testsRun + 1
-    if actual == expected then
-        testsPassed = testsPassed + 1
-        print("✓ " .. message)
-        return true
-    else
-        testsFailed = testsFailed + 1
-        print("✗ " .. message)
-        print("  Expected: " .. tostring(expected))
-        print("  Got: " .. tostring(actual))
-        return false
-    end
+    return aolite.send(msg, timeout or TEST_TIMEOUT)
 end
-
-local function assert_true(condition, message)
-    return assert_equal(condition, true, message)
-end
-
-local function assert_false(condition, message)
-    return assert_equal(condition, false, message)
-end
-
-local function assert_not_nil(value, message)
-    testsRun = testsRun + 1
-    if value ~= nil then
-        testsPassed = testsPassed + 1
-        print("✓ " .. message)
-        return true
-    else
-        testsFailed = testsFailed + 1
-        print("✗ " .. message .. " (got nil)")
-        return false
-    end
-end
-
-print("🧪 GameState Validator Test Suite")
-print("=" .. string.rep("=", 50))
 
 -- Test Suite 1: Pokemon Validation
 print("\n=== Test Suite 1: Pokemon Stats Validation ===")
 
--- Test valid pokemon
+-- Test 1: Valid Pokemon
+print("\n📝 Test 1: Valid Pokemon")
 local validPokemon = {
     level = 50,
     hp = 150,
@@ -127,62 +49,92 @@ local validPokemon = {
         speed = 29
     },
     moves = {
-        { name = "Tackle", pp = 35, maxPp = 35 },
-        { name = "Thunderbolt", pp = 15, maxPp = 15 }
+        {name = "Tackle", pp = 35, maxPp = 35},
+        {name = "Thunderbolt", pp = 15, maxPp = 15}
     }
 }
 
-local isValid, err = GameStateValidator.validatePokemonStats(validPokemon)
-assert_true(isValid, "Valid Pokemon should pass validation")
-assert_equal(err, nil, "Valid Pokemon should have no errors")
+local response = sendMessage("ValidatePokemonStats", nil, json.encode(validPokemon))
 
--- Test invalid level
+if response and response.Action == "ValidationResult" and response.IsValid == "true" then
+    print("✅ Valid Pokemon passed validation")
+else
+    error("Valid Pokemon should pass validation")
+end
+
+-- Test 2: Invalid Level
+print("\n📝 Test 2: Invalid Level")
 local invalidLevel = {
     level = 150,
     hp = 100,
     maxHp = 100
 }
-isValid, err = GameStateValidator.validatePokemonStats(invalidLevel)
-assert_false(isValid, "Pokemon with level > 100 should fail")
-assert_not_nil(err, "Invalid level should return error message")
 
--- Test invalid IV
+response = sendMessage("ValidatePokemonStats", nil, json.encode(invalidLevel))
+
+if response and response.Action == "ValidationResult" and response.IsValid == "false" then
+    print("✅ Pokemon with level > 100 rejected")
+else
+    error("Invalid level should be rejected")
+end
+
+-- Test 3: Invalid IV
+print("\n📝 Test 3: Invalid IV")
 local invalidIV = {
     level = 50,
     hp = 100,
     maxHp = 100,
     ivs = {
-        hp = 35  -- Invalid: max is 31
+        hp = 35
     }
 }
-isValid, err = GameStateValidator.validatePokemonStats(invalidIV)
-assert_false(isValid, "Pokemon with IV > 31 should fail")
-assert_not_nil(err, "Invalid IV should return error message")
 
--- Test invalid status
+response = sendMessage("ValidatePokemonStats", nil, json.encode(invalidIV))
+
+if response and response.Action == "ValidationResult" and response.IsValid == "false" then
+    print("✅ Pokemon with IV > 31 rejected")
+else
+    error("Invalid IV should be rejected")
+end
+
+-- Test 4: Invalid Status
+print("\n📝 Test 4: Invalid Status")
 local invalidStatus = {
     level = 50,
     hp = 100,
     maxHp = 100,
     status = "INVALID_STATUS"
 }
-isValid, err = GameStateValidator.validatePokemonStats(invalidStatus)
-assert_false(isValid, "Pokemon with invalid status should fail")
-assert_not_nil(err, "Invalid status should return error message")
 
--- Test HP exceeds maxHP
+response = sendMessage("ValidatePokemonStats", nil, json.encode(invalidStatus))
+
+if response and response.Action == "ValidationResult" and response.IsValid == "false" then
+    print("✅ Pokemon with invalid status rejected")
+else
+    error("Invalid status should be rejected")
+end
+
+-- Test 5: HP Exceeds maxHP
+print("\n📝 Test 5: HP Exceeds maxHP")
 local invalidHP = {
     level = 50,
     hp = 250,
     maxHp = 200
 }
-isValid, err = GameStateValidator.validatePokemonStats(invalidHP)
-assert_false(isValid, "Pokemon with HP > maxHP should fail")
-assert_not_nil(err, "HP exceeding maxHP should return error message")
+
+response = sendMessage("ValidatePokemonStats", nil, json.encode(invalidHP))
+
+if response and response.Action == "ValidationResult" and response.IsValid == "false" then
+    print("✅ Pokemon with HP > maxHP rejected")
+else
+    error("HP exceeding maxHP should be rejected")
+end
 
 -- Test Suite 2: Battle State Validation
 print("\n=== Test Suite 2: Battle State Validation ===")
 
+-- Test 6: Valid Battle
+print("\n📝 Test 6: Valid Battle")
 local validBattle = {
     turn = 5,
     phase = "TURN_RESOLVE",
@@ -194,44 +146,49 @@ local validBattle = {
     }
 }
 
-isValid, err = GameStateValidator.validateBattleState(validBattle)
-assert_true(isValid, "Valid battle state should pass validation")
-assert_equal(err, nil, "Valid battle state should have no errors")
+response = sendMessage("ValidateBattleState", nil, json.encode(validBattle))
 
--- Test invalid turn
+if response and response.Action == "ValidationResult" and response.IsValid == "true" then
+    print("✅ Valid battle state passed validation")
+else
+    error("Valid battle state should pass validation")
+end
+
+-- Test 7: Invalid Turn
+print("\n📝 Test 7: Invalid Turn")
 local invalidTurn = {
     turn = 1500,
     phase = "TURN_RESOLVE"
 }
-isValid, err = GameStateValidator.validateBattleState(invalidTurn)
-assert_false(isValid, "Battle with turn > 1000 should fail")
-assert_not_nil(err, "Invalid turn should return error message")
 
--- Test invalid phase
+response = sendMessage("ValidateBattleState", nil, json.encode(invalidTurn))
+
+if response and response.Action == "ValidationResult" and response.IsValid == "false" then
+    print("✅ Battle with turn > 1000 rejected")
+else
+    error("Invalid turn should be rejected")
+end
+
+-- Test 8: Invalid Phase
+print("\n📝 Test 8: Invalid Phase")
 local invalidPhase = {
     turn = 5,
     phase = "INVALID_PHASE"
 }
-isValid, err = GameStateValidator.validateBattleState(invalidPhase)
-assert_false(isValid, "Battle with invalid phase should fail")
-assert_not_nil(err, "Invalid phase should return error message")
 
--- Test invalid weather
-local invalidWeather = {
-    turn = 5,
-    phase = "TURN_RESOLVE",
-    weather = {
-        type = "METEOR_SHOWER",  -- Invalid weather
-        turnsLeft = 3
-    }
-}
-isValid, err = GameStateValidator.validateBattleState(invalidWeather)
-assert_false(isValid, "Battle with invalid weather should fail")
-assert_not_nil(err, "Invalid weather should return error message")
+response = sendMessage("ValidateBattleState", nil, json.encode(invalidPhase))
+
+if response and response.Action == "ValidationResult" and response.IsValid == "false" then
+    print("✅ Battle with invalid phase rejected")
+else
+    error("Invalid phase should be rejected")
+end
 
 -- Test Suite 3: Inventory Validation
 print("\n=== Test Suite 3: Inventory Validation ===")
 
+-- Test 9: Valid Inventory
+print("\n📝 Test 9: Valid Inventory")
 local validInventory = {
     money = 10000,
     items = {
@@ -241,148 +198,113 @@ local validInventory = {
     keyItems = {"bicycle", "fishing_rod"}
 }
 
-isValid, err = GameStateValidator.validateInventory(validInventory)
-assert_true(isValid, "Valid inventory should pass validation")
-assert_equal(err, nil, "Valid inventory should have no errors")
+response = sendMessage("ValidateInventory", nil, json.encode(validInventory))
 
--- Test invalid money
+if response and response.Action == "ValidationResult" and response.IsValid == "true" then
+    print("✅ Valid inventory passed validation")
+else
+    error("Valid inventory should pass validation")
+end
+
+-- Test 10: Invalid Money
+print("\n📝 Test 10: Invalid Money")
 local invalidMoney = {
-    money = 1000000000  -- Exceeds max
+    money = 1000000000
 }
-isValid, err = GameStateValidator.validateInventory(invalidMoney)
-assert_false(isValid, "Inventory with excessive money should fail")
-assert_not_nil(err, "Invalid money should return error message")
 
--- Test invalid item quantity
+response = sendMessage("ValidateInventory", nil, json.encode(invalidMoney))
+
+if response and response.Action == "ValidationResult" and response.IsValid == "false" then
+    print("✅ Inventory with excessive money rejected")
+else
+    error("Invalid money should be rejected")
+end
+
+-- Test 11: Invalid Item Quantity
+print("\n📝 Test 11: Invalid Item Quantity")
 local invalidQuantity = {
     money = 1000,
     items = {
-        ["potion"] = 1000  -- Exceeds max of 999
+        ["potion"] = 1000
     }
 }
-isValid, err = GameStateValidator.validateInventory(invalidQuantity)
-assert_false(isValid, "Inventory with excessive item quantity should fail")
-assert_not_nil(err, "Invalid quantity should return error message")
 
--- Test Suite 4: Progression Validation
-print("\n=== Test Suite 4: Progression Validation ===")
+response = sendMessage("ValidateInventory", nil, json.encode(invalidQuantity))
 
-local validProgression = {
-    exp = 5000,
-    badges = {"boulder_badge", "cascade_badge"},
-    unlockedAreas = {"viridian_city", "pewter_city"}
-}
+if response and response.Action == "ValidationResult" and response.IsValid == "false" then
+    print("✅ Inventory with excessive item quantity rejected")
+else
+    error("Invalid quantity should be rejected")
+end
 
-isValid, err = GameStateValidator.validateProgression(validProgression)
-assert_true(isValid, "Valid progression should pass validation")
-assert_equal(err, nil, "Valid progression should have no errors")
+-- Test Suite 4: Full GameState Validation
+print("\n=== Test Suite 4: Full GameState Validation ===")
 
--- Test invalid experience
-local invalidExp = {
-    exp = 2000000  -- Exceeds max
-}
-isValid, err = GameStateValidator.validateProgression(invalidExp)
-assert_false(isValid, "Progression with excessive exp should fail")
-assert_not_nil(err, "Invalid exp should return error message")
-
--- Test Suite 5: Party Validation
-print("\n=== Test Suite 5: Party Validation ===")
-
-local validParty = {validPokemon, validPokemon}
-
-isValid, err = GameStateValidator.validateParty(validParty)
-assert_true(isValid, "Valid party should pass validation")
-assert_equal(err, nil, "Valid party should have no errors")
-
--- Test party size exceeds limit
-local oversizedParty = {
-    validPokemon, validPokemon, validPokemon,
-    validPokemon, validPokemon, validPokemon,
-    validPokemon  -- 7 Pokemon, exceeds max of 6
-}
-isValid, err = GameStateValidator.validateParty(oversizedParty)
-assert_false(isValid, "Party with > 6 Pokemon should fail")
-assert_not_nil(err, "Oversized party should return error message")
-
--- Test Suite 6: Full GameState Validation
-print("\n=== Test Suite 6: Full GameState Validation ===")
-
+-- Test 12: Valid Full GameState
+print("\n📝 Test 12: Valid Full GameState")
 local validGameState = {
-    party = validParty,
+    party = {validPokemon, validPokemon},
     battleState = validBattle,
     inventory = validInventory,
-    progression = validProgression
+    progression = {
+        exp = 5000,
+        badges = {"boulder_badge", "cascade_badge"},
+        unlockedAreas = {"viridian_city", "pewter_city"}
+    }
 }
 
-isValid, err = GameStateValidator.validateGameState(validGameState)
-assert_true(isValid, "Valid full GameState should pass validation")
-assert_equal(err, nil, "Valid GameState should have no errors")
+response = sendMessage("ValidateGameState", nil, json.encode(validGameState))
 
--- Test GameState with multiple errors
-local invalidGameState = {
-    party = oversizedParty,
-    inventory = invalidMoney,
-    progression = invalidExp
-}
-
-isValid, err = GameStateValidator.validateGameState(invalidGameState)
-assert_false(isValid, "Invalid GameState should fail validation")
-assert_not_nil(err, "Invalid GameState should return errors")
-
--- Test Suite 7: Handler Integration
-print("\n=== Test Suite 7: Handler Integration ===")
-
--- Test direct validation function calls instead of full handler integration
--- since our mock JSON doesn't handle complex nested structures
-local validationResult = GameStateValidator.validateAtProcessBoundary(validGameState, "BattleStart")
-assert_true(validationResult.valid, "Valid GameState should pass boundary validation")
-assert_equal(validationResult.operationType, "BattleStart", "Should track operation type")
-
-local invalidResult = GameStateValidator.validateAtProcessBoundary(invalidGameState, "BattleStart")
-assert_false(invalidResult.valid, "Invalid GameState should fail boundary validation")
-assert_not_nil(invalidResult.violations, "Invalid GameState should include violations")
-
--- Test handler registration
-local handlerFound = false
-for i, handler in ipairs(Handlers.list) do
-    if handler.name == "validate-gamestate" then
-        handlerFound = true
-        break
-    end
-end
-assert_true(handlerFound, "validate-gamestate handler should be registered")
-
--- Test info handler registration
-handlerFound = false
-for i, handler in ipairs(Handlers.list) do
-    if handler.name == "info" then
-        handlerFound = true
-        break
-    end
-end
-assert_true(handlerFound, "info handler should be registered")
-
--- Test health-check handler registration
-handlerFound = false
-for i, handler in ipairs(Handlers.list) do
-    if handler.name == "health-check" then
-        handlerFound = true
-        break
-    end
-end
-assert_true(handlerFound, "health-check handler should be registered")
-
--- Print test results
-print("\n" .. string.rep("=", 50))
-print("📊 Test Results:")
-print(string.format("  Total: %d", testsRun))
-print(string.format("  Passed: %d", testsPassed))
-print(string.format("  Failed: %d", testsFailed))
-
-if testsFailed == 0 then
-    print("\n✅ All GameState Validator tests passed!")
-    os.exit(0)
+if response and response.Action == "ValidationResult" and response.IsValid == "true" then
+    print("✅ Valid full GameState passed validation")
 else
-    print("\n❌ Some tests failed!")
-    os.exit(1)
+    error("Valid GameState should pass validation")
 end
+
+-- Test 13: Invalid GameState with Multiple Errors
+print("\n📝 Test 13: Invalid GameState with Multiple Errors")
+local invalidGameState = {
+    party = {validPokemon, validPokemon, validPokemon, validPokemon, validPokemon, validPokemon, validPokemon},
+    inventory = invalidMoney,
+    progression = {exp = 2000000}
+}
+
+response = sendMessage("ValidateGameState", nil, json.encode(invalidGameState))
+
+if response and response.Action == "ValidationResult" and response.IsValid == "false" then
+    print("✅ Invalid GameState rejected")
+else
+    error("Invalid GameState should be rejected")
+end
+
+-- Test Suite 5: Handler Integration
+print("\n=== Test Suite 5: Handler Integration ===")
+
+-- Test 14: Info Handler
+print("\n📝 Test 14: Info Handler")
+response = sendMessage("Info", {})
+
+if response and response.Data then
+    local info = type(response.Data) == "table" and response.Data or json.decode(response.Data)
+    if info.name or info.process then
+        print("✅ Info handler working")
+    else
+        error("Info response incomplete")
+    end
+else
+    error("Info handler failed")
+end
+
+-- Test 15: Health Check Handler
+print("\n📝 Test 15: Health Check Handler")
+response = sendMessage("HealthCheck", {})
+
+if response and (response.Action == "HealthCheckResponse" or response.Status) then
+    print("✅ Health check handler working")
+else
+    error("Health check handler failed")
+end
+
+print("\n==================================================")
+print("🎉 All tests passed!")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

@@ -227,7 +227,7 @@ local BIOME_POKEMON_POOLS = {
             [TimeOfDay.ALL] = {251}  -- Celebi
         }
     },
-    [BiomeType.WATER] = {
+    [BiomeType.SEA] = {
         [BiomePoolTier.COMMON] = {
             [TimeOfDay.ALL] = {60, 72, 90, 98, 118, 129, 170, 183, 283, 320, 339, 349, 550},
             [TimeOfDay.DAY] = {54, 278, 535},
@@ -346,7 +346,7 @@ local function calculateEncounterRate(areaId, playerModifiers)
         [BiomeType.TALL_GRASS] = 1.5,
         [BiomeType.FOREST] = 1.3,
         [BiomeType.CAVE] = 1.1,
-        [BiomeType.WATER] = 1.4,
+        [BiomeType.SEA] = 1.4,
         [BiomeType.PLAINS] = 1.0,
         [BiomeType.MOUNTAIN] = 0.9,
         [BiomeType.TOWN] = 0.5

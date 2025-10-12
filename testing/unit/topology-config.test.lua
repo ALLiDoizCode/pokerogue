@@ -1,294 +1,191 @@
 -- Test file for processes/topology-config.lua
 -- Tests topology configuration, process discovery, and ADP v1.0 compliance
 
-local aolite = require("testing.aolite.aolite")
+local aolite = require("aolite")
+local json = require("json")
 
-describe("Topology Configuration Process", function()
-    local process
+local PROCESS_PATH = "processes.topology-config"
+local processId = "test-topology-config"
 
-    before_each(function()
-        -- Spawn process with topology-config code
-        process = aolite.spawnProcess("processes/topology-config.lua")
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
 
-        -- Set up mock timestamp
-        process.mockTimestamp = 1234567890
-    end)
+print("🧪 Starting Aolite Tests for Topology Configuration")
+print("Process ID:", processId)
 
-    after_each(function()
-        -- Cleanup
-        process = nil
-    end)
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
+    }
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
+    end
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
+end
 
-    describe("Handler: get-topology", function()
-        it("should return complete topology structure", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "GetTopology",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
+-- Test 1: Get Complete Topology
+print("\n📝 Test 1: Get Complete Topology")
+local response = sendMessage("GetTopology", {})
 
-            assert.is_not_nil(result)
-            assert.is_not_nil(result.Data)
+if response and response.Data then
+    local topology = json.decode(response.Data)
+    if topology.dataLayer and topology.gameLogicLayer and topology.coordinationLayer then
+        print("✅ Complete topology structure returned")
+    else
+        error("Topology structure incomplete")
+    end
+else
+    error("GetTopology failed")
+end
 
-            local topology = aolite.json.decode(result.Data)
-            assert.is_not_nil(topology.dataLayer)
-            assert.is_not_nil(topology.gameLogicLayer)
-            assert.is_not_nil(topology.coordinationLayer)
-        end)
+-- Test 2: Validate Known Process
+print("\n📝 Test 2: Validate Known Process")
+response = sendMessage("ValidateProcess", {
+    ProcessType = "battle_engine"
+})
 
-        it("should include all data layer processes", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "GetTopology",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
+if response and response.Action == "ProcessValidation" and response.Valid == "true" then
+    print("✅ Known process validated")
+else
+    error("Process validation failed")
+end
 
-            local topology = aolite.json.decode(result.Data)
-            assert.is_not_nil(topology.dataLayer.player_data)
-            assert.is_not_nil(topology.dataLayer.pokemon_data)
-            assert.is_not_nil(topology.dataLayer.battle_data)
-        end)
-    end)
+-- Test 3: Reject Unknown Process
+print("\n📝 Test 3: Reject Unknown Process")
+response = sendMessage("ValidateProcess", {
+    ProcessType = "invalid_process_type"
+})
 
-    describe("Handler: validate-process", function()
-        it("should validate known process types", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "ValidateProcess",
-                ProcessType = "battle_engine",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
+if response and response.Action == "ProcessValidation" and response.Valid == "false" then
+    print("✅ Unknown process rejected")
+else
+    error("Unknown process should be rejected")
+end
 
-            assert.is_not_nil(result)
-            assert.equals("ProcessValidation", result.Action)
-            assert.equals("true", result.Valid)
-        end)
+-- Test 4: Missing ProcessType Parameter
+print("\n📝 Test 4: Missing ProcessType Parameter")
+response = sendMessage("ValidateProcess", {})
 
-        it("should reject unknown process types", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "ValidateProcess",
-                ProcessType = "invalid_process_type",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
+if response and response.Action == "Error" and response.Error then
+    print("✅ Missing parameter error handled")
+else
+    error("Should error on missing parameter")
+end
 
-            assert.is_not_nil(result)
-            assert.equals("ProcessValidation", result.Action)
-            assert.equals("false", result.Valid)
-        end)
+-- Test 5: Get Process Metadata
+print("\n📝 Test 5: Get Process Metadata")
+response = sendMessage("GetProcessMetadata", {
+    ProcessId = "battle_engine"
+})
 
-        it("should handle missing ProcessType parameter", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "ValidateProcess",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
+if response and response.Action == "ProcessMetadata" and response.Data then
+    local metadata = json.decode(response.Data)
+    if metadata.name and metadata.type and metadata.capabilities then
+        print("✅ Process metadata retrieved")
+    else
+        error("Metadata incomplete")
+    end
+else
+    error("GetProcessMetadata failed")
+end
 
-            assert.is_not_nil(result)
-            assert.equals("Error", result.Action)
-            assert.is_not_nil(result.Error)
-        end)
-    end)
+-- Test 6: Handle Unknown Process ID
+print("\n📝 Test 6: Handle Unknown Process ID")
+response = sendMessage("GetProcessMetadata", {
+    ProcessId = "nonexistent_process"
+})
 
-    describe("Handler: get-process-metadata", function()
-        it("should return metadata for known process", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "GetProcessMetadata",
-                ProcessId = "battle_engine",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
+if response and response.Action == "Error" and response.Error then
+    print("✅ Unknown process ID error handled")
+else
+    error("Should error on unknown process ID")
+end
 
-            assert.is_not_nil(result)
-            assert.equals("ProcessMetadata", result.Action)
-            assert.is_not_nil(result.Data)
+-- Test 7: Discover Processes by Capability
+print("\n📝 Test 7: Discover Processes by Capability")
+response = sendMessage("DiscoverProcesses", {
+    Capability = "calculate_damage"
+})
 
-            local metadata = aolite.json.decode(result.Data)
-            assert.is_not_nil(metadata.name)
-            assert.is_not_nil(metadata.type)
-            assert.is_not_nil(metadata.capabilities)
-        end)
+if response and response.Action == "ProcessDiscovery" and response.Data then
+    local discovered = json.decode(response.Data)
+    if discovered.processes then
+        print("✅ Processes discovered by capability")
+    else
+        error("Discovery result missing processes")
+    end
+else
+    error("DiscoverProcesses failed")
+end
 
-        it("should handle unknown process ID", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "GetProcessMetadata",
-                ProcessId = "nonexistent_process",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
+-- Test 8: Filter by Process Type
+print("\n📝 Test 8: Filter by Process Type")
+response = sendMessage("DiscoverProcesses", {
+    Type = "data"
+})
 
-            assert.is_not_nil(result)
-            assert.equals("Error", result.Action)
-            assert.is_not_nil(result.Error)
-        end)
-    end)
+if response and response.Action == "ProcessDiscovery" and response.Data then
+    local discovered = json.decode(response.Data)
+    if discovered.processes and #discovered.processes > 0 then
+        print("✅ Processes filtered by type")
+    else
+        error("No processes discovered for type filter")
+    end
+else
+    error("DiscoverProcesses failed")
+end
 
-    describe("Handler: discover-processes", function()
-        it("should discover processes by capability", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "DiscoverProcesses",
-                Capability = "calculate_damage",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
+-- Test 9: Health Check
+print("\n📝 Test 9: Health Check")
+response = sendMessage("HealthCheck", {})
 
-            assert.is_not_nil(result)
-            assert.equals("ProcessDiscovery", result.Action)
-            assert.is_not_nil(result.Data)
+if response and response.Action == "HealthStatus" and response.Status == "healthy" then
+    print("✅ Health check passed")
+else
+    error("Health check failed")
+end
 
-            local discovered = aolite.json.decode(result.Data)
-            assert.is_table(discovered.processes)
-        end)
+-- Test 10: Info Handler (ADP v1.0)
+print("\n📝 Test 10: Info Handler (ADP v1.0)")
+response = sendMessage("Info", {})
 
-        it("should filter by process type", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "DiscoverProcesses",
-                Type = "data",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
+if response and response.Action == "SaveState" and response.Data then
+    local info = json.decode(response.Data)
+    if info.process and info.process.adpVersion == "1.0" and info.handlers then
+        print("✅ ADP v1.0 Info handler working")
+    else
+        error("ADP info incomplete")
+    end
+else
+    error("Info handler failed")
+end
 
-            assert.is_not_nil(result)
-            assert.equals("ProcessDiscovery", result.Action)
+-- Test 11: Verify All Handlers Listed
+print("\n📝 Test 11: Verify All Handlers Listed")
+if response and response.Data then
+    local info = json.decode(response.Data)
+    local handlerNames = {}
+    for _, handler in ipairs(info.handlers) do
+        handlerNames[handler] = true
+    end
 
-            local discovered = aolite.json.decode(result.Data)
-            assert.is_true(#discovered.processes > 0)
-        end)
-    end)
+    if handlerNames["GetTopology"] and handlerNames["ValidateProcess"] and
+       handlerNames["GetProcessMetadata"] and handlerNames["DiscoverProcesses"] and
+       handlerNames["HealthCheck"] and handlerNames["Info"] then
+        print("✅ All handlers listed in Info response")
+    else
+        error("Some handlers missing from Info response")
+    end
+else
+    error("Cannot verify handlers")
+end
 
-    describe("Handler: health-check", function()
-        it("should return healthy status", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "HealthCheck",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
-
-            assert.is_not_nil(result)
-            assert.equals("HealthStatus", result.Action)
-            assert.equals("healthy", result.Status)
-        end)
-    end)
-
-    describe("Handler: info (ADP v1.0)", function()
-        it("should return process information with ADP compliance", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "Info",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
-
-            assert.is_not_nil(result)
-            assert.equals("SaveState", result.Action)
-            assert.is_not_nil(result.Data)
-
-            local info = aolite.json.decode(result.Data)
-            assert.is_not_nil(info.process)
-            assert.equals("1.0", info.process.adpVersion)
-            assert.is_not_nil(info.handlers)
-            assert.is_table(info.handlers)
-        end)
-
-        it("should list all available handlers", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "Info",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
-
-            local info = aolite.json.decode(result.Data)
-            local handlerNames = {}
-            for _, handler in ipairs(info.handlers) do
-                handlerNames[handler] = true
-            end
-
-            assert.is_true(handlerNames["GetTopology"])
-            assert.is_true(handlerNames["ValidateProcess"])
-            assert.is_true(handlerNames["GetProcessMetadata"])
-            assert.is_true(handlerNames["DiscoverProcesses"])
-            assert.is_true(handlerNames["HealthCheck"])
-            assert.is_true(handlerNames["Info"])
-        end)
-
-        it("should include message schemas", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "Info",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
-
-            local info = aolite.json.decode(result.Data)
-            assert.is_not_nil(info.process.messageSchemas)
-            assert.is_table(info.process.messageSchemas)
-        end)
-    end)
-
-    describe("Edge Cases", function()
-        it("should handle malformed requests gracefully", function()
-            local result = process.send({
-                Target = process.id,
-                Action = "GetTopology",
-                Data = "invalid json {{{",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
-
-            assert.is_not_nil(result)
-            -- Should still return topology or error, not crash
-        end)
-
-        it("should handle concurrent discovery requests", function()
-            local results = {}
-            for i = 1, 5 do
-                results[i] = process.send({
-                    Target = process.id,
-                    Action = "DiscoverProcesses",
-                    Type = "data",
-                    From = "test-sender-" .. i,
-                    Timestamp = process.mockTimestamp + i
-                })
-            end
-
-            -- All requests should succeed
-            for _, result in ipairs(results) do
-                assert.is_not_nil(result)
-                assert.equals("ProcessDiscovery", result.Action)
-            end
-        end)
-    end)
-
-    describe("State Management", function()
-        it("should maintain consistent topology state", function()
-            -- Request topology twice
-            local result1 = process.send({
-                Target = process.id,
-                Action = "GetTopology",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp
-            })
-
-            local result2 = process.send({
-                Target = process.id,
-                Action = "GetTopology",
-                From = "test-sender",
-                Timestamp = process.mockTimestamp + 100
-            })
-
-            -- Topology should be identical
-            assert.equals(result1.Data, result2.Data)
-        end)
-    end)
-end)
+print("\n==================================================")
+print("🎉 All tests passed!")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

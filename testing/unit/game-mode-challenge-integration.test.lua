@@ -1,58 +1,106 @@
--- Unit tests for Game Mode Engine - Challenge Integration Tests
+-- Unit tests for Game Mode Engine - Challenge Integration Tests (CORRECT API)
 -- Tests challenge integration functionality
 
-local testMessages, testHandlers = {}, {}
-local mockAO = {id = "test-game-mode-process", send = function(msg) table.insert(testMessages, msg); return true end}
-local mockHandlers = {add = function(name, matcher, handler) testHandlers[name] = {matcher = matcher, handler = handler} end, utils = {hasMatchingTag = function(tag, value) return function(msg) return msg[tag] == value end end}}
-local mockJSON = {encode = function(t) return "{}" end, decode = function(s) return {} end}
+-- Required imports
+local aolite = require("aolite")
+local json = require("json")
 
-local function setupTestEnvironment() _G.ao, _G.Handlers, _G.json = mockAO, mockHandlers, mockJSON end
-local function invokeHandler(handlerName, msg) testMessages = {}; local handler = testHandlers[handlerName]; if handler and handler.handler then handler.handler(msg); return testMessages[1] end; return nil end
+-- Test configuration
+local PROCESS_PATH = "processes.game-mode-engine"
+local processId = "test-game-mode-engine"
 
-local function runTests()
-    print("Running ADP v1.0 Game Mode Engine Unit Tests - Challenge Integration")
-    print("=" .. string.rep("=", 50))
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
 
-    setupTestEnvironment()
-    dofile("processes/game-mode-engine.lua")
+print("🧪 Starting Aolite Tests for Game Mode Engine - Challenge Integration")
+print("Process ID:", processId)
 
-    local testsRun, testsPassed = 0, 0
-
-    -- Test: Shop disabled for DAILY
-    testsRun = testsRun + 1
-    local response = invokeHandler("get-shop-status", {From = "test", Action = "GetShopStatus", ModeId = "3"})
-    if response and response.ShopAvailable == "false" then testsPassed = testsPassed + 1; print("✓ DAILY shop disabled") else print("✗ DAILY shop disabled failed") end
-
-    -- Test: Shop enabled for CLASSIC
-    testsRun = testsRun + 1
-    response = invokeHandler("get-shop-status", {From = "test", Action = "GetShopStatus", ModeId = "0"})
-    if response and response.ShopAvailable == "true" then testsPassed = testsPassed + 1; print("✓ CLASSIC shop enabled") else print("✗ CLASSIC shop enabled failed") end
-
-    -- Test: Fixed battle at wave 5
-    testsRun = testsRun + 1
-    response = invokeHandler("get-fixed-battle-config", {From = "test", Action = "GetFixedBattleConfig", ModeId = "0", WaveIndex = "5"})
-    if response and response.HasFixedBattle == "true" then testsPassed = testsPassed + 1; print("✓ Fixed battle wave 5") else print("✗ Fixed battle wave 5 failed") end
-
-    -- Test: Mystery encounter waves for CLASSIC
-    testsRun = testsRun + 1
-    response = invokeHandler("get-mystery-encounter-waves", {From = "test", Action = "GetMysteryEncounterWaves", ModeId = "0"})
-    if response and response.MinWave == "10" and response.MaxWave == "180" then testsPassed = testsPassed + 1; print("✓ CLASSIC mystery waves [10, 180]") else print("✗ CLASSIC mystery waves failed") end
-
-    -- Test: Starting parameters for DAILY
-    testsRun = testsRun + 1
-    response = invokeHandler("get-starting-parameters", {From = "test", Action = "GetStartingParameters", ModeId = "3"})
-    if response and response.StartingLevel == "20" then testsPassed = testsPassed + 1; print("✓ DAILY starting level 20") else print("✗ DAILY starting level failed") end
-
-    print("\n" .. string.rep("=", 50))
-    print("Tests run: " .. testsRun .. ", Tests passed: " .. testsPassed)
-
-    if testsPassed == testsRun then
-        print("✅ All challenge integration tests passed!")
-        return true
-    else
-        print("❌ Some challenge integration tests failed!")
-        return false
+-- Test utilities
+local function sendMessage(action, tags)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action
+    }
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
     end
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
-return {runTests = runTests}
+-- Test counter
+local testsRun = 0
+local testsPassed = 0
+
+-- Test 1: Shop disabled for DAILY
+testsRun = testsRun + 1
+print("\n📝 Test 1: DAILY shop disabled")
+local response = sendMessage("GetShopStatus", {ModeId = "3"})
+if response and response.ShopAvailable == "false" then
+    print("✅ DAILY shop disabled")
+    testsPassed = testsPassed + 1
+else
+    error("❌ DAILY shop disabled failed")
+end
+
+-- Test 2: Shop enabled for CLASSIC
+testsRun = testsRun + 1
+print("\n📝 Test 2: CLASSIC shop enabled")
+response = sendMessage("GetShopStatus", {ModeId = "0"})
+if response and response.ShopAvailable == "true" then
+    print("✅ CLASSIC shop enabled")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CLASSIC shop enabled failed")
+end
+
+-- Test 3: Fixed battle at wave 5
+testsRun = testsRun + 1
+print("\n📝 Test 3: Fixed battle wave 5")
+response = sendMessage("GetFixedBattleConfig", {ModeId = "0", WaveIndex = "5"})
+if response and response.HasFixedBattle == "true" then
+    print("✅ Fixed battle wave 5")
+    testsPassed = testsPassed + 1
+else
+    error("❌ Fixed battle wave 5 failed")
+end
+
+-- Test 4: Mystery encounter waves for CLASSIC
+testsRun = testsRun + 1
+print("\n📝 Test 4: CLASSIC mystery waves [10, 180]")
+response = sendMessage("GetMysteryEncounterWaves", {ModeId = "0"})
+if response and response.MinWave == "10" and response.MaxWave == "180" then
+    print("✅ CLASSIC mystery waves [10, 180]")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CLASSIC mystery waves failed")
+end
+
+-- Test 5: Starting parameters for DAILY
+testsRun = testsRun + 1
+print("\n📝 Test 5: DAILY starting level 20")
+response = sendMessage("GetStartingParameters", {ModeId = "3"})
+if response and response.StartingLevel == "20" then
+    print("✅ DAILY starting level 20")
+    testsPassed = testsPassed + 1
+else
+    error("❌ DAILY starting level failed")
+end
+
+-- Results summary
+print("\n" .. string.rep("=", 50))
+print("Tests run: " .. testsRun)
+print("Tests passed: " .. testsPassed)
+print("Tests failed: " .. (testsRun - testsPassed))
+
+if testsPassed == testsRun then
+    print("✅ All challenge integration tests passed!")
+    print("✅ Test file executed successfully: " .. PROCESS_PATH)
+    return true
+else
+    print("❌ Some challenge integration tests failed!")
+    return false
+end

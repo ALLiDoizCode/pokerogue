@@ -18,19 +18,17 @@ so that **gacha pulls maintain identical probability distributions and reward be
 8. Comprehensive testing validates 100% gacha mechanics probability and reward parity
 
 ## Story 21.2: Voucher Economy Migration
-As a **voucher economy engineer**,  
-I want **voucher generation and redemption systems migrated to stateless AO process**,  
-so that **voucher economics maintain identical value calculation and exchange behavior**.
+As a **voucher economy engineer**,
+I want **voucher generation and redemption systems migrated to stateless AO process**,
+so that **voucher economics maintain identical value calculation and redemption behavior**.
 
 ### Acceptance Criteria
 1. Voucher generation algorithms maintain identical distribution logic and availability calculation
-2. Voucher redemption validation maintains identical verification and exchange processing
-3. Voucher value calculation maintains identical worth assessment and pricing behavior
-4. Voucher expiration tracking maintains identical time management and validity checking
-5. Voucher economy balance maintains identical inflation control and value stability
-6. Voucher exchange rate calculation maintains identical conversion logic and fee assessment
-7. Complex voucher scenarios maintain identical economy resolution and value calculation
-8. Comprehensive testing validates 100% voucher economy system value and exchange parity
+2. Voucher redemption validation maintains identical verification and transaction processing
+3. Voucher value calculation maintains identical pull rate and pricing behavior
+4. Voucher economy balance maintains identical inventory tracking and value stability
+5. Complex voucher scenarios maintain identical economy resolution and redemption calculation
+6. Comprehensive testing validates 100% voucher economy system generation and redemption parity
 
 ## Story 21.3: Egg Tier Reward Migration
 As a **egg tier engineer**,  

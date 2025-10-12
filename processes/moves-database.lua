@@ -88,8 +88,8 @@ end
 
 local function createErrorResponse(errorMessage, processId)
     return {
-        Action = "SaveState",
-        Error = errorMessage,
+        Action = "Error",
+                Error = errorMessage,
     }
 end
 
@@ -642,7 +642,7 @@ Handlers.add("get-move",
         if not moveId and not moveName then
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "GetMove requires either 'MoveId'/'Id' or 'MoveName'/'Name' tag",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
@@ -676,7 +676,7 @@ Handlers.add("get-move",
         else
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "Move not found",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
@@ -693,7 +693,7 @@ Handlers.add("get-moves-by-type",
         if not moveType then
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "GetMovesByType requires 'MoveType' or 'Type' tag",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)
@@ -719,7 +719,7 @@ Handlers.add("get-type-effectiveness",
         if not attackingType then
             ao.send({
                 Target = msg.From,
-                Action = "SaveState",
+                Action = "Error",
                 Error = "GetTypeEffectiveness requires 'AttackingType' tag",
                 ProcessId = ao.id,
                 Timestamp = tostring(msg.Timestamp or 0)

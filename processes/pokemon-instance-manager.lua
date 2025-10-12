@@ -242,7 +242,7 @@ Handlers.add(
     if not speciesId then
       ao.send({
         Target = msg.From,
-        Action = "PokemonCreated",
+        Action = "Error",
         Error = "SpeciesId required for Pokemon creation",
         ProcessId = ao.id,
         Timestamp = tostring(msg.Timestamp or 0)

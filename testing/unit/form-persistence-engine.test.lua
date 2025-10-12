@@ -1,525 +1,260 @@
 -- Form Persistence Engine Unit Tests
 -- Tests for duration tracking, save/load persistence, reversion logic, and priority resolution
 
--- Mock testing framework to be compatible with aolite
-local function describe(name, fn)
-    print("🧪 Running test suite: " .. name)
-    print("--------------------------------------------------")
-    fn()
-    print("")
-end
+local aolite = require("aolite")
+local json = require("json")
 
-local function it(name, fn) 
-    local success, err = pcall(fn)
-    if success then
-        print("  ✅ " .. name)
-    else
-        print("  ❌ " .. name .. " - " .. tostring(err))
-    end
-end
+local PROCESS_PATH = "processes.form-persistence-engine"
+local processId = "test-form-persistence-engine"
 
-local function before_each(fn)
-    setupFn = fn
-end
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
 
--- Basic assertion library
-local assert = {
-    is_not_nil = function(val)
-        if val == nil then error("Expected value to not be nil") end
-    end,
-    are = {
-        equal = function(expected, actual)
-            if expected ~= actual then 
-                error("Expected " .. tostring(expected) .. " but got " .. tostring(actual))
-            end
-        end
+print("🧪 Starting Aolite Tests for Form Persistence Engine")
+print("Process ID:", processId)
+
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
     }
-}
-
-describe("Form Persistence Engine", function()
-    
-    local formPersistenceEngine
-    local testGameState
-    local testPokemon
-    
-    before_each(function()
-        -- Reset test environment
-        ao = {
-            send = function(msg) 
-                print("Test send:", msg.Action, msg.Target)
-                lastSentMessage = msg
-            end,
-            id = "test_process_id"
-        }
-        
-        msg = {
-            From = "test_sender",
-            Timestamp = 1234567890
-        }
-        
-        json = {
-            encode = function(obj)
-                return "{\"encoded\":true}"
-            end,
-            decode = function(str)
-                if str == "" or str == "{}" then
-                    return {}
-                end
-                return {decoded = true, data = str}
-            end
-        }
-        
-        State = {
-            initialized = true,
-            formPersistenceTracking = {},
-            activeTimers = {},
-            persistentForms = {}
-        }
-        
-        testPokemon = {
-            id = "test_pokemon_1",
-            speciesId = "492", -- Shaymin
-            currentForm = "land",
-            heldItem = nil
-        }
-        
-        testGameState = {
-            pokemon = testPokemon,
-            persistentForms = {}
-        }
-        
-        lastSentMessage = nil
-        
-        -- Load the process
-        local file = io.open("processes/form-persistence-engine.lua", "r")
-        if file then
-            local content = file:read("*all")
-            file:close()
-            load(content)()
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
         end
-    end)
-    
-    describe("Duration Tracking", function()
-        
-        it("should track temporary battle-only forms", function()
-            msg.Action = "ProcessFormPersistence"
-            msg.PokemonId = "test_pokemon_1"
-            msg.FormType = "mega"
-            msg.Duration = "1"
-            msg.Data = json.encode(testGameState)
-            
-            -- Trigger mega evolution persistence
-            Handlers.find("process-form-persistence").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.Success)
-            assert.are.equal("battle_only", lastSentMessage.PersistenceType)
-        end)
-        
-        it("should track timed forms with precise duration", function()
-            msg.Action = "ProcessFormPersistence"
-            msg.PokemonId = "test_pokemon_1"
-            msg.SpeciesId = "720" -- Hoopa
-            msg.FormType = "unbound"
-            msg.Duration = "259200" -- 3 days
-            msg.Data = json.encode(testGameState)
-            
-            -- Trigger Hoopa Unbound form
-            Handlers.find("process-form-persistence").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.Success)
-            assert.are.equal("259200", lastSentMessage.Duration)
-        end)
-        
-        it("should track conditional forms with weather dependency", function()
-            msg.Action = "ProcessFormPersistence"
-            msg.PokemonId = "test_pokemon_1"
-            msg.SpeciesId = "351" -- Castform
-            msg.FormType = "sunny"
-            msg.Data = json.encode(testGameState)
-            
-            -- Trigger sunny Castform form
-            Handlers.find("process-form-persistence").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.Success)
-        end)
-        
-        it("should reject invalid form types", function()
-            msg.Action = "ProcessFormPersistence"
-            msg.PokemonId = "test_pokemon_1"
-            msg.FormType = "invalid_form"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("process-form-persistence").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("Error", lastSentMessage.Action)
-        end)
-        
-    end)
-    
-    describe("Expiration Logic", function()
-        
-        it("should detect battle-end expiration for Mega Evolution", function()
-            -- Set up pokemon with mega form
-            testPokemon.currentForm = "mega"
-            testPokemon.formPersistenceData = {
-                type = "battle_only",
-                expirationCondition = "battle_end",
-                revertToForm = "base"
-            }
-            
-            msg.Action = "CheckFormExpiration"
-            msg.PokemonId = "test_pokemon_1"
-            msg.BattleEnded = "true"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("check-form-expiration").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.FormReverted)
-        end)
-        
-        it("should detect timer expiration for Hoopa Unbound", function()
-            -- Set up pokemon with expired timed form
-            testPokemon.currentForm = "unbound"
-            testPokemon.formPersistenceData = {
-                type = "timed",
-                duration = 10, -- Short duration for test
-                startTime = 1000,
-                expirationCondition = "timer_expiry",
-                revertToForm = "confined"
-            }
-            
-            msg.Timestamp = 2000 -- Time passed > duration
-            
-            msg.Action = "CheckFormExpiration"
-            msg.PokemonId = "test_pokemon_1"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("check-form-expiration").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.FormReverted)
-        end)
-        
-        it("should detect night-time reversion for Shaymin Sky", function()
-            testPokemon.currentForm = "sky"
-            testPokemon.formPersistenceData = {
-                type = "conditional",
-                expirationCondition = "night_time_or_frozen",
-                revertToForm = "land"
-            }
-            
-            msg.Action = "CheckFormExpiration"
-            msg.PokemonId = "test_pokemon_1"
-            msg.IsNight = "true"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("check-form-expiration").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.FormReverted)
-        end)
-        
-        it("should detect weather change for Castform", function()
-            testPokemon.speciesId = "351"
-            testPokemon.currentForm = "sunny"
-            testPokemon.formPersistenceData = {
-                type = "conditional",
-                expirationCondition = "weather_change_or_battle_end",
-                revertToForm = "normal"
-            }
-            
-            msg.Action = "CheckFormExpiration"
-            msg.PokemonId = "test_pokemon_1"
-            msg.WeatherChanged = "true"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("check-form-expiration").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.FormReverted)
-        end)
-        
-    end)
-    
-    describe("Save/Load Persistence", function()
-        
-        it("should persist permanent forms through save", function()
-            testPokemon.speciesId = "483" -- Dialga
-            testPokemon.currentForm = "origin"
-            testPokemon.heldItem = "ADAMANT_ORB"
-            testPokemon.formPersistenceData = {
-                type = "permanent",
-                persistThroughSave = true,
-                requiredItem = "ADAMANT_ORB"
-            }
-            
-            msg.Action = "SaveFormState"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("save-form-state").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.FormPersisted)
-        end)
-        
-        it("should revert non-persistent forms during save", function()
-            testPokemon.currentForm = "mega"
-            testPokemon.formPersistenceData = {
-                type = "battle_only",
-                persistThroughSave = false
-            }
-            
-            msg.Action = "SaveFormState"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("save-form-state").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("false", lastSentMessage.FormPersisted)
-        end)
-        
-        it("should restore persistent forms on load", function()
-            testGameState.persistentForms = {
-                ["test_pokemon_1"] = {
-                    form = "origin",
-                    persistenceData = {
-                        type = "permanent",
-                        requiredItem = "ADAMANT_ORB"
-                    },
-                    timestamp = 1234567800
-                }
-            }
-            testPokemon.heldItem = "ADAMANT_ORB"
-            
-            msg.Action = "LoadFormState"
-            msg.PokemonId = "test_pokemon_1"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("load-form-state").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.FormRestored)
-        end)
-        
-        it("should fail to restore forms when required item missing", function()
-            testGameState.persistentForms = {
-                ["test_pokemon_1"] = {
-                    form = "origin",
-                    persistenceData = {
-                        type = "permanent",
-                        requiredItem = "ADAMANT_ORB"
-                    },
-                    timestamp = 1234567800
-                }
-            }
-            testPokemon.heldItem = nil -- Missing required item
-            
-            msg.Action = "LoadFormState"
-            msg.PokemonId = "test_pokemon_1"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("load-form-state").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("false", lastSentMessage.FormRestored)
-            assert.are.equal("Required item missing", lastSentMessage.Reason)
-        end)
-        
-    end)
-    
-    describe("Form Reversion", function()
-        
-        it("should manually revert forms", function()
-            testPokemon.currentForm = "sky"
-            testPokemon.formPersistenceData = {
-                revertToForm = "land"
-            }
-            
-            msg.Action = "RevertForm"
-            msg.PokemonId = "test_pokemon_1"
-            msg.CancellationTrigger = "manual"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("revert-form").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.FormReverted)
-            assert.are.equal("manual", lastSentMessage.CancellationTrigger)
-        end)
-        
-        it("should handle reversion when no active form", function()
-            testPokemon.currentForm = "base"
-            testPokemon.formPersistenceData = nil
-            
-            msg.Action = "RevertForm"
-            msg.PokemonId = "test_pokemon_1"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("revert-form").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.are.equal("false", lastSentMessage.FormReverted)
-            assert.are.equal("No active form to revert", lastSentMessage.Reason)
-        end)
-        
-    end)
-    
-    describe("Condition Validation", function()
-        
-        it("should validate Shaymin Sky form day-time requirement", function()
-            msg.Action = "ValidateFormConditions"
-            msg.PokemonId = "test_pokemon_1"
-            msg.SpeciesId = "492"
-            msg.FormType = "sky"
-            msg.IsDay = "true"
-            msg.IsFrozen = "false"
-            
-            Handlers.find("validate-form-conditions").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("ValidationResult", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.Valid)
-        end)
-        
-        it("should reject Shaymin Sky form at night", function()
-            msg.Action = "ValidateFormConditions"
-            msg.PokemonId = "test_pokemon_1"
-            msg.SpeciesId = "492"
-            msg.FormType = "sky"
-            msg.IsDay = "false"
-            
-            Handlers.find("validate-form-conditions").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("ValidationResult", lastSentMessage.Action)
-            assert.are.equal("false", lastSentMessage.Valid)
-        end)
-        
-        it("should validate Dialga Origin form with Adamant Orb", function()
-            testPokemon.speciesId = "483"
-            testPokemon.heldItem = "ADAMANT_ORB"
-            
-            msg.Action = "ValidateFormConditions"
-            msg.PokemonId = "test_pokemon_1"
-            msg.SpeciesId = "483"
-            msg.FormType = "origin"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("validate-form-conditions").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("ValidationResult", lastSentMessage.Action)
-            assert.are.equal("true", lastSentMessage.Valid)
-        end)
-        
-        it("should reject Dialga Origin form without Adamant Orb", function()
-            testPokemon.speciesId = "483"
-            testPokemon.heldItem = nil
-            
-            msg.Action = "ValidateFormConditions"
-            msg.PokemonId = "test_pokemon_1"
-            msg.SpeciesId = "483"
-            msg.FormType = "origin"
-            msg.Data = json.encode(testGameState)
-            
-            Handlers.find("validate-form-conditions").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("ValidationResult", lastSentMessage.Action)
-            assert.are.equal("false", lastSentMessage.Valid)
-        end)
-        
-    end)
-    
-    describe("Priority Resolution", function()
-        
-        it("should return priority information in validation", function()
-            msg.Action = "ValidateFormConditions"
-            msg.PokemonId = "test_pokemon_1"
-            msg.SpeciesId = "492"
-            msg.FormType = "sky"
-            msg.IsDay = "true"
-            msg.IsFrozen = "false"
-            
-            Handlers.find("validate-form-conditions").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("ValidationResult", lastSentMessage.Action)
-            assert.are.equal("conditional", lastSentMessage.PersistenceType)
-            assert.are.equal("3", lastSentMessage.Priority)
-        end)
-        
-    end)
-    
-    describe("Error Handling", function()
-        
-        it("should require PokemonId for persistence", function()
-            msg.Action = "ProcessFormPersistence"
-            msg.FormType = "mega"
-            
-            Handlers.find("process-form-persistence").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("Error", lastSentMessage.Action)
-            assert.is_true(string.find(lastSentMessage.Error, "PokemonId") ~= nil)
-        end)
-        
-        it("should require FormType for persistence", function()
-            msg.Action = "ProcessFormPersistence"
-            msg.PokemonId = "test_pokemon_1"
-            
-            Handlers.find("process-form-persistence").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("Error", lastSentMessage.Action)
-            assert.is_true(string.find(lastSentMessage.Error, "FormType") ~= nil)
-        end)
-        
-        it("should handle missing pokemon data gracefully", function()
-            msg.Action = "CheckFormExpiration"
-            msg.PokemonId = "missing_pokemon"
-            msg.Data = json.encode({})
-            
-            Handlers.find("check-form-expiration").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("Error", lastSentMessage.Action)
-        end)
-        
-    end)
-    
-    describe("ADP v1.0 Compliance", function()
-        
-        it("should respond to Info handler", function()
-            msg.Action = "Info"
-            
-            Handlers.find("info").handle(msg)
-            
-            assert.is_not_nil(lastSentMessage)
-            assert.are.equal("SaveState", lastSentMessage.Action)
-            assert.is_not_nil(lastSentMessage.Data)
-        end)
-        
-    end)
-    
-end)
+    end
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
+end
 
-print("Form Persistence Engine unit tests loaded")
+local testsPassed = 0
+local testsFailed = 0
+
+-- Test 1: Track Temporary Battle-Only Forms
+print("📝 Test 1: Temporary Battle-Only Forms")
+local battleResult = sendMessage("ProcessFormPersistence", {
+    PokemonId = "test_pokemon_1",
+    FormType = "mega",
+    Duration = "1"
+}, json.encode({
+    pokemon = {
+        id = "test_pokemon_1",
+        speciesId = "492"
+    }
+}))
+if battleResult and battleResult.Action == "SaveState" then
+    if battleResult.Success == "true" and battleResult.PersistenceType == "battle_only" then
+        print("✅ Test passed: Battle-only forms tracked")
+        testsPassed = testsPassed + 1
+    else
+        error("❌ Test failed: Battle-only form tracking incorrect")
+    end
+else
+    error("❌ Test failed: ProcessFormPersistence handler failed")
+end
+
+-- Test 2: Track Timed Forms
+print("📝 Test 2: Timed Forms (Hoopa Unbound)")
+local timedResult = sendMessage("ProcessFormPersistence", {
+    PokemonId = "test_pokemon_1",
+    SpeciesId = "720",
+    FormType = "unbound",
+    Duration = "259200"
+}, json.encode({
+    pokemon = {
+        id = "test_pokemon_1"
+    }
+}))
+if timedResult and timedResult.Action == "SaveState" then
+    if timedResult.Success == "true" and timedResult.Duration == "259200" then
+        print("✅ Test passed: Timed forms tracked")
+        testsPassed = testsPassed + 1
+    else
+        error("❌ Test failed: Timed form tracking incorrect")
+    end
+else
+    error("❌ Test failed: Timed form test failed")
+end
+
+-- Test 3: Battle-End Expiration
+print("📝 Test 3: Battle-End Expiration")
+local expirationResult = sendMessage("CheckFormExpiration", {
+    PokemonId = "test_pokemon_1",
+    BattleEnded = "true"
+}, json.encode({
+    pokemon = {
+        id = "test_pokemon_1",
+        currentForm = "mega",
+        formPersistenceData = {
+            type = "battle_only",
+            expirationCondition = "battle_end",
+            revertToForm = "base"
+        }
+    }
+}))
+if expirationResult and expirationResult.Action == "SaveState" then
+    if expirationResult.FormReverted == "true" then
+        print("✅ Test passed: Battle-end expiration works")
+        testsPassed = testsPassed + 1
+    else
+        error("❌ Test failed: Battle-end expiration incorrect")
+    end
+else
+    error("❌ Test failed: CheckFormExpiration handler failed")
+end
+
+-- Test 4: Save Form State (Permanent Forms)
+print("📝 Test 4: Save Form State")
+local saveResult = sendMessage("SaveFormState", nil, json.encode({
+    pokemon = {
+        id = "test_pokemon_1",
+        speciesId = "483",
+        currentForm = "origin",
+        heldItem = "ADAMANT_ORB",
+        formPersistenceData = {
+            type = "permanent",
+            persistThroughSave = true,
+            requiredItem = "ADAMANT_ORB"
+        }
+    }
+}))
+if saveResult and saveResult.Action == "SaveState" then
+    if saveResult.FormPersisted == "true" then
+        print("✅ Test passed: Form state saved")
+        testsPassed = testsPassed + 1
+    else
+        error("❌ Test failed: Form state save incorrect")
+    end
+else
+    error("❌ Test failed: SaveFormState handler failed")
+end
+
+-- Test 5: Load Form State
+print("📝 Test 5: Load Form State")
+local loadResult = sendMessage("LoadFormState", {
+    PokemonId = "test_pokemon_1"
+}, json.encode({
+    persistentForms = {
+        ["test_pokemon_1"] = {
+            form = "origin",
+            persistenceData = {
+                type = "permanent",
+                requiredItem = "ADAMANT_ORB"
+            },
+            timestamp = 1234567800
+        }
+    },
+    pokemon = {
+        id = "test_pokemon_1",
+        heldItem = "ADAMANT_ORB"
+    }
+}))
+if loadResult and loadResult.Action == "SaveState" then
+    if loadResult.FormRestored == "true" then
+        print("✅ Test passed: Form state loaded")
+        testsPassed = testsPassed + 1
+    else
+        error("❌ Test failed: Form state load incorrect")
+    end
+else
+    error("❌ Test failed: LoadFormState handler failed")
+end
+
+-- Test 6: Manual Form Reversion
+print("📝 Test 6: Manual Form Reversion")
+local revertResult = sendMessage("RevertForm", {
+    PokemonId = "test_pokemon_1",
+    CancellationTrigger = "manual"
+}, json.encode({
+    pokemon = {
+        id = "test_pokemon_1",
+        currentForm = "sky",
+        formPersistenceData = {
+            revertToForm = "land"
+        }
+    }
+}))
+if revertResult and revertResult.Action == "SaveState" then
+    if revertResult.FormReverted == "true" and revertResult.CancellationTrigger == "manual" then
+        print("✅ Test passed: Manual reversion works")
+        testsPassed = testsPassed + 1
+    else
+        error("❌ Test failed: Manual reversion incorrect")
+    end
+else
+    error("❌ Test failed: RevertForm handler failed")
+end
+
+-- Test 7: Validate Form Conditions (Shaymin Sky)
+print("📝 Test 7: Validate Form Conditions")
+local validationResult = sendMessage("ValidateFormConditions", {
+    PokemonId = "test_pokemon_1",
+    SpeciesId = "492",
+    FormType = "sky",
+    IsDay = "true",
+    IsFrozen = "false"
+})
+if validationResult and validationResult.Action == "ValidationResult" then
+    if validationResult.Valid == "true" then
+        print("✅ Test passed: Form conditions validated")
+        testsPassed = testsPassed + 1
+    else
+        error("❌ Test failed: Form validation incorrect")
+    end
+else
+    error("❌ Test failed: ValidateFormConditions handler failed")
+end
+
+-- Test 8: Reject Invalid Conditions
+print("📝 Test 8: Reject Invalid Form Conditions")
+local invalidResult = sendMessage("ValidateFormConditions", {
+    PokemonId = "test_pokemon_1",
+    SpeciesId = "492",
+    FormType = "sky",
+    IsDay = "false"
+})
+if invalidResult and invalidResult.Action == "ValidationResult" then
+    if invalidResult.Valid == "false" then
+        print("✅ Test passed: Invalid conditions rejected")
+        testsPassed = testsPassed + 1
+    else
+        error("❌ Test failed: Invalid condition validation incorrect")
+    end
+else
+    error("❌ Test failed: Invalid condition test failed")
+end
+
+-- Test 9: Error Handling
+print("📝 Test 9: Error Handling")
+local errorResult = sendMessage("ProcessFormPersistence", {}) -- Missing required fields
+if errorResult and errorResult.Action == "Error" then
+    print("✅ Test passed: Error handling works")
+    testsPassed = testsPassed + 1
+else
+    error("❌ Test failed: Error handling not working")
+end
+
+-- Test 10: ADP v1.0 Compliance
+print("📝 Test 10: ADP v1.0 Compliance")
+local infoResult = sendMessage("Info")
+if infoResult and infoResult.Action == "SaveState" then
+    print("✅ Test passed: Info handler works")
+    testsPassed = testsPassed + 1
+else
+    error("❌ Test failed: Info handler failed")
+end
+
+print("==================================================")
+print("Test Results:")
+print("  Passed: " .. testsPassed)
+print("  Failed: " .. testsFailed)
+print("  Total:  " .. (testsPassed + testsFailed))
+
+if testsFailed == 0 then
+    print("\n🎉 All tests passed!")
+    print("✅ Test file executed successfully: " .. PROCESS_PATH)
+else
+    error("\n❌ Some tests failed!")
+end

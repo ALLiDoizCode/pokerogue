@@ -1,13 +1,17 @@
 -- Unit Tests for Special Event Rewards
 -- Tests event reward distribution and Delibirdy buffs
 
--- Use mock aolite for unit testing
-package.path = package.path .. ";./testing/aolite/?.lua;./development-tools/aolite/lua/aolite/lib/?.lua"
-local aolite = require("mock-aolite")
+local aolite = require("aolite")
 local json = require("json")
 
+-- Test configuration
+local PROCESS_PATH = "processes.special-event-engine"
+local processId = "test-special-event-rewards"
+
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
 -- Test state
-local processId = nil
 local testMessages = {}
 local assertionCount = 0
 local failedAssertions = 0
@@ -15,10 +19,9 @@ local failedAssertions = 0
 -- Helper to send message and capture response
 local function sendMessage(action, tags, data)
     local msg = {
-        Action = action,
-        From = "test_sender",
+        From = processId,
         Target = processId,
-        Timestamp = os.time() * 1000
+        Action = action
     }
 
     for k, v in pairs(tags or {}) do
@@ -29,7 +32,8 @@ local function sendMessage(action, tags, data)
         msg.Data = type(data) == "table" and json.encode(data) or data
     end
 
-    local result = aolite.send(msg)
+    aolite.send(msg)
+    local result = aolite.getLastMsg(processId)
     table.insert(testMessages, result)
     return result
 end
@@ -62,15 +66,8 @@ local function assertTrue(condition, message)
     end
 end
 
--- Setup: Load process
-print("Setting up Special Event Rewards tests...")
-processId = aolite.spawnProcess("special-event-engine", "./processes/special-event-engine.lua")
-
-if not processId then
-    error("Failed to spawn special-event-engine process")
-end
-
-print("Process spawned with ID: " .. processId)
+print("🧪 Starting Aolite Tests for Special Event Rewards")
+print("Process ID:", processId)
 
 -- ============================================================================
 -- TEST SUITE 1: Wave Rewards

@@ -1,374 +1,109 @@
 # Claude Development Notes
 
-This file contains information and commands for Claude to help with development tasks.
+This file contains essential information for Claude to assist with PokéRogue AO process development.
 
-## Project Information
-- Project: PokéRogue Stateless AO Processes
-- Architecture: 26-Process Stateless Architecture with Async Coordination
-- Main branch: beta
-- Current branch: ECS
+## Quick Start
 
-## Development Commands
-### Process Development
-- Test processes (unit): `npm run test:aolite`
-- Test processes (integration): `npm run test:aos-local`
-- Test parity: `npm run test:parity`
-- Validate AO sandbox: `npm run lint:ao-sandbox`
-- Validate process sizes: `npm run validate:size`
-- Full test suite: `npm run test:all`
+### Project Information
+- **Project**: PokéRogue Stateless AO Processes
+- **Architecture**: 26-Process Stateless Architecture with Async Coordination
+- **Platform**: Arweave AO with monolithic process design
+- **Main branch**: beta
+- **Current branch**: ECS
 
-### CRITICAL: Test File Requirements
-**⚠️ ALL TEST FILES MUST BE LUA FORMAT (.test.lua), NOT TYPESCRIPT (.test.ts)**
+### Essential Commands
+```bash
+# Testing
+npm run test:aolite          # Unit tests (Lua/aolite)
+npm run test:parity          # Parity tests (Lua vs TS)
+npm run test:aos-local       # Integration tests
+npm run test:all             # Full test suite
 
-This project follows an **AO-first testing strategy** with Lua-based testing:
-- **Unit tests**: `testing/unit/*.test.lua` (using aolite framework)
-- **Parity tests**: `testing/parity/*-parity.test.lua` (comparing Lua vs TS behavior)
-- **Integration tests**: `testing/integration/*.test.js` (Node.js/aos-local)
-
-**Never create TypeScript test files** (`.test.ts` or `.spec.ts`) for process testing:
-- ❌ WRONG: `testing/unit/my-process.test.ts`
-- ❌ WRONG: `testing/parity/my-feature-parity.test.ts`
-- ✅ CORRECT: `testing/unit/my-process.test.lua`
-- ✅ CORRECT: `testing/parity/my-feature-parity.test.lua`
-
-The TDD validation system (`scripts/hooks/tdd-pre-commit.sh`) only recognizes Lua test files. TypeScript test files will cause CI failures.
-
-### CRITICAL: Aolite Test Pattern (REQUIRED)
-**⚠️ ALL UNIT TESTS MUST USE THE REAL AOLITE FRAMEWORK**
-
-**Current Migration Status** (as of 2025-10-09):
-- ✅ Using real aolite: 39 tests (31%)
-- ⚠️ Need migration: 84 tests (66%) - See Story 20.1 for migration plan
-- 🎯 Target: 100% aolite compliance
-
-**ONLY ACCEPTABLE PATTERN** - Real Aolite Framework:
-
-```lua
--- Required imports
-local aolite = require("aolite")  -- Real framework from development-tools/
-local json = require("json")
-
--- Test configuration
-local TEST_TIMEOUT = 30000  -- 30 seconds
-local PROCESS_PATH = "processes/my-process.lua"
-
--- Initialize test process
-local process = aolite.spawnProcess(PROCESS_PATH)
-if not process then
-    error("Failed to spawn process from " .. PROCESS_PATH)
-end
-
-print("🧪 Starting Aolite Tests for My Process")
-print("Process ID:", process.id)
-
--- Test utilities
-local function sendMessage(action, tags, data, timeout)
-    local msg = {
-        Target = process.id,
-        Action = action,
-        Data = data or "",
-        Timestamp = tostring(os.time() * 1000)
-    }
-    if tags then
-        for k, v in pairs(tags) do
-            msg[k] = tostring(v)
-        end
-    end
-    return aolite.send(msg, timeout or TEST_TIMEOUT)
-end
-
--- Test 1: Basic functionality
-print("📝 Test 1: Ping handler")
-local response = sendMessage("Ping")
-if response and response.Action == "Pong" then
-    print("✅ Test passed")
-else
-    error("❌ Test failed: Expected Pong action")
-end
-
--- Test 2: Error handling
-print("📝 Test 2: Error handling for invalid input")
-local errorResponse = sendMessage("ProcessData", {
-    InvalidParam = "test"
-})
-if errorResponse and errorResponse.Action == "Error" then
-    print("✅ Error handling test passed")
-else
-    error("❌ Test failed: Expected Error action")
-end
-
--- Test Summary
-print("==================================================")
-print("🎉 All tests passed!")
-print("✅ Test file executed successfully: " .. PROCESS_PATH)
+# Validation
+npm run lint:ao-sandbox      # AO compliance check
+npm run validate:size        # Process size limits
 ```
 
-**FORBIDDEN PATTERNS** - Do NOT use these:
+---
 
+## Testing Guide
+
+### Test File Requirements
+
+**⚠️ ALL TEST FILES MUST BE LUA FORMAT (.test.lua), NOT TYPESCRIPT**
+
+- **Unit tests**: `testing/unit/*.test.lua` (using aolite framework)
+- **Parity tests**: `testing/parity/*-parity.test.lua` (Lua vs TS comparison)
+- **Integration tests**: `testing/integration/*.test.js` (Node.js/aos-local)
+
+**Examples:**
+- ✅ `testing/unit/my-process.test.lua`
+- ✅ `testing/parity/my-feature-parity.test.lua`
+- ❌ `testing/unit/my-process.test.ts` (causes CI failures)
+
+### Aolite Test Pattern
+
+**All unit tests MUST use the real aolite framework.** See `.ai/patterns/aolite-test-pattern.lua` for the authoritative pattern.
+
+**Quick Pattern:**
 ```lua
--- ❌ FORBIDDEN: Custom mock setup
-if not ao then
-    ao = { send = function(msg) end, id = "test_id" }
-end
-if not Handlers then
-    Handlers = { add = function() end }
-end
-dofile("processes/my-process.lua")
+local aolite = require("aolite")
+local json = require("json")
 
--- ❌ FORBIDDEN: mock-aolite (deprecated)
-package.path = package.path .. ";./testing/aolite/?.lua"
-local aolite = require("mock-aolite")
+-- Module path (recommended)
+local PROCESS_PATH = "processes.my-process"
+local processId = "test-my-process"
+aolite.spawnProcess(processId, PROCESS_PATH)
 
--- ❌ FORBIDDEN: describe/it blocks (not supported)
-describe("My Process", function()
-    it("should handle ping", function()
-        -- ...
-    end)
-end)
+-- Send messages
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
+    }
+    if tags then
+        for k, v in pairs(tags) do msg[k] = tostring(v) end
+    end
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
+end
+
+-- Test
+local response = sendMessage("Info")
+if response and response.Action == "InfoResponse" then
+    print("✅ Test passed")
+else
+    error("❌ Test failed")
+end
 ```
 
 **Key Requirements:**
-1. ✅ Use `require("aolite")` from real framework
-2. ✅ Use `aolite.spawnProcess()` to create process instance
-3. ✅ Use `aolite.send()` for message passing
-4. ✅ Use `error()` for test failures (not assertions)
-5. ✅ Use `print()` for test output with emojis (📝, ✅, ❌)
-6. ✅ Linear test execution (no describe/it blocks)
-7. ✅ Include test summary at end
+1. Use `require("aolite")` from real framework
+2. `processId` is a string (e.g., "test-my-process")
+3. Include `From: processId` in all messages
+4. Use `aolite.send(msg)` then `aolite.getLastMsg(processId)`
+5. Use `error()` for test failures
+6. Linear execution (no describe/it blocks)
 
-**Why This Matters:**
-- Real aolite provides proper process isolation
-- Simulates actual AO message passing and scheduling
-- Catches issues that custom mocks miss
-- Consistent with 39+ existing tests
-- Required for CI/CD validation
+**Reference Files:**
+- ✅ `.ai/patterns/aolite-test-pattern.lua` (authoritative)
+- ✅ `testing/unit/pokemon-species-db.test.lua` (example)
 
 **TDD Validation:**
 - Process file: `processes/X.lua` requires test: `testing/unit/X.test.lua`
-- Test must use real aolite framework
 - Test must execute successfully with `npm run test:aolite`
 
-**Reference Examples:**
-- ✅ `testing/unit/abilities-nature-manager.test.lua`
-- ✅ `testing/unit/seasonal-event-engine.test.lua`
-- ✅ `testing/unit/community-event-creation.test.lua`
-
-### Legacy Commands (Archived)
-- Build: `npm run build`
-- Test: `npm test`
-- Lint: `npm run lint`
-- Type check: `npm run typecheck`
-
-## MCP Servers Available
-The following MCP servers are configured and available through the Model Context Protocol:
-
-### permamind
-- **Type**: Local MCP server (Permanent AI Memory System)
-- **Command**: `npx permamind`
-- **Repository**: https://github.com/ALLiDoizCode/Permamind
-- **Purpose**: Permanent, decentralized AI memory system built on Arweave and AO
-
-#### Available Tools:
-
-**1. Memory Management Tools**
-- AI memory management for persistent storage and retrieval
-- Store and query information permanently across sessions
-- Create knowledge relationships
-
-**2. Process Tools**
-- `generateLuaProcess`: Generate Lua code for AO processes with documentation-informed best practices
-  - Parameters: `userRequest` (required), `domains` (optional), `includeExplanation` (optional)
-  - Usage: `"Generate a token transfer process"`
-- `spawnProcess`: Spawn new AO processes with optional template support
-- `evalProcess`: Deploy Lua code to processes (handlers, modules)
-- `executeAction`: Send messages to processes using natural language
-- `queryAOProcessMessages`: Query process message history and communication logs
-- `validateDeployment`: Validate deployed process functionality
-- `rollbackDeployment`: Rollback failed deployments
-- `analyzeProcessArchitecture`: Analyze process architecture and structure
-
-**3. Token Tools**
-- Token operations for balance, transfer, and info queries
-- Advanced minting strategies
-- Credit notice detection
-
-**4. Documentation Tools**
-- Permaweb documentation, file storage, and deployment tools
-- Access to decentralized documentation systems
-
-**5. Contact Tools**
-- Contact and address management tools
-- Manage decentralized identity and addresses
-
-**6. Hub Tools**
-- Hub creation and management tools for Velocity protocol
-- Decentralized hub discovery and management
-
-**7. User Tools**
-- User information tools for getting public key and hub ID
-- Identity management and credentials
-
-**8. ArNS Tools**
-- ArNS name system operations for decentralized domains
-- Domain name registration and management
-
-#### Usage Instructions:
-- **Memory Storage**: Simply tell Claude to remember something - it will be stored permanently
-- **Process Queries**: Ask about AO process capabilities using natural language
-- **Token Operations**: Use conversational commands for blockchain operations
-- **Zero Configuration**: All tools work automatically without setup
-
-#### Benefits:
-- Permanent memory (never forgets across sessions)
-- Self-documenting AO processes
-- Natural language blockchain interactions
-- Automatic process discovery
-
-### aolite Docs  
-- **Type**: SSE (Server-Sent Events) documentation server
-- **URL**: https://gitmcp.io/perplex-labs/aolite
-- **Repository**: https://github.com/perplex-labs/aolite
-- **Purpose**: Local, concurrent emulation of the Arweave AO protocol for testing Lua processes
-- **Key Features**:
-  - **Local AO Environment**: Simulates AO protocol without network deployment
-  - **Concurrent Process Emulation**: Uses coroutines for process management
-  - **Message Passing**: Send messages between processes with queue management
-  - **Direct Process State Access**: Inspect process state during development
-  - **Flexible Scheduler Control**: Manual or automatic message scheduling
-  - **Configurable Logging**: Multiple log levels (0-3) with optional output capture
-- **Core API Methods**:
-  - `spawnProcess()`: Load and spawn processes from string or file
-  - `send()`: Send messages between processes
-  - `eval()`: Evaluate code in process context
-  - `getAllMsgs()`: Retrieve messages by various criteria
-  - `runScheduler()`: Execute message scheduling
-  - `setMessageLog()`: Configure message logging
-- **Usage**: 
-  - Test AO processes locally before deployment
-  - Debug process interactions and message flows
-  - Develop Lua handlers with AO-compatible globals (`ao`, `Handlers`)
-- **Requirements**: Lua 5.3
-
-### harlequin-toolkit Docs
-- **Type**: SSE (Server-Sent Events) documentation server  
-- **URL**: https://gitmcp.io/the-permaweb-harlequin/harlequin-toolkit
-- **Repository**: https://github.com/the-permaweb-harlequin/harlequin-toolkit
-- **Purpose**: Web development toolkit for Permaweb applications using Rspress
-- **Key Features**:
-  - **Rspress Website Framework**: Modern web development with TypeScript support
-  - **Multi-Component Architecture**: Includes CLI, SDK, server, and app components
-  - **Development Tools Integration**: Pre-configured with Nx, ESLint, Prettier
-  - **TypeScript Support**: Full TypeScript development environment
-- **Components**:
-  - **CLI**: Command-line interface tools
-  - **SDK**: Software development kit for Permaweb integration
-  - **Server**: Backend server components
-  - **App**: Frontend application framework
-- **Development Commands**:
-  - `npm install`: Install dependencies
-  - `npm run dev`: Start development server
-  - `npm run build`: Build for production
-  - `npm run preview`: Preview production build
-- **CLI Commands**:
-  - `harlequin`: Launch interactive TUI (Terminal User Interface)
-  - `harlequin build`: Interactive build mode for Arweave projects
-  - `harlequin build ./my-project`: Direct CLI build mode (for automation)
-  - `harlequin build --entrypoint <file>`: Build with specific entry point
-  - `harlequin lua-utils bundle --entrypoint main.lua`: Bundle Lua files
-  - `harlequin version` / `-v`: Display version information
-  - `harlequin help` / `-h`: Show usage instructions
-- **CLI Features**:
-  - 🎨 Beautiful Terminal UI with Charm Bubble Tea
-  - 📁 Smart File Discovery
-  - ⚙️ Configuration Management (YAML-based)
-  - 🚀 Real-time Progress Tracking
-  - 🔧 Clear Error Handling
-- **Usage**:
-  - Build modern web applications for the Permaweb
-  - Develop decentralized applications with TypeScript
-  - Create permanent web content and interfaces
-- **Context**: The Permaweb is Arweave's permanent, censorship-resistant web infrastructure
-- **Status**: Early development stage (no releases yet)
-
-## ECS Architecture References
-Core Entity-Component-System architecture documentation for development guidance:
-
-### Bevy ECS Reference
-- **Repository**: https://github.com/bevyengine/bevy/tree/main/crates/bevy_ecs
-  - **Architecture**: Archetype-based ECS with data-oriented design patterns
-  - **Core Components**: World (container), Entities (identifiers), Components (data), Systems (logic)
-  - **Key Features**: Change detection, parallel system execution, resource management, event handling
-  - **Performance**: Cache-friendly data layout, SIMD optimization support, sparse/dense storage hybrid
-  - **Query System**: Type-safe entity queries with filters and combinators
-  - **System Scheduling**: Dependency resolution, parallel execution with conflict detection
-  - **Storage Types**: Table storage (dense), SparseSet storage (sparse), optimized for different access patterns
-
-### Quick Reference Commands
-Access Bevy ECS documentation:
-```bash
-# Bevy ECS crate
-WebFetch: https://github.com/bevyengine/bevy/tree/main/crates/bevy_ecs
-# Bevy ECS examples
-WebFetch: https://github.com/bevyengine/bevy/tree/main/examples/ecs
-```
-
-## HyperBeam Documentation Resources
-Core HyperBeam technical documentation available for all Claude sessions:
-
-### Primary HyperBeam References
-- **Official Documentation**: https://hyperbeam.arweave.net/build/introduction/what-is-hyperbeam.html
-  - **Architecture**: Erlang/OTP framework implementation of AO-Core protocol
-  - **Core Components**: Messages (cryptographically-linked data), Devices (modular Erlang modules), Paths (HTTP API interactions)
-  - **Key Features**: Exceptional concurrency via BEAM VM, high fault tolerance, scalable distributed architecture
-  - **Purpose**: Decentralized operating system for AO Computer, trust-minimized distributed supercomputer
-
-- **Rust NIF Implementation Tutorial**: https://blog.decent.land/rust-hb-tutorial/
-  - **NIF Details**: Rustler crate for native functions, DirtyCpu scheduler for network I/O
-  - **Performance**: Uses blocking I/O with ureq HTTP client, modular device architecture
-  - **Integration**: Dynamic NIF loading, Erlang wrapper modules, compiled .so libraries
-  - **Key Dependencies**: rustler, ureq, serde, anyhow
-
-- **Development Workshop**: https://hackmd.io/BHDsFUVLQSuVUXVJoaGSEQ  
-  - **Agent Implementation**: Lua scripting, process-based computation, trading simulation patterns
-  - **Workflow**: NodeJS setup, aos command-line spawning, modular code loading
-  - **Patterns**: Event-driven handlers, state management, SMA trading strategies
-
-- **Core Repository**: https://github.com/permaweb/HyperBEAM
-  - **Technical Stack**: Erlang OTP 27, 25 preloaded devices, WebAssembly execution support
-  - **Key Devices**: ~meta@1.0 (configuration), ~relay@1.0 (messaging), ~wasm64@1.0 (execution), ~snp@1.0 (TEE proofs)
-  - **Message Model**: Binary terms/function maps, lazy evaluation, cross-node sharding support
-  - **Build Profiles**: genesis_wasm, rocksdb, http3 QUIC support
-
-### HyperBeam vs Current Implementation
-**Current PokéRogue HyperBeam Process**: Pure Lua ECS implementation without NIFs
-**Official HyperBeam**: Erlang-based with Rust NIF support for performance-critical operations
-
-### Quick Reference Commands
-Access these resources anytime with WebFetch:
-```bash
-# Primary docs
-WebFetch: https://hyperbeam.arweave.net/build/introduction/what-is-hyperbeam.html
-# Rust NIF tutorial  
-WebFetch: https://blog.decent.land/rust-hb-tutorial/
-# Development workshop
-WebFetch: https://hackmd.io/BHDsFUVLQSuVUXVJoaGSEQ
-# Core repository
-WebFetch: https://github.com/permaweb/HyperBEAM
-```
-
-## MCP Best Practices
-- **Memory Management**: Use permamind or similar memory servers to maintain context across sessions
-- **Documentation Access**: Leverage the documentation servers for real-time access to technical documentation
-- **HyperBeam Resources**: Reference the HyperBeam documentation section above for architecture and implementation details
-- **Permanent Storage**: Use aolite documentation for implementing permanent storage solutions
-- **Decentralized Development**: Use harlequin-toolkit docs for building on the Permaweb
+---
 
 ## AO Process Implementation Guidelines
 
-### CRITICAL: AO + ADP Compliance Requirements
-All Lua processes MUST follow these patterns to comply with AO runtime and ADP (AO Documentation Protocol) v1.0 specification:
+All Lua processes must comply with AO runtime and ADP v1.0 specification.
 
-#### 1. Monolithic Design (REQUIRED)
+### Core Requirements
+
+#### 1. Monolithic Design
 ```lua
 -- ❌ FORBIDDEN: External dependencies
 local utils = require('utils')
@@ -379,444 +114,313 @@ local function validateInput(data)
 end
 ```
 
-#### 2. Handler Pattern (REQUIRED)
+#### 2. Handler Pattern
+**Each action needs its own handler.** See `.ai/patterns/ao-handler-pattern.lua` for full examples.
+
 ```lua
--- ❌ FORBIDDEN: Direct assignment
-Handlers["ProcessLogic"] = function(msg) end
-
--- ❌ FORBIDDEN: Multi-action handlers (won't work in AO runtime)
-Handlers.add("multi-handler",
-    Handlers.utils.hasMatchingTag("Action", {"Action1", "Action2", "Action3"}),
-    function(msg) end
-)
-
--- ✅ REQUIRED: Individual handlers for each action
+-- ✅ REQUIRED: Individual handler per action
 Handlers.add("action-one",
     Handlers.utils.hasMatchingTag("Action", "Action1"),
     function(msg)
-        local response = processAction1(msg)
+        if not msg.RequiredParam then
+            ao.send({
+                Target = msg.From,
+                Action = "Error",
+                Error = "RequiredParam required"
+            })
+            return
+        end
+
+        local result = processAction(msg)
         ao.send({
             Target = msg.From,
-            Action = response.Action,
-            Data = response.Data
+            Action = "SaveState",
+            Data = json.encode(result)
         })
     end
 )
 
-Handlers.add("action-two",
-    Handlers.utils.hasMatchingTag("Action", "Action2"),
-    function(msg)
-        local response = processAction2(msg)
-        ao.send({
-            Target = msg.From,
-            Action = response.Action,
-            Data = response.Data
-        })
-    end
+-- ❌ FORBIDDEN: Multi-action handlers
+Handlers.add("multi",
+    Handlers.utils.hasMatchingTag("Action", {"Action1", "Action2"}),
+    function(msg) end
 )
 ```
 
-#### 3. Error Handling Pattern (REQUIRED)
-**CRITICAL: Avoid unnecessary pcall usage** - pcall should ONLY be used for operations that genuinely might fail:
+#### 3. Error Handling
+**⚠️ Avoid unnecessary pcall** - Only use for operations that genuinely might fail.
+
+See `.ai/patterns/ao-error-handling.lua` for complete patterns.
 
 ```lua
--- ❌ FORBIDDEN: Unnecessary pcall for simple data access
+-- ✅ CORRECT: Direct validation
+if not msg.RequiredParam then
+    ao.send({Target = msg.From, Action = "Error", Error = "Missing param"})
+    return
+end
+
+-- ❌ FORBIDDEN: Unnecessary pcall
 local success, result = pcall(function()
-    return getSpeciesById(id)  -- Simple table lookup never fails
+    return getSpeciesById(id)  -- Simple lookup never fails
 end)
-
--- ❌ FORBIDDEN: Wrapping entire handler logic in pcall
-Handlers.add("process-logic",
-    Handlers.utils.hasMatchingTag("Action", "ProcessLogic"),
-    function(msg)
-        local success, response = pcall(function()
-            -- ... handler logic ...
-            return processLogic(msg)
-        end)
-        if success then
-            ao.send(response)
-        else
-            ao.send({Target = msg.From, Action = "Error", Error = response})
-        end
-    end
-)
-
--- ✅ REQUIRED: Direct access with proper validation
-local speciesId = msg.SpeciesId or msg.Id
-if not speciesId then
-    ao.send({
-        Target = msg.From,
-        Action = "Error", 
-        Error = "SpeciesId required"
-    })
-    return
-end
-
-local result = getSpeciesById(tonumber(speciesId))
-if result then
-    ao.send({
-        Target = msg.From,
-        Action = "SaveState",
-        Data = json.encode(result)
-    })
-else
-    ao.send({
-        Target = msg.From,
-        Action = "Error",
-        Error = "Species not found"
-    })
-end
-
--- ✅ ACCEPTABLE: Use pcall ONLY for operations that genuinely might fail
-local success, gameState = pcall(json.decode, msg.Data)  -- JSON parsing can fail
-if not success then
-    ao.send({Target = msg.From, Action = "Error", Error = "Invalid JSON"})
-    return
-end
 ```
 
-**When to use pcall (VERY LIMITED):**
-- JSON parsing of untrusted external input (`json.decode` from untrusted sources)
+**When to use pcall:**
+- JSON parsing of untrusted external input
 - File I/O operations (if available)
-- Mathematical operations that might overflow/underflow
-- Calling external modules that might not exist
+- Mathematical operations that might overflow
 
-**When NOT to use pcall (MOST CASES):**
-- Simple table lookups from embedded data
-- Basic parameter validation  
-- Simple arithmetic operations
-- Accessing msg tags or known data structures
-- Handler logic that should fail fast
-- Any operation where you control the inputs
-- **JSON parsing of AO message data** (`msg.Data`, `msg.Tags` - these are controlled inputs)
-- **Entire handler function wrapping** (masks real errors and prevents debugging)
-- **Simple validation functions** (should return boolean/error directly)
-- **Database lookups from embedded tables** (predictable operations)
+**When NOT to use pcall:**
+- Simple table lookups
+- Parameter validation
+- Accessing msg tags
+- JSON parsing of AO message data (controlled inputs)
+- Entire handler wrapping
 
-**CRITICAL ANTI-PATTERNS TO AVOID:**
+#### 4. Message Structure: Tags vs Data
+
+See `.ai/patterns/ao-message-patterns.lua` for complete examples.
+
+**Use Tags for:**
+- Simple identifiers: `SpeciesId`, `PlayerId`
+- Enums: `Operation`, `Type`, `Category`
+- Small values: `Name`, `Level`, `Generation`
+- Flags: `Confirmed`, `Force`
+
+**Use Data field for:**
+- Complex objects: `gameState`, `pokemonData`
+- Large text: documentation, logs
+- Binary data: images, files
+- Arrays/lists
+- Nested structures
+
+**Tag Conventions:**
 ```lua
--- ❌ FORBIDDEN: Generic handler wrapper functions
-local function safeHandler(handlerFn)
-    return function(msg)
-        local success, result = pcall(handlerFn, msg)
-        if not success then
-            ao.send({Target = msg.From, Error = "Handler failed"})
-        end
-    end
-end
-
--- ❌ FORBIDDEN: Wrapping entire handler body in pcall
-Handlers.add("my-handler", pattern, function(msg)
-    local success, result = pcall(function()
-        -- ... entire handler logic ...
-        return { success = true, data = ... }
-    end)
-    -- Error handling...
-end)
-
--- ❌ FORBIDDEN: Unnecessary pcall for AO message parsing
-local success, data = pcall(json.decode, msg.Data)  -- msg.Data is controlled
+-- ✅ All tag values MUST be strings
+ao.send({
+    Target = msg.From,
+    Action = "SaveState",
+    SpeciesId = tostring(result.id),  -- Convert numbers
+    Success = "true",                  -- Booleans as strings
+    OptionalField = ""                 -- Empty string for nil
+})
 ```
 
-**✅ CORRECT PATTERN: Direct error handling**
-```lua
-Handlers.add("my-handler", pattern, function(msg)
-    -- Direct parameter validation
-    if not msg.RequiredParam then
-        ao.send({Target = msg.From, Action = "Error", Error = "RequiredParam missing"})
-        return
-    end
-    
-    -- Direct data access (no pcall needed for controlled inputs)
-    local data = json.decode(msg.Data or "{}")
-    local result = processData(data)
-    
-    -- Direct response
-    ao.send({Target = msg.From, Action = "SaveState", Data = json.encode(result)})
-end)
-```
-
-**AO Best Practice**: Let processes fail fast with clear error messages rather than masking issues with pcall. Use direct error handling with `ao.send()` and `return` statements.
-
-#### 4. Timestamp Handling (REQUIRED)
+#### 5. Timestamp Handling
 ```lua
 -- ❌ FORBIDDEN: os.time() in AO processes
 local timestamp = os.time()
 
--- ✅ REQUIRED: Use msg.Timestamp in handlers
+-- ✅ REQUIRED: Use msg.Timestamp
 local timestamp = msg.Timestamp or 0
-
--- ✅ TESTING: Mock timestamp for test files
-local mockTimestamp = 1234567890
 ```
 
-#### 5. Available AO Globals
-- `ao.send()` - Send messages to other processes
-- `ao.id` - Current process ID
-- `Handlers` - Message handler registry
-- `json` - JSON encode/decode utilities
-- Standard Lua: string, table, math, os (limited subset)
+#### 6. Available AO Globals
+- `ao.send()` - Send messages
+- `ao.id` - Process ID
+- `Handlers` - Handler registry
+- `json` - JSON utilities
+- Standard Lua: string, table, math (limited)
 
-#### 6. Forbidden Operations
-- `require()` - No external module loading
+#### 7. Forbidden Operations
+- `require()` - No external modules (except `json`)
 - `io` - No file system access
-- `debug` - Debug library unavailable
-- `os.time()` - Use `msg.Timestamp` instead
+- `debug` - Unavailable
+- `os.time()` - Use `msg.Timestamp`
 - Network operations (only through ao.send)
+- Module-level returns
 
-#### 8. CRITICAL: No Module-Level Returns (REQUIRED)
-AO processes MUST NOT use module-level return statements. All data exchange happens through message passing:
+#### 8. ADP v1.0 Compliance
 
-```lua
--- ❌ FORBIDDEN: Module-level returns
-return {
-    handler = someHandler,
-    data = someData
-}
-
--- ✅ REQUIRED: Use ao.send() only
--- AO processes should not return module exports
--- All data is handled through message passing via ao.send()
-print("Process initialization complete.")
-```
-
-**Why this matters:**
-- AO runtime doesn't support module returns
-- Breaks AO process isolation model
-- Prevents proper message-based communication
-- Causes deployment failures in AO environment
-
-#### 9. CRITICAL: Tags vs Data Field Usage (REQUIRED)
-Use the right approach for the right data: tags for simple parameters, Data field for complex structures and large blobs:
+All processes must include an Info handler for self-documentation:
 
 ```lua
--- ✅ REQUIRED: Use tags for simple parameters
-local speciesId = msg.SpeciesId or msg.Id
-local operation = msg.Operation
-if speciesId then
-    processSpecies(tonumber(speciesId))
-end
-
--- ✅ REQUIRED: Use Data field for complex structures
-local gameState = nil
-if msg.Data and msg.Data ~= "" then
-    gameState = json.decode(msg.Data)
-end
-
--- ✅ REQUIRED: Use Data field for large blobs (images, files, etc.)
-local imageData = msg.Data  -- Raw binary or base64 data
-local documentContent = msg.Data  -- Large text content
-
--- ❌ FORBIDDEN: Simple parameters in Data
-local data = json.decode(msg.Data or "{}")
-local id = data.id  -- Should be msg.Id tag instead
-```
-
-**When to use Tags:**
-- Simple identifiers: `SpeciesId`, `PlayerId`, `BattleId`
-- Enum-like values: `Operation`, `Type`, `Category`
-- Small strings/numbers: `Name`, `Level`, `Generation`
-- Flags: `Confirmed`, `Force`, `Override`
-
-**When to use Data field:**
-- Complex objects: `gameState`, `pokemonData`, `battleResult`
-- Large text content: documentation, descriptions, logs
-- Binary data: images, files, encrypted payloads
-- Arrays/lists: multiple items, batch operations
-- Nested structures: configuration objects, schemas
-
-**Response patterns:**
-```lua
--- ✅ CORRECT: Simple response with individual tags (all values as strings)
-ao.send({
-    Target = msg.From,
-    Action = "SaveState",
-    Success = "true",
-    SpeciesId = tostring(result.id),
-    SpeciesName = result.name,
-    HP = tostring(result.baseStats.hp),
-    Attack = tostring(result.baseStats.attack),
-    Type1 = tostring(result.types[1]),
-    Type2 = result.types[2] and tostring(result.types[2]) or "",
-    Generation = tostring(result.generation)
-})
-
--- ✅ CORRECT: Complex response using Data field for nested structures
-ao.send({
-    Target = msg.From,
-    Action = "SaveState",
-    Data = json.encode({
-        species = speciesData,
-        stats = baseStats,
-        moves = availableMoves
-    })
-})
-
--- ❌ FORBIDDEN: Don't send simple data as JSON in Data field
-ao.send({
-    Target = msg.From,
-    Action = "SaveState",
-    Data = json.encode({
-        speciesId = 123,
-        name = "Pikachu",
-        found = true
-    })
-})
-```
-
-**Tag naming conventions:**
-- Use PascalCase: `SpeciesId`, `PlayerName`, `BattleId`
-- Provide alternatives: `msg.SpeciesId or msg.Id`
-- Convert strings to numbers: `tonumber(msg.SpeciesId)`
-- Boolean flags: `msg.Confirmed == "true"`
-- **CRITICAL**: All tag values MUST be strings: `tostring(number)`, `"true"/"false"` for booleans
-- Empty optional values: use `""` instead of `nil` for optional tags
-
-**Why this matters:**
-- Tags are native to AO message system
-- Data field optimized for large payloads
-- Better performance and readability
-- Follows AO architectural patterns
-
-#### 10. ADP v1.0 Compliance (REQUIRED)
-```lua
--- ✅ REQUIRED: Info handler for self-documentation
 Handlers.add("info",
     Handlers.utils.hasMatchingTag("Action", "Info"),
     function(msg)
         ao.send({
             Target = msg.From,
             Action = "SaveState",
-            Data = {
+            Data = json.encode({
                 process = {
                     name = "Process Name",
                     version = "1.0.0",
                     adpVersion = "1.0",
-                    capabilities = {"operation1", "operation2"},
-                    messageSchemas = {
-                        ProcessLogic = {
-                            required = {"Action", "Data", "Timestamp"}
-                        }
-                    }
+                    capabilities = {"operation1", "operation2"}
                 },
-                handlers = {"ProcessLogic", "HealthCheck", "Info"},
-                documentation = {
-                    adpCompliance = "v1.0",
-                    selfDocumenting = true
-                }
-            }
+                handlers = {"handler1", "handler2", "info"}
+            })
         })
     end
 )
 ```
 
-#### 11. Testing Pattern for AO Processes
-```lua
--- Mock AO environment for testing
-local function setupTestEnvironment()
-    if not ao then
-        ao = {
-            send = function(msg) print("Mock send:", json.encode(msg)) end,
-            id = "test_process_id"
-        }
-    end
-    
-    if not Handlers then
-        Handlers = {
-            add = function(name, matcher, handler)
-                print("Handler registered:", name)
-            end
-        }
-    end
-end
-```
+### Process Development Standard
 
-## ADP (AO Documentation Protocol) v1.0 Standards
-
-### What is ADP?
-ADP (AO Documentation Protocol) v1.0 is a standardized protocol that enables AO processes to automatically document their capabilities, handlers, and interfaces. This enables self-documentation and intelligent tool integration.
-
-### ADP Core Requirements
-1. **Protocol Identifier**: `adpVersion: "1.0"`
-2. **Info Handler**: Required handler that responds to `Action: "Info"` with process metadata
-3. **Message Schemas**: Defined schemas for all supported message types
-4. **Process Metadata**: Name, version, capabilities, and documentation
-5. **Self-Documentation**: Processes can be queried for their capabilities
-
-### ADP Benefits
-- **Autonomous Tool Integration**: AI tools can discover and interact with processes automatically
-- **Self-Documenting Architecture**: Reduces maintenance overhead
-- **Standardized Discovery**: Consistent way to query process capabilities
-- **Future-Proof**: Ensures compatibility with evolving AO ecosystem
-
-### ADP Implementation Example
-See `processes/battle-engine-adp.lua` for a complete ADP v1.0 compliant implementation.
-
-### Process Development Standard: Permamind-First Approach
-**ALL new AO processes MUST be generated using Permamind** for ADP v1.0 compliance:
+**Use Permamind for all new AO processes** (ensures ADP v1.0 compliance):
 
 ```bash
-# Generate ADP-compliant process using Permamind
 mcp://permamind/generateLuaProcess {
-    "userRequest": "Create a [process description with functionality]",
+    "userRequest": "Create a [process description]",
     "includeExplanation": true
 }
 ```
 
-#### Why Permamind-First?
-- **ADP v1.0 Compliance**: Automatic compliance with self-documentation standards
-- **Production-Ready**: Complete game mechanics and error handling
-- **Consistent Quality**: Standardized structure and validation
-- **Future-Proof**: Compatible with autonomous AI agents
-- **Development Speed**: Instant generation vs manual template development
+**Benefits:**
+- Automatic ADP v1.0 compliance
+- Production-ready code
+- Consistent quality
+- Instant generation
 
-#### Manual Templates Deprecated
-Manual templates have been archived to `archive/templates/` as they are superseded by Permamind's superior output quality and ADP compliance.
+---
 
-## Notes
-- **Project Status**: Stateless AO Process Architecture (Phase 1-2 Complete)
-- **Architecture**: 26-Process Stateless AO with Async Coordination
-- **Performance**: Sub-5-second execution with 500KB process limits
-- **Platform**: Arweave AO with monolithic process design
-- **ADP Compliance**: All new processes MUST implement ADP v1.0 for future compatibility
-- **Development Standard**: Permamind-first approach for all process generation
-- **Legacy Archive**: Previous implementation and manual templates archived in `archive/` directory
-- **AO Compliance**: All processes now follow monolithic design with proper handler patterns
-- MCP servers provide additional capabilities for memory management and documentation access
+## MCP Servers
 
-## AO Compliance Validation System
+### Available Servers
 
-**CRITICAL**: Enhanced AO compliance validation implemented to prevent deployment-blocking violations.
+| Server | Purpose | Key Tools |
+|--------|---------|-----------|
+| **permamind** | Permanent AI memory & AO process tools | `generateLuaProcess`, `spawnProcess`, `evalProcess`, `executeAction` |
+| **aolite Docs** | Local AO protocol emulation docs | Testing guidance, API reference |
+| **harlequin-toolkit** | Permaweb development toolkit | Build tools, deployment utilities |
 
-### Automated Validation
-- **Pre-commit Hook**: `ao-compliance` in lefthook.yml automatically validates process files
-- **Manual Command**: `npm run lint:ao-sandbox` 
-- **Direct Tool**: `lua tools/ao-sandbox-validator.lua`
+### Permamind
 
-### Enhanced Validation Features
-- ✅ **Strict Forbidden Pattern Detection**: require(), unnecessary pcall, os.time()
-- ✅ **Anti-Pattern Detection**: pcall(json.decode, msg.Data), handler wrappers
-- ✅ **Best Practice Validation**: Error handling patterns, timestamp usage
-- ✅ **100% Compliance Required**: No tolerance for critical violations
-- ✅ **Detailed Reporting**: Specific violations with fix suggestions
+**Type**: Local MCP server (Permanent AI Memory System)
+**Repository**: https://github.com/ALLiDoizCode/Permamind
 
-### Developer Resources
-- **📚 Full Guidelines**: `docs/architecture/ao-compliance-guidelines.md`
-- **⚡ Quick Reference**: `docs/architecture/ao-quick-reference.md` 
-- **🔧 Validation Tool**: Enhanced `tools/ao-sandbox-validator.lua`
-- **🎯 Pre-commit Integration**: Automatic validation in development workflow
+**Core Capabilities:**
+1. **Memory Management** - Permanent storage across sessions
+2. **Process Tools** - Generate, spawn, deploy, and query AO processes
+3. **Token Operations** - Balance checks, transfers, minting
+4. **Documentation** - Permaweb docs and file storage
+5. **ArNS** - Decentralized domain management
+6. **Hub & Contact Tools** - Identity and address management
 
-### Common Violations Fixed
-Based on Story 13.3 review findings and validation system improvements:
-- ✅ `require("json")` is PERMITTED in AO (only JSON require allowed)
+**Usage:**
+- Memory: Tell Claude to remember something - stored permanently
+- Process queries: Ask about AO capabilities using natural language
+- Token operations: Conversational blockchain commands
+- Zero configuration required
+
+### aolite Docs
+
+**Type**: SSE documentation server
+**URL**: https://gitmcp.io/perplex-labs/aolite
+**Repository**: https://github.com/perplex-labs/aolite
+
+**Purpose**: Local AO protocol emulation for testing Lua processes
+
+**Key Features:**
+- Local AO environment (no network deployment)
+- Concurrent process emulation (coroutines)
+- Message passing with queue management
+- Direct process state inspection
+- Flexible scheduler control
+- Configurable logging (levels 0-3)
+
+**Core API:**
+- `spawnProcess()` - Load and spawn processes
+- `send()` - Send messages between processes
+- `eval()` - Evaluate code in process context
+- `getAllMsgs()` - Retrieve messages
+- `runScheduler()` - Execute message scheduling
+
+**Requirements**: Lua 5.3
+
+### harlequin-toolkit Docs
+
+**Type**: SSE documentation server
+**URL**: https://gitmcp.io/the-permaweb-harlequin/harlequin-toolkit
+**Repository**: https://github.com/the-permaweb-harlequin/harlequin-toolkit
+
+**Purpose**: Web development toolkit for Permaweb applications
+
+**Components:**
+- CLI (command-line tools)
+- SDK (Permaweb integration)
+- Server (backend components)
+- App (frontend framework)
+
+**CLI Commands:**
+```bash
+harlequin                              # Interactive TUI
+harlequin build                        # Interactive build mode
+harlequin build ./my-project           # Direct build
+harlequin lua-utils bundle --entrypoint main.lua
+```
+
+**Features:**
+- Beautiful Terminal UI (Charm Bubble Tea)
+- Smart file discovery
+- YAML-based configuration
+- Real-time progress tracking
+- TypeScript support
+
+---
+
+## Development Resources
+
+### AO Compliance Validation
+
+**Automated validation prevents deployment-blocking violations.**
+
+**Commands:**
+```bash
+npm run lint:ao-sandbox              # Run validation
+lua tools/ao-sandbox-validator.lua   # Direct tool
+```
+
+**Pre-commit Hook:** `ao-compliance` in lefthook.yml runs automatically
+
+**Validation Features:**
+- ✅ Forbidden pattern detection: `require()`, unnecessary `pcall`, `os.time()`
+- ✅ Anti-pattern detection: `pcall(json.decode, msg.Data)`, handler wrappers
+- ✅ Best practice validation: Error handling, timestamps
+- ✅ 100% compliance required
+
+**Resources:**
+- 📚 `docs/architecture/ao-compliance-guidelines.md` (full guidelines)
+- ⚡ `docs/architecture/ao-quick-reference.md` (quick reference)
+- 🔧 `tools/ao-sandbox-validator.lua` (validation tool)
+
+**Common Violations:**
+- ✅ `require("json")` is PERMITTED
 - ❌ `pcall(json.decode, msg.Data)` → ✅ Direct `json.decode(msg.Data)`
 - ❌ `os.time()` → ✅ `msg.Timestamp`
-- ❌ `require("./utils")` → ✅ Embed utilities in process file
+- ❌ `require("./utils")` → ✅ Embed utilities in process
 
-The validation system ensures these critical issues are caught during development rather than at review stage.
+### Pattern Reference Files
 
-## Automated README Updates
-The project includes automated README Migration Parity Checklist updates:
-- `scripts/update-progress-checklist.sh` - Scans completed stories and updates checklist
-- `.git/hooks/pre-push` - Automatically runs checklist update before pushes
-- Checklist items are marked ✅ when corresponding stories show "Done" or "PASS" status
+All pattern files are located in `.ai/patterns/`:
+
+| File | Purpose |
+|------|---------|
+| `aolite-test-pattern.lua` | Authoritative test pattern |
+| `ao-handler-pattern.lua` | Proper handler implementation |
+| `ao-error-handling.lua` | Error handling best practices |
+| `ao-message-patterns.lua` | Tags vs Data field usage |
+
+### Automated Tools
+
+**README Updates:**
+- `scripts/update-progress-checklist.sh` - Updates migration checklist
+- `.git/hooks/pre-push` - Runs checklist update before pushes
+
+### Architecture Status
+
+- **Phase 1-2**: Complete
+- **Performance**: Sub-5-second execution
+- **Process Limits**: 500KB max size
+- **Design**: Monolithic, stateless AO processes
+- **Compliance**: ADP v1.0 for all new processes
+
+---
+
+## Notes
+
+- Use Permamind-first approach for process generation
+- All processes require ADP v1.0 compliance (Info handler)
+- Legacy templates archived in `archive/templates/`
+- Test files must be Lua (.test.lua) not TypeScript
+- MCP servers provide memory, docs, and tooling capabilities

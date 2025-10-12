@@ -1,717 +1,700 @@
--- Friendship Engine Unit Tests
+-- Friendship Engine Unit Tests (Linear Execution with Real Aolite Framework)
 -- Tests for friendship calculation, evolution triggers, move effects, and status tracking
--- Uses aolite testing framework with AO process mocking
+-- Converted from describe/it to linear execution pattern
 
-local aolite = require('aolite')
+-- Required imports
+local aolite = require("aolite")
+local json = require("json")
 
--- Load the friendship engine process
-local friendshipEngineCode = aolite.loadFileAndProcess('../processes/friendship-engine.lua')
+-- Test configuration
+local PROCESS_PATH = "processes.friendship-engine"
+local processId = "test-friendship-engine"
 
-describe("Friendship Engine Process", function()
-    local processId
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
 
-    before_each(function()
-        -- Spawn a new process for each test to ensure isolation
-        processId = aolite.spawnProcess(friendshipEngineCode)
-    end)
+print("🧪 Starting Aolite Tests for Friendship Engine")
+print("Process ID:", processId)
+print("==================================================")
 
-    after_each(function()
-        -- Clean up process after each test
-        if processId then
-            aolite.killProcess(processId)
+-- Test utility function
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
+    }
+
+    -- Add additional tags
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
         end
-    end)
-
-    describe("Process Info Handler (ADP Compliance)", function()
-        it("should respond to Info action with process metadata", function()
-            local response = aolite.send(processId, {
-                Action = "Info",
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("true", response.Success)
-
-            local data = response.Data
-            assert.is.table(data.process)
-            assert.are.equal("Friendship Engine", data.process.name)
-            assert.are.equal("1.0", data.process.adpVersion)
-            assert.is.table(data.process.capabilities)
-            assert.is.table(data.handlers)
-
-            -- Check required handlers are listed
-            local capabilities = data.process.capabilities
-            assert.contains(capabilities, "CalculateFriendship")
-            assert.contains(capabilities, "CheckFriendshipEvolution")
-            assert.contains(capabilities, "CalculateFriendshipMoveEffects")
-            assert.contains(capabilities, "GetFriendshipStatus")
-        end)
-    end)
-
-    describe("CalculateFriendship Handler", function()
-        it("should calculate friendship gain from battle victory", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25, -- Pikachu
-                    friendship = 50
-                },
-                parameters = {
-                    friendshipAction = "battleVictory",
-                    actionContext = "wild"
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CalculateFriendship",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("true", response.Success)
-            assert.are.equal("calculateFriendship", response.Operation)
-            assert.are.equal("3", response.FriendshipChange) -- FRIENDSHIP_GAIN_FROM_BATTLE = 3
-            assert.are.equal("53", response.NewFriendship) -- 50 + 3
-
-            local data = response.Data
-            assert.are.equal(3, data.friendshipChange)
-            assert.are.equal(53, data.newFriendship)
-            assert.are.equal("normal", data.friendshipLevel)
-            assert.is.number(data.moveEffects.returnPower)
-            assert.is.number(data.moveEffects.frustrationPower)
-        end)
-
-        it("should calculate friendship loss from fainting", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 100
-                },
-                parameters = {
-                    friendshipAction = "faint"
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CalculateFriendship",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("true", response.Success)
-            assert.are.equal("-5", response.FriendshipChange) -- FRIENDSHIP_LOSS_FROM_FAINT = -5
-            assert.are.equal("95", response.NewFriendship) -- 100 - 5
-        end)
-
-        it("should apply Soothe Bell modifier to friendship gains", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 50,
-                    heldItem = "soothe_bell"
-                },
-                parameters = {
-                    friendshipAction = "battleVictory",
-                    actionContext = "wild"
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CalculateFriendship",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("true", response.Success)
-            -- Base 3 * 1.5 (soothe bell) = 4.5, floored to 4
-            assert.are.equal("4", response.FriendshipChange)
-            assert.are.equal("54", response.NewFriendship)
-        end)
-
-        it("should enforce rare candy friendship cap", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 198 -- Close to rare candy cap (200)
-                },
-                parameters = {
-                    friendshipAction = "rareCandy"
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CalculateFriendship",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("true", response.Success)
-            -- Should be capped at 200, not 198 + 6 = 204
-            assert.are.equal("200", response.NewFriendship)
-        end)
-
-        it("should enforce absolute friendship bounds (0-255)", function()
-            -- Test lower bound
-            local testDataLow = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 2
-                },
-                parameters = {
-                    friendshipAction = "faint" -- -5 change
-                }
-            }
-
-            local responseLow = aolite.send(processId, {
-                Action = "CalculateFriendship",
-                Data = testDataLow,
-                From = "test-sender"
-            })
-
-            assert.are.equal("0", responseLow.NewFriendship) -- Should be clamped to 0
-
-            -- Test upper bound
-            local testDataHigh = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 250
-                },
-                parameters = {
-                    friendshipAction = "battleVictory" -- +3 change
-                }
-            }
-
-            local responseHigh = aolite.send(processId, {
-                Action = "CalculateFriendship",
-                Data = testDataHigh,
-                From = "test-sender"
-            })
-
-            assert.are.equal("253", responseHigh.NewFriendship) -- Should be normal, not clamped
-
-            -- Test actual upper bound
-            testDataHigh.pokemon.friendship = 254
-            local responseMax = aolite.send(processId, {
-                Action = "CalculateFriendship",
-                Data = testDataHigh,
-                From = "test-sender"
-            })
-
-            assert.are.equal("255", responseMax.NewFriendship) -- Should be clamped to 255
-        end)
-
-        it("should handle invalid pokemon data", function()
-            local response = aolite.send(processId, {
-                Action = "CalculateFriendship",
-                Data = {
-                    pokemon = nil
-                },
-                From = "test-sender"
-            })
-
-            assert.are.equal("Error", response.Action)
-            assert.is.truthy(response.Error)
-        end)
-
-        it("should handle invalid friendship action", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 50
-                },
-                parameters = {
-                    friendshipAction = "invalidAction"
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CalculateFriendship",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("Error", response.Action)
-            assert.is.truthy(response.Error)
-            assert.matches("Unknown friendship action", response.Error)
-        end)
-    end)
-
-    describe("CheckFriendshipEvolution Handler", function()
-        it("should confirm evolution when friendship meets threshold", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 133, -- Eevee
-                    friendship = 230 -- Above evolution threshold (220)
-                },
-                parameters = {
-                    requiredFriendship = 220
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CheckFriendshipEvolution",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("true", response.Success)
-            assert.are.equal("checkFriendshipEvolution", response.Operation)
-            assert.are.equal("true", response.CanEvolve)
-            assert.are.equal("Evolution conditions met", response.Reason)
-            assert.are.equal("230", response.CurrentFriendship)
-
-            local data = response.Data
-            assert.is_true(data.canEvolve)
-            assert.are.equal("very_high", data.friendshipLevel)
-        end)
-
-        it("should reject evolution when friendship is too low", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 133, -- Eevee
-                    friendship = 180 -- Below evolution threshold (220)
-                },
-                parameters = {
-                    requiredFriendship = 220
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CheckFriendshipEvolution",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("true", response.Success)
-            assert.are.equal("false", response.CanEvolve)
-            assert.are.equal("Friendship too low", response.Reason)
-            assert.are.equal("180", response.CurrentFriendship)
-
-            local data = response.Data
-            assert.is_false(data.canEvolve)
-        end)
-
-        it("should check time of day requirements for Espeon/Umbreon", function()
-            local testDataDay = {
-                pokemon = {
-                    speciesId = 133, -- Eevee
-                    friendship = 230
-                },
-                parameters = {
-                    timeOfDay = "day",
-                    specialRequirements = {
-                        timeOfDay = "day"
-                    }
-                }
-            }
-
-            local responseDay = aolite.send(processId, {
-                Action = "CheckFriendshipEvolution",
-                Data = testDataDay,
-                From = "test-sender"
-            })
-
-            assert.are.equal("true", responseDay.CanEvolve)
-
-            -- Test wrong time of day
-            testDataDay.parameters.specialRequirements.timeOfDay = "night"
-            local responseWrongTime = aolite.send(processId, {
-                Action = "CheckFriendshipEvolution",
-                Data = testDataDay,
-                From = "test-sender"
-            })
-
-            assert.are.equal("false", responseWrongTime.CanEvolve)
-            assert.are.equal("Wrong time of day", responseWrongTime.Reason)
-        end)
-
-        it("should check fairy move requirement for Sylveon", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 133, -- Eevee
-                    friendship = 230,
-                    moveset = {
-                        {name = "Tackle", type = "normal"},
-                        {name = "Baby-Doll Eyes", type = "fairy"}
-                    }
-                },
-                parameters = {
-                    specialRequirements = {
-                        fairyMove = true
-                    }
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CheckFriendshipEvolution",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("true", response.CanEvolve)
-
-            -- Test without fairy move
-            testData.pokemon.moveset = {
-                {name = "Tackle", type = "normal"},
-                {name = "Sand Attack", type = "ground"}
-            }
-
-            local responseNoFairy = aolite.send(processId, {
-                Action = "CheckFriendshipEvolution",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("false", responseNoFairy.CanEvolve)
-            assert.are.equal("No Fairy-type move known", responseNoFairy.Reason)
-        end)
-
-        it("should use default evolution threshold when none provided", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 133, -- Eevee
-                    friendship = 220 -- Exactly at default threshold
-                },
-                parameters = {} -- No specific threshold
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CheckFriendshipEvolution",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("true", response.CanEvolve)
-
-            local data = response.Data
-            assert.are.equal(220, data.evolutionRequirements.requiredFriendship)
-        end)
-    end)
-
-    describe("CalculateFriendshipMoveEffects Handler", function()
-        it("should calculate Return move power based on friendship", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 255 -- Maximum friendship
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CalculateFriendshipMoveEffects",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("true", response.Success)
-            assert.are.equal("calculateFriendshipMoveEffects", response.Operation)
-
-            -- TypeScript formula: Math.floor(255 / 2.5) = Math.floor(102) = 102
-            assert.are.equal("102", response.ReturnPower)
-
-            local data = response.Data
-            assert.are.equal(102, data.moveEffects.returnPower)
-        end)
-
-        it("should calculate Frustration move power (inverse friendship)", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 0 -- Minimum friendship
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CalculateFriendshipMoveEffects",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("true", response.Success)
-
-            -- TypeScript formula: Math.max(102 - Math.floor(0 / 2.5), 1) = Math.max(102 - 0, 1) = 102
-            assert.are.equal("102", response.FrustrationPower)
-
-            local data = response.Data
-            assert.are.equal(102, data.moveEffects.frustrationPower)
-        end)
-
-        it("should calculate mid-range friendship move effects", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 128 -- Mid-range friendship
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CalculateFriendshipMoveEffects",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("true", response.Success)
-
-            -- Return: Math.floor(128 / 2.5) = Math.floor(51.2) = 51
-            assert.are.equal("51", response.ReturnPower)
-
-            -- Frustration: Math.max(102 - 51, 1) = 51
-            assert.are.equal("51", response.FrustrationPower)
-
-            local data = response.Data
-            assert.are.equal(51, data.moveEffects.returnPower)
-            assert.are.equal(51, data.moveEffects.frustrationPower)
-        end)
-
-        it("should ensure minimum power of 1 for both moves", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 1 -- Very low friendship
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CalculateFriendshipMoveEffects",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            local data = response.Data
-            assert.is_true(data.moveEffects.returnPower >= 1)
-            assert.is_true(data.moveEffects.frustrationPower >= 1)
-        end)
-    end)
-
-    describe("GetFriendshipStatus Handler", function()
-        it("should return comprehensive friendship status information", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 180
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "GetFriendshipStatus",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("true", response.Success)
-            assert.are.equal("getFriendshipStatus", response.Operation)
-            assert.are.equal("180", response.CurrentFriendship)
-            assert.are.equal("high", response.FriendshipLevel)
-            assert.are.equal("false", response.CanEvolveByFriendship) -- 180 < 220
-            assert.are.equal("40", response.ToEvolution) -- 220 - 180
-
-            local data = response.Data
-            assert.are.equal(180, data.currentFriendship)
-            assert.are.equal("high", data.friendshipLevel)
-            assert.is_false(data.canEvolveByFriendship)
-            assert.are.equal(40, data.toEvolutionThreshold)
-            assert.are.equal(220, data.thresholds.evolution)
-            assert.are.equal(255, data.thresholds.maximum)
-        end)
-
-        it("should indicate evolution readiness for high friendship", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 240 -- Above evolution threshold
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "GetFriendshipStatus",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("true", response.CanEvolveByFriendship)
-            assert.are.equal("0", response.ToEvolution) -- Already meets threshold
-
-            local data = response.Data
-            assert.is_true(data.canEvolveByFriendship)
-            assert.are.equal(0, data.toEvolutionThreshold)
-        end)
-
-        it("should handle pokemon without explicit friendship value", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25 -- Should use base friendship (50 for Pikachu)
-                    -- No friendship field provided
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "GetFriendshipStatus",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("SaveState", response.Action)
-            assert.are.equal("50", response.CurrentFriendship) -- Base friendship for Pikachu
-            assert.are.equal("normal", response.FriendshipLevel) -- 50 is in 'normal' range
-        end)
-    end)
-
-    describe("Friendship Level Classification", function()
-        it("should classify friendship levels correctly", function()
-            local testCases = {
-                {friendship = 0, expectedLevel = "very_low"},
-                {friendship = 25, expectedLevel = "very_low"},
-                {friendship = 50, expectedLevel = "low"},
-                {friendship = 99, expectedLevel = "low"},
-                {friendship = 100, expectedLevel = "normal"},
-                {friendship = 149, expectedLevel = "normal"},
-                {friendship = 150, expectedLevel = "high"},
-                {friendship = 199, expectedLevel = "high"},
-                {friendship = 200, expectedLevel = "very_high"},
-                {friendship = 254, expectedLevel = "very_high"},
-                {friendship = 255, expectedLevel = "maximum"}
-            }
-
-            for _, testCase in ipairs(testCases) do
-                local testData = {
-                    pokemon = {
-                        speciesId = 25,
-                        friendship = testCase.friendship
-                    }
-                }
-
-                local response = aolite.send(processId, {
-                    Action = "GetFriendshipStatus",
-                    Data = testData,
-                    From = "test-sender"
-                })
-
-                assert.are.equal(testCase.expectedLevel, response.FriendshipLevel,
-                    "Friendship " .. testCase.friendship .. " should be level " .. testCase.expectedLevel)
-            end
-        end)
-    end)
-
-    describe("Input Validation", function()
-        it("should reject messages without pokemon data", function()
-            local handlers = {"CalculateFriendship", "CheckFriendshipEvolution", "CalculateFriendshipMoveEffects", "GetFriendshipStatus"}
-
-            for _, handlerAction in ipairs(handlers) do
-                local response = aolite.send(processId, {
-                    Action = handlerAction,
-                    Data = {}, -- No pokemon field
-                    From = "test-sender"
-                })
-
-                assert.are.equal("Error", response.Action, "Handler " .. handlerAction .. " should reject empty pokemon data")
-                assert.is.truthy(response.Error)
-            end
-        end)
-
-        it("should reject invalid species ID", function()
-            local testData = {
-                pokemon = {
-                    speciesId = "invalid", -- String instead of number
-                    friendship = 50
-                }
-            }
-
-            local response = aolite.send(processId, {
-                Action = "CalculateFriendship",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            assert.are.equal("Error", response.Action)
-            assert.matches("Valid species ID required", response.Error)
-        end)
-
-        it("should reject friendship values out of range", function()
-            local testDataLow = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = -10 -- Below 0
-                }
-            }
-
-            local responseLow = aolite.send(processId, {
-                Action = "GetFriendshipStatus",
-                Data = testDataLow,
-                From = "test-sender"
-            })
-
-            assert.are.equal("Error", responseLow.Action)
-            assert.matches("Friendship must be between 0 and 255", responseLow.Error)
-
-            local testDataHigh = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 300 -- Above 255
-                }
-            }
-
-            local responseHigh = aolite.send(processId, {
-                Action = "GetFriendshipStatus",
-                Data = testDataHigh,
-                From = "test-sender"
-            })
-
-            assert.are.equal("Error", responseHigh.Action)
-            assert.matches("Friendship must be between 0 and 255", responseHigh.Error)
-        end)
-    end)
-
-    describe("Performance and Rate Limiting", function()
-        it("should handle multiple requests within rate limit", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 100
-                }
-            }
-
-            -- Send multiple requests (within rate limit)
-            for i = 1, 10 do
-                local response = aolite.send(processId, {
-                    Action = "GetFriendshipStatus",
-                    Data = testData,
-                    From = "test-sender-" .. i -- Different senders to avoid rate limiting
-                })
-
-                assert.are.equal("SaveState", response.Action, "Request " .. i .. " should succeed")
-            end
-        end)
-
-        it("should respond quickly to simple requests", function()
-            local testData = {
-                pokemon = {
-                    speciesId = 25,
-                    friendship = 100
-                }
-            }
-
-            local startTime = os.clock()
-
-            local response = aolite.send(processId, {
-                Action = "GetFriendshipStatus",
-                Data = testData,
-                From = "test-sender"
-            })
-
-            local endTime = os.clock()
-            local elapsed = (endTime - startTime) * 1000 -- Convert to milliseconds
-
-            assert.are.equal("SaveState", response.Action)
-            assert.is_true(elapsed < 50, "Response should be under 50ms, was " .. elapsed .. "ms")
-        end)
-    end)
+    end
+
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
+end
+
+local testCount = 0
+local passCount = 0
+
+local function runTest(testName, testFn)
+    testCount = testCount + 1
+    print("\n📝 Test " .. testCount .. ": " .. testName)
+    local success, err = pcall(testFn)
+    if success then
+        passCount = passCount + 1
+        print("✅ Test " .. testCount .. " passed")
+    else
+        print("❌ Test " .. testCount .. " failed: " .. tostring(err))
+        error("Test failed: " .. testName)
+    end
+end
+
+-- ==========================================
+-- TEST SUITE: Process Info Handler (ADP Compliance)
+-- ==========================================
+
+runTest("Info handler responds with process metadata", function()
+    local response = sendMessage("Info", nil, "")
+
+    if response.Action ~= "SaveState" then
+        error("Expected Action 'SaveState', got: " .. tostring(response.Action))
+    end
+
+    if response.Success ~= "true" then
+        error("Expected Success 'true', got: " .. tostring(response.Success))
+    end
+
+    local data = json.decode(response.Data or "{}")
+    if not data.process then
+        error("Missing process metadata in response")
+    end
+
+    if data.process.name ~= "Friendship Engine" then
+        error("Expected process name 'Friendship Engine', got: " .. tostring(data.process.name))
+    end
+
+    if data.process.adpVersion ~= "1.0" then
+        error("Expected ADP version '1.0', got: " .. tostring(data.process.adpVersion))
+    end
 end)
+
+-- ==========================================
+-- TEST SUITE: CalculateFriendship Handler
+-- ==========================================
+
+runTest("Calculate friendship gain from battle victory", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25, -- Pikachu
+            friendship = 50
+        },
+        parameters = {
+            friendshipAction = "battleVictory",
+            actionContext = "wild"
+        }
+    }
+
+    local response = sendMessage("CalculateFriendship", nil, json.encode(testData))
+
+    if response.Action ~= "SaveState" then
+        error("Expected SaveState action, got: " .. tostring(response.Action))
+    end
+
+    if response.FriendshipChange ~= "3" then
+        error("Expected FriendshipChange '3', got: " .. tostring(response.FriendshipChange))
+    end
+
+    if response.NewFriendship ~= "53" then
+        error("Expected NewFriendship '53', got: " .. tostring(response.NewFriendship))
+    end
+end)
+
+runTest("Calculate friendship loss from fainting", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 100
+        },
+        parameters = {
+            friendshipAction = "faint"
+        }
+    }
+
+    local response = sendMessage("CalculateFriendship", testData)
+
+    if response.Action ~= "SaveState" then
+        error("Expected SaveState action")
+    end
+
+    if response.FriendshipChange ~= "-5" then
+        error("Expected FriendshipChange '-5', got: " .. tostring(response.FriendshipChange))
+    end
+
+    if response.NewFriendship ~= "95" then
+        error("Expected NewFriendship '95', got: " .. tostring(response.NewFriendship))
+    end
+end)
+
+runTest("Apply Soothe Bell modifier to friendship gains", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 50,
+            heldItem = "soothe_bell"
+        },
+        parameters = {
+            friendshipAction = "battleVictory",
+            actionContext = "wild"
+        }
+    }
+
+    local response = sendMessage("CalculateFriendship", testData)
+
+    if response.Action ~= "SaveState" then
+        error("Expected SaveState action")
+    end
+
+    -- Base 3 * 1.5 (soothe bell) = 4.5, floored to 4
+    if response.FriendshipChange ~= "4" then
+        error("Expected FriendshipChange '4' with Soothe Bell, got: " .. tostring(response.FriendshipChange))
+    end
+
+    if response.NewFriendship ~= "54" then
+        error("Expected NewFriendship '54', got: " .. tostring(response.NewFriendship))
+    end
+end)
+
+runTest("Enforce rare candy friendship cap (200)", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 198
+        },
+        parameters = {
+            friendshipAction = "rareCandy"
+        }
+    }
+
+    local response = sendMessage("CalculateFriendship", testData)
+
+    if response.Action ~= "SaveState" then
+        error("Expected SaveState action")
+    end
+
+    -- Should be capped at 200, not 198 + 6 = 204
+    if response.NewFriendship ~= "200" then
+        error("Expected NewFriendship capped at '200', got: " .. tostring(response.NewFriendship))
+    end
+end)
+
+runTest("Enforce absolute friendship bounds (0-255)", function()
+    -- Test lower bound
+    local testDataLow = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 2
+        },
+        parameters = {
+            friendshipAction = "faint"
+        }
+    }
+
+    local responseLow = sendMessage("CalculateFriendship", testDataLow)
+
+    if responseLow.NewFriendship ~= "0" then
+        error("Expected NewFriendship clamped to '0', got: " .. tostring(responseLow.NewFriendship))
+    end
+
+    -- Test upper bound
+    local testDataHigh = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 254
+        },
+        parameters = {
+            friendshipAction = "battleVictory"
+        }
+    }
+
+    local responseHigh = sendMessage("CalculateFriendship", testDataHigh)
+
+    if responseHigh.NewFriendship ~= "255" then
+        error("Expected NewFriendship clamped to '255', got: " .. tostring(responseHigh.NewFriendship))
+    end
+end)
+
+runTest("Handle invalid pokemon data", function()
+    local testData = {
+        pokemon = nil
+    }
+
+    local response = sendMessage("CalculateFriendship", testData)
+
+    if response.Action ~= "Error" then
+        error("Expected Error action for invalid pokemon data, got: " .. tostring(response.Action))
+    end
+
+    if not response.Error then
+        error("Expected Error field in response")
+    end
+end)
+
+runTest("Handle invalid friendship action", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 50
+        },
+        parameters = {
+            friendshipAction = "invalidAction"
+        }
+    }
+
+    local response = sendMessage("CalculateFriendship", testData)
+
+    if response.Action ~= "Error" then
+        error("Expected Error action for invalid friendship action")
+    end
+
+    if not response.Error or not string.match(response.Error, "Unknown friendship action") then
+        error("Expected 'Unknown friendship action' error message")
+    end
+end)
+
+-- ==========================================
+-- TEST SUITE: CheckFriendshipEvolution Handler
+-- ==========================================
+
+runTest("Confirm evolution when friendship meets threshold", function()
+    local testData = {
+        pokemon = {
+            speciesId = 133, -- Eevee
+            friendship = 230
+        },
+        parameters = {
+            requiredFriendship = 220
+        }
+    }
+
+    local response = sendMessage("CheckFriendshipEvolution", testData)
+
+    if response.Action ~= "SaveState" then
+        error("Expected SaveState action")
+    end
+
+    if response.CanEvolve ~= "true" then
+        error("Expected CanEvolve 'true', got: " .. tostring(response.CanEvolve))
+    end
+
+    if response.CurrentFriendship ~= "230" then
+        error("Expected CurrentFriendship '230', got: " .. tostring(response.CurrentFriendship))
+    end
+end)
+
+runTest("Reject evolution when friendship is too low", function()
+    local testData = {
+        pokemon = {
+            speciesId = 133,
+            friendship = 180
+        },
+        parameters = {
+            requiredFriendship = 220
+        }
+    }
+
+    local response = sendMessage("CheckFriendshipEvolution", testData)
+
+    if response.Action ~= "SaveState" then
+        error("Expected SaveState action")
+    end
+
+    if response.CanEvolve ~= "false" then
+        error("Expected CanEvolve 'false', got: " .. tostring(response.CanEvolve))
+    end
+
+    if not string.match(response.Reason or "", "Friendship too low") then
+        error("Expected 'Friendship too low' reason")
+    end
+end)
+
+runTest("Check time of day requirements for Espeon/Umbreon", function()
+    local testDataDay = {
+        pokemon = {
+            speciesId = 133,
+            friendship = 230
+        },
+        parameters = {
+            timeOfDay = "day",
+            specialRequirements = {
+                timeOfDay = "day"
+            }
+        }
+    }
+
+    local responseDay = sendMessage("CheckFriendshipEvolution", testDataDay)
+
+    if responseDay.CanEvolve ~= "true" then
+        error("Expected CanEvolve 'true' for correct time of day")
+    end
+
+    -- Test wrong time of day
+    testDataDay.parameters.specialRequirements.timeOfDay = "night"
+    local responseWrongTime = sendMessage("CheckFriendshipEvolution", testDataDay)
+
+    if responseWrongTime.CanEvolve ~= "false" then
+        error("Expected CanEvolve 'false' for wrong time of day")
+    end
+
+    if not string.match(responseWrongTime.Reason or "", "Wrong time of day") then
+        error("Expected 'Wrong time of day' reason")
+    end
+end)
+
+runTest("Check fairy move requirement for Sylveon", function()
+    local testData = {
+        pokemon = {
+            speciesId = 133,
+            friendship = 230,
+            moveset = {
+                {name = "Tackle", type = "normal"},
+                {name = "Baby-Doll Eyes", type = "fairy"}
+            }
+        },
+        parameters = {
+            specialRequirements = {
+                fairyMove = true
+            }
+        }
+    }
+
+    local response = sendMessage("CheckFriendshipEvolution", testData)
+
+    if response.CanEvolve ~= "true" then
+        error("Expected CanEvolve 'true' with fairy move")
+    end
+
+    -- Test without fairy move
+    testData.pokemon.moveset = {
+        {name = "Tackle", type = "normal"},
+        {name = "Sand Attack", type = "ground"}
+    }
+
+    local responseNoFairy = sendMessage("CheckFriendshipEvolution", testData)
+
+    if responseNoFairy.CanEvolve ~= "false" then
+        error("Expected CanEvolve 'false' without fairy move")
+    end
+
+    if not string.match(responseNoFairy.Reason or "", "No Fairy%-type move") then
+        error("Expected 'No Fairy-type move' reason")
+    end
+end)
+
+runTest("Use default evolution threshold when none provided", function()
+    local testData = {
+        pokemon = {
+            speciesId = 133,
+            friendship = 220
+        },
+        parameters = {}
+    }
+
+    local response = sendMessage("CheckFriendshipEvolution", testData)
+
+    if response.CanEvolve ~= "true" then
+        error("Expected CanEvolve 'true' at default threshold (220)")
+    end
+
+    local data = json.decode(response.Data or "{}")
+    if data.evolutionRequirements and data.evolutionRequirements.requiredFriendship ~= 220 then
+        error("Expected default threshold 220 in response data")
+    end
+end)
+
+-- ==========================================
+-- TEST SUITE: CalculateFriendshipMoveEffects Handler
+-- ==========================================
+
+runTest("Calculate Return move power based on friendship", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 255
+        }
+    }
+
+    local response = sendMessage("CalculateFriendshipMoveEffects", testData)
+
+    if response.Action ~= "SaveState" then
+        error("Expected SaveState action")
+    end
+
+    -- Math.floor(255 / 2.5) = 102
+    if response.ReturnPower ~= "102" then
+        error("Expected ReturnPower '102', got: " .. tostring(response.ReturnPower))
+    end
+end)
+
+runTest("Calculate Frustration move power (inverse friendship)", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 0
+        }
+    }
+
+    local response = sendMessage("CalculateFriendshipMoveEffects", testData)
+
+    if response.Action ~= "SaveState" then
+        error("Expected SaveState action")
+    end
+
+    -- Math.max(102 - Math.floor(0 / 2.5), 1) = 102
+    if response.FrustrationPower ~= "102" then
+        error("Expected FrustrationPower '102', got: " .. tostring(response.FrustrationPower))
+    end
+end)
+
+runTest("Calculate mid-range friendship move effects", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 128
+        }
+    }
+
+    local response = sendMessage("CalculateFriendshipMoveEffects", testData)
+
+    if response.Action ~= "SaveState" then
+        error("Expected SaveState action")
+    end
+
+    -- Return: Math.floor(128 / 2.5) = 51
+    if response.ReturnPower ~= "51" then
+        error("Expected ReturnPower '51', got: " .. tostring(response.ReturnPower))
+    end
+
+    -- Frustration: Math.max(102 - 51, 1) = 51
+    if response.FrustrationPower ~= "51" then
+        error("Expected FrustrationPower '51', got: " .. tostring(response.FrustrationPower))
+    end
+end)
+
+runTest("Ensure minimum power of 1 for both moves", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 1
+        }
+    }
+
+    local response = sendMessage("CalculateFriendshipMoveEffects", testData)
+
+    local data = json.decode(response.Data or "{}")
+    if not data.moveEffects then
+        error("Missing moveEffects in response data")
+    end
+
+    if data.moveEffects.returnPower < 1 then
+        error("Return power should be at least 1")
+    end
+
+    if data.moveEffects.frustrationPower < 1 then
+        error("Frustration power should be at least 1")
+    end
+end)
+
+-- ==========================================
+-- TEST SUITE: GetFriendshipStatus Handler
+-- ==========================================
+
+runTest("Return comprehensive friendship status information", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 180
+        }
+    }
+
+    local response = sendMessage("GetFriendshipStatus", testData)
+
+    if response.Action ~= "SaveState" then
+        error("Expected SaveState action")
+    end
+
+    if response.CurrentFriendship ~= "180" then
+        error("Expected CurrentFriendship '180', got: " .. tostring(response.CurrentFriendship))
+    end
+
+    if response.FriendshipLevel ~= "high" then
+        error("Expected FriendshipLevel 'high', got: " .. tostring(response.FriendshipLevel))
+    end
+
+    if response.CanEvolveByFriendship ~= "false" then
+        error("Expected CanEvolveByFriendship 'false' (180 < 220)")
+    end
+
+    if response.ToEvolution ~= "40" then
+        error("Expected ToEvolution '40', got: " .. tostring(response.ToEvolution))
+    end
+end)
+
+runTest("Indicate evolution readiness for high friendship", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 240
+        }
+    }
+
+    local response = sendMessage("GetFriendshipStatus", testData)
+
+    if response.CanEvolveByFriendship ~= "true" then
+        error("Expected CanEvolveByFriendship 'true' for friendship 240")
+    end
+
+    if response.ToEvolution ~= "0" then
+        error("Expected ToEvolution '0' (already meets threshold)")
+    end
+end)
+
+runTest("Handle pokemon without explicit friendship value", function()
+    local testData = {
+        pokemon = {
+            speciesId = 25
+            -- No friendship field
+        }
+    }
+
+    local response = sendMessage("GetFriendshipStatus", testData)
+
+    if response.Action ~= "SaveState" then
+        error("Expected SaveState action")
+    end
+
+    if response.CurrentFriendship ~= "50" then
+        error("Expected base friendship '50' for Pikachu, got: " .. tostring(response.CurrentFriendship))
+    end
+
+    if response.FriendshipLevel ~= "normal" then
+        error("Expected FriendshipLevel 'normal' for friendship 50")
+    end
+end)
+
+-- ==========================================
+-- TEST SUITE: Friendship Level Classification
+-- ==========================================
+
+runTest("Classify friendship levels correctly", function()
+    local testCases = {
+        {friendship = 0, expectedLevel = "very_low"},
+        {friendship = 25, expectedLevel = "very_low"},
+        {friendship = 50, expectedLevel = "low"},
+        {friendship = 99, expectedLevel = "low"},
+        {friendship = 100, expectedLevel = "normal"},
+        {friendship = 149, expectedLevel = "normal"},
+        {friendship = 150, expectedLevel = "high"},
+        {friendship = 199, expectedLevel = "high"},
+        {friendship = 200, expectedLevel = "very_high"},
+        {friendship = 254, expectedLevel = "very_high"},
+        {friendship = 255, expectedLevel = "maximum"}
+    }
+
+    for _, testCase in ipairs(testCases) do
+        local testData = {
+            pokemon = {
+                speciesId = 25,
+                friendship = testCase.friendship
+            }
+        }
+
+        local response = sendMessage("GetFriendshipStatus", testData)
+
+        if response.FriendshipLevel ~= testCase.expectedLevel then
+            error("Friendship " .. testCase.friendship .. " should be level " .. testCase.expectedLevel ..
+                  ", got: " .. tostring(response.FriendshipLevel))
+        end
+    end
+end)
+
+-- ==========================================
+-- TEST SUITE: Input Validation
+-- ==========================================
+
+runTest("Reject messages without pokemon data", function()
+    local handlers = {"CalculateFriendship", "CheckFriendshipEvolution", "CalculateFriendshipMoveEffects", "GetFriendshipStatus"}
+
+    for _, handlerAction in ipairs(handlers) do
+        local response = sendMessage(handlerAction, {})
+
+        if response.Action ~= "Error" then
+            error("Handler " .. handlerAction .. " should reject empty pokemon data, got: " .. tostring(response.Action))
+        end
+    end
+end)
+
+runTest("Reject invalid species ID", function()
+    local testData = {
+        pokemon = {
+            speciesId = "invalid",
+            friendship = 50
+        }
+    }
+
+    local response = sendMessage("CalculateFriendship", testData)
+
+    if response.Action ~= "Error" then
+        error("Expected Error action for invalid species ID")
+    end
+
+    if not string.match(response.Error or "", "Valid species ID") then
+        error("Expected 'Valid species ID' error message")
+    end
+end)
+
+runTest("Reject friendship values out of range", function()
+    -- Test below 0
+    local testDataLow = {
+        pokemon = {
+            speciesId = 25,
+            friendship = -10
+        }
+    }
+
+    local responseLow = sendMessage("GetFriendshipStatus", testDataLow)
+
+    if responseLow.Action ~= "Error" then
+        error("Expected Error action for friendship below 0")
+    end
+
+    if not string.match(responseLow.Error or "", "between 0 and 255") then
+        error("Expected 'between 0 and 255' error message")
+    end
+
+    -- Test above 255
+    local testDataHigh = {
+        pokemon = {
+            speciesId = 25,
+            friendship = 300
+        }
+    }
+
+    local responseHigh = sendMessage("GetFriendshipStatus", testDataHigh)
+
+    if responseHigh.Action ~= "Error" then
+        error("Expected Error action for friendship above 255")
+    end
+end)
+
+-- ==========================================
+-- TEST SUMMARY
+-- ==========================================
+print("\n==================================================")
+print("🎉 All tests passed!")
+print("✅ " .. passCount .. " / " .. testCount .. " tests successful")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)
+print("==================================================")

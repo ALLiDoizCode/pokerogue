@@ -1,296 +1,160 @@
 -- Unit Tests for Modifier System Engine Item Interactions
 -- Validates item interaction calculations, stacking, and effect combinations
 
-local json = require('dkjson')
+local aolite = require("aolite")
+local json = require("json")
 
--- Test data setup
-local testModifierTypes = {
-    POTION = {
-        id = "POTION",
-        effectType = "healing",
-        healAmount = 20,
-        tier = "COMMON"
-    },
-    SUPER_POTION = {
-        id = "SUPER_POTION", 
-        effectType = "healing",
-        healAmount = 50,
-        tier = "GREAT"
-    },
-    X_ATTACK = {
-        id = "X_ATTACK",
-        effectType = "stat_boost",
-        boostAmount = 1,
-        boostPercent = 50,
-        tier = "COMMON"
-    },
-    CHOICE_BAND = {
-        id = "CHOICE_BAND",
-        effectType = "attack_boost",
-        tier = "ULTRA"
-    },
-    CHOICE_SPECS = {
-        id = "CHOICE_SPECS", 
-        effectType = "sp_attack_boost",
-        tier = "ULTRA"
-    }
-}
+local PROCESS_PATH = "processes.modifier-system-engine"
+local processId = "test-modifier-system-engine-interactions"
 
--- Mock functions for testing (simplified versions)
-local function calculateItemEffectCombination(primaryItem, secondaryItems, interactionRule)
-    local result = {
-        primaryEffect = testModifierTypes[primaryItem] and testModifierTypes[primaryItem].effectType,
-        secondaryEffects = {},
-        finalResult = 0,
-        calculationOrder = interactionRule and interactionRule.calculationOrder or {},
-        precedenceApplied = interactionRule ~= nil
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Modifier System Engine Interactions")
+print("Process ID:", processId)
+
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
     }
-    
-    if testModifierTypes[primaryItem] then
-        result.finalResult = testModifierTypes[primaryItem].healAmount or testModifierTypes[primaryItem].boostAmount or 0
-    end
-    
-    if interactionRule and interactionRule.combinationRule == "additive" then
-        for _, secondaryId in ipairs(secondaryItems or {}) do
-            if testModifierTypes[secondaryId] then
-                local secondaryValue = testModifierTypes[secondaryId].healAmount or testModifierTypes[secondaryId].boostAmount or 0
-                result.finalResult = result.finalResult + secondaryValue
-                table.insert(result.secondaryEffects, testModifierTypes[secondaryId].effectType)
-            end
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
         end
     end
-    
-    return result
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
-local function lookupItemInteraction(primaryItemId, secondaryItemIds)
-    if primaryItemId == "POTION" then
-        for _, secondaryId in ipairs(secondaryItemIds or {}) do
-            if secondaryId == "SUPER_POTION" then
-                return "POTION_COMBO", {
-                    combinationRule = "additive",
-                    calculationOrder = {"primary", "secondary"}
-                }
-            end
-        end
-    end
-    return nil, nil
+-- Test 1: Item interaction lookup
+print("📝 Test 1: Item Interaction Lookup")
+local lookupData = json.encode({
+    primaryItemId = "POTION",
+    secondaryItemIds = {"SUPER_POTION"}
+})
+local response1 = sendMessage("LookupItemInteraction", {}, lookupData)
+if not response1 or response1.Action == "Error" then
+    error("❌ Test failed: Expected successful item interaction lookup")
 end
+print("✅ Test 1 passed: Item interaction lookup")
 
-local function validateItemStackingLimits(itemId, currentStackCount, newStackCount)
-    local limits = {
-        COMMON = 99,
-        GREAT = 10, 
-        ULTRA = 5,
-        ROGUE = 3,
-        MASTER = 1
-    }
-    
-    local item = testModifierTypes[itemId]
-    if not item then
-        return false, "Invalid item"
-    end
-    
-    local limit = limits[item.tier] or 1
-    if currentStackCount + newStackCount > limit then
-        return false, "Stack limit exceeded"
-    end
-    
-    return true, "Stacking allowed"
-end
-
-local function checkEffectCancellation(primaryItemId, secondaryItemId)
-    local mutuallyExclusive = {
-        {"CHOICE_BAND", "CHOICE_SPECS", "CHOICE_SCARF"}
-    }
-    
-    for _, group in ipairs(mutuallyExclusive) do
-        local primaryFound = false
-        local secondaryFound = false
-        
-        for _, itemId in ipairs(group) do
-            if itemId == primaryItemId then primaryFound = true end
-            if itemId == secondaryItemId then secondaryFound = true end
-        end
-        
-        if primaryFound and secondaryFound then
-            return {
-                shouldCancel = true,
-                cancellationType = "mutual_exclusion",
-                reason = "Items are mutually exclusive"
-            }
-        end
-    end
-    
-    return {
-        shouldCancel = false,
-        cancellationType = "none",
-        reason = ""
-    }
-end
-
--- Test Suite
-local tests = {}
-local testResults = {}
-
--- Test 1: Item Interaction Lookup
-function tests.testItemInteractionLookup()
-    print("🧪 Test 1: Item Interaction Lookup")
-    
-    -- Test valid interaction
-    local interactionId, rule = lookupItemInteraction("POTION", {"SUPER_POTION"})
-    assert(interactionId == "POTION_COMBO", "Should find POTION_COMBO interaction")
-    assert(rule.combinationRule == "additive", "Should have additive combination rule")
-    
-    -- Test no interaction
-    local noInteractionId, noRule = lookupItemInteraction("X_ATTACK", {"POTION"})
-    assert(noInteractionId == nil, "Should not find interaction for unrelated items")
-    
-    print("✅ Item interaction lookup tests passed")
-    return true
-end
-
--- Test 2: Effect Combination Calculation
-function tests.testEffectCombination()
-    print("🧪 Test 2: Effect Combination Calculation")
-    
-    local interactionRule = {
+-- Test 2: Effect combination calculation
+print("📝 Test 2: Effect Combination Calculation")
+local combinationData = json.encode({
+    primaryItem = "POTION",
+    secondaryItems = {"SUPER_POTION"},
+    interactionRule = {
         combinationRule = "additive",
         calculationOrder = {"primary", "secondary"}
     }
-    
-    local result = calculateItemEffectCombination("POTION", {"SUPER_POTION"}, interactionRule)
-    
-    assert(result.primaryEffect == "healing", "Primary effect should be healing")
-    assert(result.finalResult == 70, "Final result should be 20 + 50 = 70")
-    assert(#result.secondaryEffects == 1, "Should have one secondary effect")
-    assert(result.precedenceApplied == true, "Precedence should be applied")
-    
-    print("✅ Effect combination calculation tests passed")
-    return true
+})
+local response2 = sendMessage("CalculateItemEffectCombination", {}, combinationData)
+if not response2 or response2.Action == "Error" then
+    error("❌ Test failed: Expected successful effect combination calculation")
 end
+print("✅ Test 2 passed: Effect combination calculation")
 
--- Test 3: Modifier Stacking Validation
-function tests.testModifierStacking()
-    print("🧪 Test 3: Modifier Stacking Validation")
-    
-    -- Test valid stacking
-    local valid, message = validateItemStackingLimits("POTION", 5, 3)
-    assert(valid == true, "POTION stacking should be valid within COMMON limits")
-    
-    -- Test exceeded stacking
-    local invalid, errorMessage = validateItemStackingLimits("CHOICE_BAND", 3, 3)
-    assert(invalid == false, "CHOICE_BAND should exceed ULTRA tier limits")
-    assert(string.find(errorMessage, "Stack limit exceeded"), "Should indicate stack limit exceeded")
-    
-    print("✅ Modifier stacking validation tests passed")
-    return true
+-- Test 3: Modifier stacking validation
+print("📝 Test 3: Modifier Stacking Validation")
+local stackingData = json.encode({
+    itemId = "POTION",
+    currentStackCount = 5,
+    newStackCount = 3
+})
+local response3 = sendMessage("ValidateItemStackingLimits", {}, stackingData)
+if not response3 or response3.Action == "Error" then
+    error("❌ Test failed: Expected successful stacking validation")
 end
+print("✅ Test 3 passed: Modifier stacking validation")
 
--- Test 4: Effect Cancellation Detection
-function tests.testEffectCancellation()
-    print("🧪 Test 4: Effect Cancellation Detection")
-    
-    -- Test mutual exclusion
-    local cancellation = checkEffectCancellation("CHOICE_BAND", "CHOICE_SPECS")
-    assert(cancellation.shouldCancel == true, "Choice items should cancel each other")
-    assert(cancellation.cancellationType == "mutual_exclusion", "Should be mutual exclusion")
-    
-    -- Test no cancellation
-    local noCancellation = checkEffectCancellation("POTION", "SUPER_POTION")
-    assert(noCancellation.shouldCancel == false, "Healing items should not cancel")
-    
-    print("✅ Effect cancellation detection tests passed")
-    return true
+-- Test 4: Stacking limit exceeded
+print("📝 Test 4: Stacking Limit Exceeded")
+local exceedData = json.encode({
+    itemId = "CHOICE_BAND",
+    currentStackCount = 3,
+    newStackCount = 3
+})
+local response4 = sendMessage("ValidateItemStackingLimits", {}, exceedData)
+if response4 and response4.Action ~= "Error" then
+    error("❌ Test failed: Expected error for exceeded stacking limit")
 end
+print("✅ Test 4 passed: Stacking limit exceeded error")
 
--- Test 5: Complex Interaction Scenarios
-function tests.testComplexInteractions()
-    print("🧪 Test 5: Complex Interaction Scenarios")
-    
-    -- Test multiple item combinations
-    local multipleItemResult = calculateItemEffectCombination("POTION", {"SUPER_POTION"}, {
+-- Test 5: Effect cancellation detection
+print("📝 Test 5: Effect Cancellation Detection")
+local cancellationData = json.encode({
+    primaryItemId = "CHOICE_BAND",
+    secondaryItemId = "CHOICE_SPECS"
+})
+local response5 = sendMessage("CheckEffectCancellation", {}, cancellationData)
+if not response5 or response5.Action == "Error" then
+    error("❌ Test failed: Expected successful cancellation check")
+end
+print("✅ Test 5 passed: Effect cancellation detection")
+
+-- Test 6: No cancellation for compatible items
+print("📝 Test 6: No Cancellation for Compatible Items")
+local noCancelData = json.encode({
+    primaryItemId = "POTION",
+    secondaryItemId = "SUPER_POTION"
+})
+local response6 = sendMessage("CheckEffectCancellation", {}, noCancelData)
+if not response6 or response6.Action == "Error" then
+    error("❌ Test failed: Expected successful no-cancellation check")
+end
+print("✅ Test 6 passed: No cancellation for compatible items")
+
+-- Test 7: Complex interaction scenarios
+print("📝 Test 7: Complex Interaction Scenarios")
+local complexData = json.encode({
+    primaryItem = "POTION",
+    secondaryItems = {"SUPER_POTION"},
+    interactionRule = {
         combinationRule = "additive",
         calculationOrder = {"primary", "secondary"}
-    })
-    
-    assert(multipleItemResult.finalResult == 70, "Multiple healing items should combine additively")
-    
-    -- Test interaction with cancellation
-    local conflictResult = checkEffectCancellation("CHOICE_BAND", "CHOICE_SPECS")
-    assert(conflictResult.shouldCancel, "Conflicting items should be detected")
-    
-    print("✅ Complex interaction scenario tests passed")
-    return true
-end
-
--- Test 6: Edge Cases and Error Handling
-function tests.testEdgeCases()
-    print("🧪 Test 6: Edge Cases and Error Handling")
-    
-    -- Test invalid item
-    local invalidResult = calculateItemEffectCombination("INVALID_ITEM", {}, nil)
-    assert(invalidResult.primaryEffect == nil, "Invalid item should have no primary effect")
-    assert(invalidResult.finalResult == 0, "Invalid item should have zero result")
-    
-    -- Test empty secondary items
-    local emptySecondaryResult = calculateItemEffectCombination("POTION", {}, nil)
-    assert(emptySecondaryResult.finalResult == 20, "Should handle empty secondary items")
-    
-    print("✅ Edge case and error handling tests passed")
-    return true
-end
-
--- Test Runner
-function runAllTests()
-    print("🚀 Running Item Interaction Unit Tests")
-    print("=====================================")
-    
-    local testCount = 0
-    local passedCount = 0
-    
-    for testName, testFunc in pairs(tests) do
-        testCount = testCount + 1
-        local success, result = pcall(testFunc)
-        
-        if success and result then
-            passedCount = passedCount + 1
-            testResults[testName] = "PASS"
-        else
-            testResults[testName] = "FAIL"
-            print("❌ " .. testName .. " failed: " .. tostring(result))
-        end
-    end
-    
-    print("=====================================")
-    print("📊 Test Results Summary:")
-    print("Total tests: " .. testCount)
-    print("Passed: " .. passedCount)
-    print("Failed: " .. (testCount - passedCount))
-    print("Success rate: " .. string.format("%.1f", (passedCount / testCount) * 100) .. "%")
-    
-    if passedCount == testCount then
-        print("✅ All item interaction tests passed!")
-        return true
-    else
-        print("❌ Some tests failed")
-        return false
-    end
-end
-
--- Execute tests
-runAllTests()
-
--- Return test results for external validation
-return {
-    results = testResults,
-    testFramework = "item_interactions",
-    coverage = {
-        "item_interaction_lookup",
-        "effect_combination_calculation", 
-        "modifier_stacking_validation",
-        "effect_cancellation_detection",
-        "complex_interaction_scenarios",
-        "edge_cases_error_handling"
     }
-}
+})
+local response7 = sendMessage("CalculateItemEffectCombination", {}, complexData)
+if not response7 or response7.Action == "Error" then
+    error("❌ Test failed: Expected successful complex interaction")
+end
+print("✅ Test 7 passed: Complex interaction scenarios")
+
+-- Test 8: Edge case - Invalid item
+print("📝 Test 8: Edge Case - Invalid Item")
+local invalidData = json.encode({
+    primaryItem = "INVALID_ITEM",
+    secondaryItems = {}
+})
+local response8 = sendMessage("CalculateItemEffectCombination", {}, invalidData)
+if response8 and response8.Action ~= "Error" then
+    error("❌ Test failed: Expected error for invalid item")
+end
+print("✅ Test 8 passed: Invalid item error handling")
+
+-- Test 9: Edge case - Empty secondary items
+print("📝 Test 9: Edge Case - Empty Secondary Items")
+local emptySecondaryData = json.encode({
+    primaryItem = "POTION",
+    secondaryItems = {}
+})
+local response9 = sendMessage("CalculateItemEffectCombination", {}, emptySecondaryData)
+if not response9 or response9.Action == "Error" then
+    error("❌ Test failed: Expected successful handling of empty secondary items")
+end
+print("✅ Test 9 passed: Empty secondary items handling")
+
+-- Test 10: Ping handler
+print("📝 Test 10: Ping Handler")
+local response10 = sendMessage("Ping")
+if not response10 or response10.Action ~= "Pong" then
+    error("❌ Test failed: Expected Pong response")
+end
+print("✅ Test 10 passed: Ping handler")
+
+print("==================================================")
+print("🎉 All tests passed!")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

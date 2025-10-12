@@ -1,212 +1,115 @@
--- Unit tests for ADP v1.0 Compliant Abilities Database Process
--- Test framework: aolite
+-- Aolite Unit Tests for ADP v1.0 Compliant Abilities Database Process
+-- Tests ADP compliance, ability queries, and handler functionality
+-- Compatible with aolite testing framework (CORRECT API)
 
-print("Running ADP v1.0 Abilities Database Unit Tests...")
-print("===================================================")
-
--- Load the abilities database process
 local aolite = require("aolite")
+local json = require("json")
 
--- Test configurations
-local testResults = {}
+-- Test configuration
+local PROCESS_PATH = "processes.abilities-database-adp"
+local processId = "test-abilities-database-adp"
+
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Abilities Database (ADP v1.0)")
+print("Process ID:", processId)
+
+-- Test utilities
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
+    }
+
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
+    end
+
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
+end
 
 -- Test 1: Process Initialization and ADP Compliance
-local function test_process_initialization()
-    local processId = aolite.spawnProcess("processes/abilities-database-adp.lua")
-    local result = processId ~= nil
-    testResults["test_process_initialization"] = result
-    print(result and "✓ Process initialization test passed" or "✗ Process initialization test failed")
-    return result
+print("📝 Test 1: Process initialization and ADP compliance")
+local infoResponse = sendMessage("Info")
+if not infoResponse or infoResponse.Action ~= "SaveState" then
+    error("❌ Test 1 failed: Expected SaveState action from Info handler")
 end
-
--- Test 2: ADP Info Handler
-local function test_adp_info_handler()
-    local processId = aolite.spawnProcess("processes/abilities-database-adp.lua")
-
-    local infoMessage = {
-        Action = "Info",
-        Timestamp = 1234567890,
-        From = "test-client"
-    }
-
-    aolite.send(processId, infoMessage)
-    aolite.runScheduler()
-
-    local messages = aolite.getAllMsgs(processId)
-    local infoResponse = nil
-
-    for _, msg in ipairs(messages) do
-        if msg.Action == "SaveState" and msg.Data and msg.Data.process then
-            infoResponse = msg
-            break
-        end
-    end
-
-    local result = infoResponse ~= nil and
-                   infoResponse.Data.process.adpVersion == "1.0" and
-                   infoResponse.Data.documentation.adpCompliance == "v1.0"
-
-    testResults["test_adp_info_handler"] = result
-    print(result and "✓ ADP Info handler test passed" or "✗ ADP Info handler test failed")
-    return result
+if not infoResponse.Data then
+    error("❌ Test 1 failed: No data in Info response")
 end
+local infoData = json.decode(infoResponse.Data)
+if not infoData.process or infoData.process.adpVersion ~= "1.0" then
+    error("❌ Test 1 failed: Expected ADP version 1.0")
+end
+if not infoData.documentation or infoData.documentation.adpCompliance ~= "v1.0" then
+    error("❌ Test 1 failed: Expected ADP compliance v1.0")
+end
+print("✅ Test 1 passed")
+
+-- Test 2: ADP Info Handler Details
+if not infoData.process.name or not infoData.handlers then
+    error("❌ Test 2 failed: Missing process name or handlers")
+end
+print("✅ Test 2 passed")
 
 -- Test 3: GetAbility Handler
-local function test_get_ability_handler()
-    local processId = aolite.spawnProcess("processes/abilities-database-adp.lua")
-
-    local abilityMessage = {
-        Action = "GetAbility",
-        Data = {id = 65}, -- Overgrow
-        Timestamp = 1234567890,
-        From = "test-client"
-    }
-
-    aolite.send(processId, abilityMessage)
-    aolite.runScheduler()
-
-    local messages = aolite.getAllMsgs(processId)
-    local abilityResponse = nil
-
-    for _, msg in ipairs(messages) do
-        if msg.Action == "SaveState" and msg.Data and not msg.Error then
-            abilityResponse = msg
-            break
-        end
-    end
-
-    local result = abilityResponse ~= nil and abilityResponse.Data ~= nil
-    testResults["test_get_ability_handler"] = result
-    print(result and "✓ GetAbility handler test passed" or "✗ GetAbility handler test failed")
-    return result
+print("📝 Test 3: GetAbility handler")
+local abilityData = json.encode({id = 65}) -- Overgrow
+local abilityResponse = sendMessage("GetAbility", nil, abilityData)
+if not abilityResponse or abilityResponse.Action ~= "SaveState" then
+    error("❌ Test 3 failed: Expected SaveState action")
 end
+if not abilityResponse.Data then
+    error("❌ Test 3 failed: No data in response")
+end
+print("✅ Test 3 passed")
 
 -- Test 4: GetAbilitiesByTrigger Handler
-local function test_get_abilities_by_trigger_handler()
-    local processId = aolite.spawnProcess("processes/abilities-database-adp.lua")
-
-    local triggerMessage = {
-        Action = "GetAbilitiesByTrigger",
-        Data = {trigger = "on_contact"},
-        Timestamp = 1234567890,
-        From = "test-client"
-    }
-
-    aolite.send(processId, triggerMessage)
-    aolite.runScheduler()
-
-    local messages = aolite.getAllMsgs(processId)
-    local triggerResponse = nil
-
-    for _, msg in ipairs(messages) do
-        if msg.Action == "SaveState" and msg.Data and not msg.Error then
-            triggerResponse = msg
-            break
-        end
-    end
-
-    local result = triggerResponse ~= nil and triggerResponse.Data ~= nil
-    testResults["test_get_abilities_by_trigger_handler"] = result
-    print(result and "✓ GetAbilitiesByTrigger handler test passed" or "✗ GetAbilitiesByTrigger handler test failed")
-    return result
+print("📝 Test 4: GetAbilitiesByTrigger handler")
+local triggerData = json.encode({trigger = "on_contact"})
+local triggerResponse = sendMessage("GetAbilitiesByTrigger", nil, triggerData)
+if not triggerResponse or triggerResponse.Action ~= "SaveState" then
+    error("❌ Test 4 failed: Expected SaveState action")
 end
+if not triggerResponse.Data then
+    error("❌ Test 4 failed: No data in response")
+end
+print("✅ Test 4 passed")
 
 -- Test 5: Health Check Handler
-local function test_health_check_handler()
-    local processId = aolite.spawnProcess("processes/abilities-database-adp.lua")
-
-    local healthMessage = {
-        Action = "HealthCheck",
-        Timestamp = 1234567890,
-        From = "test-client"
-    }
-
-    aolite.send(processId, healthMessage)
-    aolite.runScheduler()
-
-    local messages = aolite.getAllMsgs(processId)
-    local healthResponse = nil
-
-    for _, msg in ipairs(messages) do
-        if msg.Action == "SaveState" and msg.Data then
-            healthResponse = msg
-            break
-        end
-    end
-
-    local result = healthResponse ~= nil and
-                   healthResponse.Data.status == "healthy" and
-                   healthResponse.Data.adpCompliant == true
-
-    testResults["test_health_check_handler"] = result
-    print(result and "✓ Health check handler test passed" or "✗ Health check handler test failed")
-    return result
+print("📝 Test 5: Health check handler")
+local healthResponse = sendMessage("HealthCheck")
+if not healthResponse or healthResponse.Action ~= "SaveState" then
+    error("❌ Test 5 failed: Expected SaveState action")
 end
+if not healthResponse.Data then
+    error("❌ Test 5 failed: No data in response")
+end
+local healthData = json.decode(healthResponse.Data)
+if healthData.status ~= "healthy" or not healthData.adpCompliant then
+    error("❌ Test 5 failed: Expected healthy status and ADP compliance")
+end
+print("✅ Test 5 passed")
 
 -- Test 6: Error handling
-local function test_error_handling()
-    local processId = aolite.spawnProcess("processes/abilities-database-adp.lua")
-
-    local invalidMessage = {
-        Action = "GetAbility",
-        Data = {}, -- Missing required id or name
-        Timestamp = 1234567890,
-        From = "test-client"
-    }
-
-    aolite.send(processId, invalidMessage)
-    aolite.runScheduler()
-
-    local messages = aolite.getAllMsgs(processId)
-    local errorResponse = nil
-
-    for _, msg in ipairs(messages) do
-        if msg.Action == "SaveState" and msg.Error then
-            errorResponse = msg
-            break
-        end
-    end
-
-    local result = errorResponse ~= nil and errorResponse.Error ~= nil
-    testResults["test_error_handling"] = result
-    print(result and "✓ Error handling test passed" or "✗ Error handling test failed")
-    return result
+print("📝 Test 6: Error handling for invalid request")
+local errorData = json.encode({}) -- Missing required id or name
+local errorResponse = sendMessage("GetAbility", nil, errorData)
+if not errorResponse then
+    error("❌ Test 6 failed: No response received")
 end
-
--- Run all tests
-local function run_tests()
-    local tests = {
-        test_process_initialization,
-        test_adp_info_handler,
-        test_get_ability_handler,
-        test_get_abilities_by_trigger_handler,
-        test_health_check_handler,
-        test_error_handling
-    }
-
-    local passed = 0
-    local total = #tests
-
-    for _, test in ipairs(tests) do
-        if test() then
-            passed = passed + 1
-        end
-    end
-
-    print("\n==================================================")
-    print("Test Results:")
-    print("  Passed: " .. passed)
-    print("  Failed: " .. (total - passed))
-    print("  Total:  " .. total)
-
-    if passed == total then
-        print("\n🎉 All tests passed!")
-        return true
-    else
-        print("\n💥 Some tests failed!")
-        return false
-    end
+if not errorResponse.Error then
+    error("❌ Test 6 failed: Expected Error field for invalid request")
 end
+print("✅ Test 6 passed")
 
--- Execute tests
-return run_tests()
+-- Test Summary
+print("==================================================")
+print("🎉 All tests passed!")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

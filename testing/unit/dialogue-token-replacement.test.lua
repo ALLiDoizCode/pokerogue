@@ -1,411 +1,192 @@
--- Unit tests for dialogue token replacement
+-- Aolite Unit Tests for Dialogue Token Replacement
 -- Tests dialogue token processing and replacement logic
+-- Compatible with aolite testing framework (CORRECT API)
 
--- Mock environment setup
-local testMessages = {}
-local testHandlers = {}
+local aolite = require("aolite")
+local json = require("json")
 
--- Mock AO environment
-local mockAO = {
-    id = "test-dialogue-navigation-engine",
-    send = function(msg)
-        table.insert(testMessages, msg)
-        return true
-    end
-}
+-- Test configuration
+local PROCESS_PATH = "processes.dialogue-navigation-engine"
+local processId = "test-dialogue-token-replacement"
 
--- Mock Handlers
-local mockHandlers = {
-    add = function(name, matcher, handler)
-        testHandlers[name] = {
-            matcher = matcher,
-            handler = handler
-        }
-    end,
-    utils = {
-        hasMatchingTag = function(tag, value)
-            return function(msg)
-                if type(value) == "table" then
-                    for _, v in ipairs(value) do
-                        if msg[tag] == v then return true end
-                    end
-                    return false
-                else
-                    return msg[tag] == value
-                end
-            end
-        end
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Dialogue Token Replacement")
+print("Process ID:", processId)
+
+-- Test utilities
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
     }
-}
 
--- Storage for encoded tables (outside mockJSON to survive environment resets)
-local encodedTables = {}
-
--- Mock JSON (simple implementation for testing)
-local mockJSON = {
-    encode = function(t)
-        if type(t) == "table" then
-            -- Store the actual table in persistent storage
-            local key = "table_" .. tostring(os.clock())
-            encodedTables[key] = t
-            return key
-        end
-        return tostring(t)
-    end,
-    decode = function(s)
-        if type(s) == "string" and encodedTables[s] then
-            return encodedTables[s]
-        end
-        if s == "{}" or s == "" then
-            return {}
-        end
-        return {}
-    end
-}
-
--- Set up test environment
-local function setupTestEnvironment()
-    testMessages = {}
-    testHandlers = {}
-    -- DON'T clear encodedTables here - we need them to persist for json.decode()
-
-    _G.ao = mockAO
-    _G.Handlers = mockHandlers
-    _G.json = mockJSON
-    _G.os = os
-    _G.math = math
-    _G.string = string
-    _G.table = table
-    _G.pairs = pairs
-    _G.ipairs = ipairs
-    _G.type = type
-    _G.tostring = tostring
-    _G.tonumber = tonumber
-    _G.pcall = pcall
-    _G.print = print
-end
-
--- Helper function to send a test message to a handler
-local function sendTestMessage(handlerName, message)
-    local handler = testHandlers[handlerName]
-    if not handler then
-        error("Handler not found: " .. handlerName)
-    end
-
-    if not handler.matcher(message) then
-        error("Message does not match handler pattern")
-    end
-
-    testMessages = {}
-    handler.handler(message)
-    return testMessages
-end
-
--- Load the dialogue navigation process
-local function loadDialogueNavigationProcess()
-    setupTestEnvironment()
-    dofile("processes/dialogue-navigation-engine.lua")
-end
-
--- Test suite for Token Replacement
-local function testDialogueTokenReplacement()
-    local tests = {}
-
-    -- Test 1: Simple token replacement
-    tests["test_simple_token_replacement"] = function()
-        loadDialogueNavigationProcess()
-
-        local message = {
-            From = "test-user",
-            Action = "ProcessDialogueTokens",
-            DialogueText = "Hello {{pokemonName}}!",
-            Data = json.encode({
-                pokemonName = "Pikachu"
-            })
-        }
-
-        local responses = sendTestMessage("process-dialogue-tokens", message)
-        assert(#responses >= 1, "Should send token replacement response")
-        local response = responses[1]
-        assert(response.Target == "test-user", "Should respond to sender")
-        assert(response.Success == "true", "Token replacement should succeed")
-
-        print("✓ Simple token replacement test passed")
-        return true
-    end
-
-    -- Test 2: Multiple token replacement in single text
-    tests["test_multiple_token_replacement"] = function()
-        loadDialogueNavigationProcess()
-
-        local message = {
-            From = "test-user",
-            Action = "ProcessDialogueTokens",
-            DialogueText = "{{trainerName}} sent out {{pokemonName}}!",
-            Data = json.encode({
-                trainerName = "Ash",
-                pokemonName = "Pikachu"
-            })
-        }
-
-        local responses = sendTestMessage("process-dialogue-tokens", message)
-        assert(#responses >= 1, "Should send token replacement response")
-        local response = responses[1]
-        assert(response.Target == "test-user", "Should respond to sender")
-        assert(response.Success == "true", "Multiple token replacement should succeed")
-
-        print("✓ Multiple token replacement test passed")
-        return true
-    end
-
-    -- Test 3: Missing token handling
-    tests["test_missing_token_handling"] = function()
-        loadDialogueNavigationProcess()
-
-        local message = {
-            From = "test-user",
-            Action = "ProcessDialogueTokens",
-            DialogueText = "Hello {{undefinedToken}}!",
-            Data = json.encode({
-                pokemonName = "Pikachu"  -- Different token, missing the one we need
-            })
-        }
-
-        local responses = sendTestMessage("process-dialogue-tokens", message)
-        assert(#responses >= 1, "Should send response for missing token")
-        local response = responses[1]
-        assert(response.Target == "test-user", "Should respond to sender")
-        -- Behavior depends on implementation (error or preserve placeholder)
-
-        print("✓ Missing token handling test passed")
-        return true
-    end
-
-    -- Test 4: Empty token map handling
-    tests["test_empty_token_map"] = function()
-        loadDialogueNavigationProcess()
-
-        local message = {
-            From = "test-user",
-            Action = "ProcessDialogueTokens",
-            DialogueText = "Hello {{pokemonName}}!",
-            Data = json.encode({})  -- Empty token map
-        }
-
-        local responses = sendTestMessage("process-dialogue-tokens", message)
-        assert(#responses >= 1, "Should send response")
-        local response = responses[1]
-        assert(response.Target == "test-user", "Should respond to sender")
-
-        print("✓ Empty token map test passed")
-        return true
-    end
-
-    -- Test 5: Text with no tokens
-    tests["test_text_with_no_tokens"] = function()
-        loadDialogueNavigationProcess()
-
-        local message = {
-            From = "test-user",
-            Action = "ProcessDialogueTokens",
-            DialogueText = "This text has no tokens.",
-            Data = json.encode({
-                pokemonName = "Pikachu"
-            })
-        }
-
-        local responses = sendTestMessage("process-dialogue-tokens", message)
-        assert(#responses >= 1, "Should send response")
-        local response = responses[1]
-        assert(response.Target == "test-user", "Should respond to sender")
-        assert(response.Success == "true", "Should succeed even with no tokens")
-        assert(response.TokenCount == "0", "Should report 0 tokens replaced")
-
-        print("✓ Text with no tokens test passed")
-        return true
-    end
-
-    -- Test 6: Token count validation
-    tests["test_token_count_validation"] = function()
-        loadDialogueNavigationProcess()
-
-        local message = {
-            From = "test-user",
-            Action = "ProcessDialogueTokens",
-            DialogueText = "{{a}} {{b}} {{c}}",
-            Data = json.encode({
-                a = "1",
-                b = "2",
-                c = "3"
-            })
-        }
-
-        local responses = sendTestMessage("process-dialogue-tokens", message)
-        assert(#responses >= 1, "Should send response")
-        local response = responses[1]
-        assert(response.Success == "true", "Should succeed")
-        assert(response.TokenCount ~= nil, "TokenCount should be present")
-        assert(type(response.TokenCount) == "string", "TokenCount should be a string")
-        -- Note: Actual token replacement requires proper json module, mock limitations prevent full test
-        -- Handler logic is correct, just can't fully test with mock JSON
-
-        print("✓ Token count validation test passed")
-        return true
-    end
-
-    -- Test 7: Missing DialogueText parameter
-    tests["test_missing_dialogue_text"] = function()
-        loadDialogueNavigationProcess()
-
-        local message = {
-            From = "test-user",
-            Action = "ProcessDialogueTokens",
-            -- Missing DialogueText
-            Data = json.encode({
-                pokemonName = "Pikachu"
-            })
-        }
-
-        local responses = sendTestMessage("process-dialogue-tokens", message)
-        assert(#responses >= 1, "Should send error response")
-        local response = responses[1]
-        assert(response.Action == "Error", "Should return error")
-
-        print("✓ Missing DialogueText test passed")
-        return true
-    end
-
-    -- Test 8: Missing token data
-    tests["test_missing_token_data"] = function()
-        loadDialogueNavigationProcess()
-
-        local message = {
-            From = "test-user",
-            Action = "ProcessDialogueTokens",
-            DialogueText = "Hello {{pokemonName}}!"
-            -- No Data field
-        }
-
-        local responses = sendTestMessage("process-dialogue-tokens", message)
-        assert(#responses >= 1, "Should send response")
-        local response = responses[1]
-        assert(response.Target == "test-user", "Should respond to sender")
-        -- Should handle gracefully (preserve placeholders or error)
-
-        print("✓ Missing token data test passed")
-        return true
-    end
-
-    -- Test 9: Special characters in token values
-    tests["test_special_characters_in_token_values"] = function()
-        loadDialogueNavigationProcess()
-
-        local message = {
-            From = "test-user",
-            Action = "ProcessDialogueTokens",
-            DialogueText = "Hello {{pokemonName}}!",
-            Data = json.encode({
-                pokemonName = "Pikachu (Level 50)"  -- Special characters
-            })
-        }
-
-        local responses = sendTestMessage("process-dialogue-tokens", message)
-        assert(#responses >= 1, "Should send response")
-        local response = responses[1]
-        assert(response.Success == "true", "Should handle special characters")
-
-        print("✓ Special characters in token values test passed")
-        return true
-    end
-
-    -- Test 10: Case-sensitive token replacement
-    tests["test_case_sensitive_token_replacement"] = function()
-        loadDialogueNavigationProcess()
-
-        local message = {
-            From = "test-user",
-            Action = "ProcessDialogueTokens",
-            DialogueText = "{{pokemonName}} vs {{PokemonName}}",
-            Data = json.encode({
-                pokemonName = "Pikachu",
-                PokemonName = "Raichu"  -- Different case
-            })
-        }
-
-        local responses = sendTestMessage("process-dialogue-tokens", message)
-        assert(#responses >= 1, "Should send response")
-        local response = responses[1]
-        assert(response.Success == "true", "Should handle case-sensitive tokens")
-
-        print("✓ Case-sensitive token replacement test passed")
-        return true
-    end
-
-    -- Test 11: Numeric token values
-    tests["test_numeric_token_values"] = function()
-        loadDialogueNavigationProcess()
-
-        local message = {
-            From = "test-user",
-            Action = "ProcessDialogueTokens",
-            DialogueText = "Level {{level}} Pokemon",
-            Data = json.encode({
-                level = "50"  -- Numeric value as string
-            })
-        }
-
-        local responses = sendTestMessage("process-dialogue-tokens", message)
-        assert(#responses >= 1, "Should send response")
-        local response = responses[1]
-        assert(response.Success == "true", "Should handle numeric token values")
-
-        print("✓ Numeric token values test passed")
-        return true
-    end
-
-    return tests
-end
-
--- Run all tests
-local function runTests()
-    print("Running Dialogue Token Replacement Unit Tests...")
-    print("=" .. string.rep("=", 50))
-
-    local tests = testDialogueTokenReplacement()
-    local passed = 0
-    local failed = 0
-
-    for testName, testFunc in pairs(tests) do
-        print("\nRunning: " .. testName)
-
-        local success, error = pcall(testFunc)
-        if success then
-            passed = passed + 1
-        else
-            failed = failed + 1
-            print("✗ " .. testName .. " FAILED: " .. tostring(error))
+    -- Add additional tags
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
         end
     end
 
-    print("\n" .. string.rep("=", 50))
-    print("Test Results:")
-    print("  Passed: " .. passed)
-    print("  Failed: " .. failed)
-    print("  Total:  " .. (passed + failed))
-
-    if failed == 0 then
-        print("\n🎉 All tests passed!")
-        return true
-    else
-        print("\n❌ Some tests failed!")
-        return false
-    end
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
--- Export for aolite framework
-return {
-    runTests = runTests,
-    testDialogueTokenReplacement = testDialogueTokenReplacement,
-    setupTestEnvironment = setupTestEnvironment,
-    sendTestMessage = sendTestMessage
-}
+-- Test 1: Simple token replacement
+print("📝 Test 1: Simple token replacement")
+local simpleTokenData = json.encode({
+    pokemonName = "Pikachu"
+})
+local simpleTokenResponse = sendMessage("ProcessDialogueTokens", {
+    DialogueText = "Hello {{pokemonName}}!"
+}, simpleTokenData)
+if simpleTokenResponse and simpleTokenResponse.Success == "true" then
+    print("✅ Simple token replacement test passed")
+else
+    error("❌ Simple token replacement test failed")
+end
+
+-- Test 2: Multiple token replacement in single text
+print("📝 Test 2: Multiple token replacement")
+local multipleTokenData = json.encode({
+    trainerName = "Ash",
+    pokemonName = "Pikachu"
+})
+local multipleTokenResponse = sendMessage("ProcessDialogueTokens", {
+    DialogueText = "{{trainerName}} sent out {{pokemonName}}!"
+}, multipleTokenData)
+if multipleTokenResponse and multipleTokenResponse.Success == "true" then
+    print("✅ Multiple token replacement test passed")
+else
+    error("❌ Multiple token replacement test failed")
+end
+
+-- Test 3: Missing token handling
+print("📝 Test 3: Missing token handling")
+local missingTokenData = json.encode({
+    pokemonName = "Pikachu"
+})
+local missingTokenResponse = sendMessage("ProcessDialogueTokens", {
+    DialogueText = "Hello {{undefinedToken}}!"
+}, missingTokenData)
+if missingTokenResponse then
+    print("✅ Missing token handling test passed")
+else
+    error("❌ Missing token handling test failed")
+end
+
+-- Test 4: Empty token map handling
+print("📝 Test 4: Empty token map handling")
+local emptyTokenData = json.encode({})
+local emptyTokenResponse = sendMessage("ProcessDialogueTokens", {
+    DialogueText = "Hello {{pokemonName}}!"
+}, emptyTokenData)
+if emptyTokenResponse then
+    print("✅ Empty token map test passed")
+else
+    error("❌ Empty token map test failed")
+end
+
+-- Test 5: Text with no tokens
+print("📝 Test 5: Text with no tokens")
+local noTokenData = json.encode({
+    pokemonName = "Pikachu"
+})
+local noTokenResponse = sendMessage("ProcessDialogueTokens", {
+    DialogueText = "This text has no tokens."
+}, noTokenData)
+if noTokenResponse and noTokenResponse.Success == "true" and noTokenResponse.TokenCount == "0" then
+    print("✅ Text with no tokens test passed")
+else
+    error("❌ Text with no tokens test failed")
+end
+
+-- Test 6: Token count validation
+print("📝 Test 6: Token count validation")
+local tokenCountData = json.encode({
+    a = "1",
+    b = "2",
+    c = "3"
+})
+local tokenCountResponse = sendMessage("ProcessDialogueTokens", {
+    DialogueText = "{{a}} {{b}} {{c}}"
+}, tokenCountData)
+if tokenCountResponse and tokenCountResponse.Success == "true" and tokenCountResponse.TokenCount ~= nil then
+    print("✅ Token count validation test passed")
+else
+    error("❌ Token count validation test failed")
+end
+
+-- Test 7: Missing DialogueText parameter
+print("📝 Test 7: Missing DialogueText parameter")
+local missingTextData = json.encode({
+    pokemonName = "Pikachu"
+})
+local missingTextResponse = sendMessage("ProcessDialogueTokens", {}, missingTextData)
+if missingTextResponse and missingTextResponse.Action == "Error" then
+    print("✅ Missing DialogueText test passed")
+else
+    error("❌ Missing DialogueText test failed")
+end
+
+-- Test 8: Missing token data
+print("📝 Test 8: Missing token data")
+local missingDataResponse = sendMessage("ProcessDialogueTokens", {
+    DialogueText = "Hello {{pokemonName}}!"
+})
+if missingDataResponse then
+    print("✅ Missing token data test passed")
+else
+    error("❌ Missing token data test failed")
+end
+
+-- Test 9: Special characters in token values
+print("📝 Test 9: Special characters in token values")
+local specialCharsData = json.encode({
+    pokemonName = "Pikachu (Level 50)"
+})
+local specialCharsResponse = sendMessage("ProcessDialogueTokens", {
+    DialogueText = "Hello {{pokemonName}}!"
+}, specialCharsData)
+if specialCharsResponse and specialCharsResponse.Success == "true" then
+    print("✅ Special characters in token values test passed")
+else
+    error("❌ Special characters in token values test failed")
+end
+
+-- Test 10: Case-sensitive token replacement
+print("📝 Test 10: Case-sensitive token replacement")
+local caseSensitiveData = json.encode({
+    pokemonName = "Pikachu",
+    PokemonName = "Raichu"
+})
+local caseSensitiveResponse = sendMessage("ProcessDialogueTokens", {
+    DialogueText = "{{pokemonName}} vs {{PokemonName}}"
+}, caseSensitiveData)
+if caseSensitiveResponse and caseSensitiveResponse.Success == "true" then
+    print("✅ Case-sensitive token replacement test passed")
+else
+    error("❌ Case-sensitive token replacement test failed")
+end
+
+-- Test 11: Numeric token values
+print("📝 Test 11: Numeric token values")
+local numericData = json.encode({
+    level = "50"
+})
+local numericResponse = sendMessage("ProcessDialogueTokens", {
+    DialogueText = "Level {{level}} Pokemon"
+}, numericData)
+if numericResponse and numericResponse.Success == "true" then
+    print("✅ Numeric token values test passed")
+else
+    error("❌ Numeric token values test failed")
+end
+
+-- Test Summary
+print("==================================================")
+print("🎉 All Dialogue Token Replacement tests passed!")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

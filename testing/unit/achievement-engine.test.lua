@@ -1,210 +1,175 @@
 -- Achievement Engine Unit Tests
--- Comprehensive test suite for achievement-engine.lua
--- Uses AO message-based testing pattern compatible with AO runtime
+-- Migrated to real aolite framework
+-- Tests achievement validation, metadata queries, and progress tracking
+-- Compatible with aolite testing framework (CORRECT API)
 
-print("\n=== Achievement Engine Unit Tests ===\n")
+-- Required imports
+local aolite = require("aolite")
+local json = require("json")
 
--- Mock AO environment
-local ao = {
-    send = function(msg)
-        table.insert(_G.testResults or {}, msg)
-    end,
-    id = "achievement_engine_unit_test"
-}
+-- Test configuration
+local PROCESS_PATH = "processes.achievement-engine"
+local processId = "test-achievement-engine"
 
--- Mock Handlers
-local Handlers = {
-    add = function(name, matcher, handler)
-        _G.testHandlers = _G.testHandlers or {}
-        _G.testHandlers[name] = {matcher = matcher, handler = handler}
-    end,
-    utils = {
-        hasMatchingTag = function(tag, value)
-            return function(msg)
-                return msg[tag] == value
-            end
-        end
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Achievement Engine")
+print("Process ID:", processId)
+
+-- Test utilities
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
     }
-}
-
--- Mock JSON with proper array handling
-local json = {
-    encode = function(data)
-        if type(data) == "table" then
-            return "{}"
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
         end
-        return tostring(data)
-    end,
-    decode = function(str)
-        -- Return proper array structure for Args parameter
-        if str and str ~= "" then
-            return {15000}  -- Mock money value for tests
-        end
-        return {}
     end
-}
-
--- Set globals
-_G.ao = ao
-_G.Handlers = Handlers
-_G.testResults = {}
-_G.testHandlers = {}
-
--- Pre-load JSON module into package.loaded to prevent require() call
-package.loaded["json"] = json
-_G.json = json
-
--- Load process
-local file = io.open("processes/achievement-engine.lua", "r")
-if not file then
-    print("✗ Could not find achievement-engine.lua")
-    os.exit(1)
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
-
-local content = file:read("*all")
-file:close()
-
-local processFunction = load(content)
-if not processFunction then
-    print("✗ Failed to load achievement engine process")
-    os.exit(1)
-end
-
-processFunction()
-print("✓ Achievement engine process loaded")
 
 -- Test counter
 local passed = 0
 local failed = 0
 
-local function test(name, condition)
-    if condition then
-        print("✓ " .. name)
-        passed = passed + 1
-    else
-        print("✗ " .. name)
-        failed = failed + 1
-    end
+print("\n==================================================")
+print("📝 Test 1: Info handler (ADP v1.0)")
+local info = sendMessage("Info")
+if info and info.Action == "SaveState" and info.Data then
+    print("✅ Test passed: Info handler responds with SaveState and data")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected SaveState action with data from Info handler")
 end
 
--- Execute handler helper
-local function exec(name, msg)
-    _G.testResults = {}
-    local h = _G.testHandlers[name]
-    if h and h.handler then
-        h.handler(msg)
-        return _G.testResults[#_G.testResults]
-    end
-    return nil
-end
-
-print("\nTest Group: Handler Registration")
-test("Info handler registered", _G.testHandlers["info"] ~= nil)
-test("ValidateAchievement handler registered", _G.testHandlers["validate-achievement"] ~= nil)
-test("ValidateAchievementsByType handler registered", _G.testHandlers["validate-achievements-by-type"] ~= nil)
-test("GetPlayerAchievements handler registered", _G.testHandlers["get-player-achievements"] ~= nil)
-test("GetAchievementMetadata handler registered", _G.testHandlers["get-achievement-metadata"] ~= nil)
-test("GetAchievementProgress handler registered", _G.testHandlers["get-achievement-progress"] ~= nil)
-
-print("\nTest Group: Info Handler (ADP v1.0)")
-local info = exec("info", {Action = "Info", From = "test", Timestamp = "0"})
-test("Info handler responds", info ~= nil)
-test("Info action is SaveState", info and info.Action == "SaveState")
-test("Info includes data", info and info.Data ~= nil)
-
-print("\nTest Group: Validate Achievement")
-local validate = exec("validate-achievement", {
-    Action = "ValidateAchievement",
+print("\n==================================================")
+print("📝 Test 2: ValidateAchievement - money achievement")
+local validate = sendMessage("ValidateAchievement", {
     PlayerId = "player1",
     AchievementId = "_10K_MONEY",
-    Args = json.encode({15000}),
-    From = "test",
-    Timestamp = "1000"
+    Args = json.encode({15000})
 })
-test("ValidateAchievement responds", validate ~= nil)
-test("ValidateAchievement action correct", validate and validate.Action == "AchievementValidated")
-test("Achievement unlocked", validate and validate.Success == "true")
+if validate and validate.Action == "AchievementValidated" and validate.Success == "true" then
+    print("✅ Test passed: Money achievement validated successfully")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected AchievementValidated with Success=true")
+end
 
-print("\nTest Group: Error Handling")
-local noPlayer = exec("validate-achievement", {
-    Action = "ValidateAchievement",
-    AchievementId = "_10K_MONEY",
-    From = "test",
-    Timestamp = "1001"
+print("\n==================================================")
+print("📝 Test 3: Error handling - missing PlayerId")
+local noPlayer = sendMessage("ValidateAchievement", {
+    AchievementId = "_10K_MONEY"
 })
-test("Missing PlayerId returns error", noPlayer and noPlayer.Action == "Error")
+if noPlayer and noPlayer.Action == "Error" then
+    print("✅ Test passed: Missing PlayerId returns Error")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Error action for missing PlayerId")
+end
 
-local noAchv = exec("validate-achievement", {
-    Action = "ValidateAchievement",
-    PlayerId = "player2",
-    From = "test",
-    Timestamp = "1002"
+print("\n==================================================")
+print("📝 Test 4: Error handling - missing AchievementId")
+local noAchv = sendMessage("ValidateAchievement", {
+    PlayerId = "player2"
 })
-test("Missing AchievementId returns error", noAchv and noAchv.Action == "Error")
+if noAchv and noAchv.Action == "Error" then
+    print("✅ Test passed: Missing AchievementId returns Error")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Error action for missing AchievementId")
+end
 
-local invalidAchv = exec("validate-achievement", {
-    Action = "ValidateAchievement",
+print("\n==================================================")
+print("📝 Test 5: Error handling - invalid achievement")
+local invalidAchv = sendMessage("ValidateAchievement", {
     PlayerId = "player3",
     AchievementId = "INVALID_ACHIEVEMENT",
-    Args = json.encode({}),
-    From = "test",
-    Timestamp = "1003"
+    Args = json.encode({})
 })
-test("Invalid achievement returns error", invalidAchv and invalidAchv.Action == "Error")
+if invalidAchv and invalidAchv.Action == "Error" then
+    print("✅ Test passed: Invalid achievement returns Error")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Error action for invalid achievement")
+end
 
-print("\nTest Group: Batch Validation")
-local batch = exec("validate-achievements-by-type", {
-    Action = "ValidateAchievementsByType",
+print("\n==================================================")
+print("📝 Test 6: ValidateAchievementsByType - batch validation")
+local batch = sendMessage("ValidateAchievementsByType", {
     PlayerId = "player4",
     AchievementType = "DamageAchv",
-    Args = json.encode({3000}),
-    From = "test",
-    Timestamp = "1004"
+    Args = json.encode({3000})
 })
-test("Batch validation responds", batch ~= nil)
-test("Batch action correct", batch and batch.Action == "AchievementsBatchValidated")
+if batch and batch.Action == "AchievementsBatchValidated" then
+    print("✅ Test passed: Batch validation responds correctly")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected AchievementsBatchValidated action")
+end
 
-print("\nTest Group: Player Achievement Query")
-local player = exec("get-player-achievements", {
-    Action = "GetPlayerAchievements",
+print("\n==================================================")
+print("📝 Test 7: GetPlayerAchievements query")
+local player = sendMessage("GetPlayerAchievements", {
     PlayerId = "player1",
-    IncludeSecrets = "false",
-    From = "test",
-    Timestamp = "1005"
+    IncludeSecrets = "false"
 })
-test("Get player achievements responds", player ~= nil)
-test("Player data action correct", player and player.Action == "PlayerAchievementData")
+if player and player.Action == "PlayerAchievementData" then
+    print("✅ Test passed: Player achievements query succeeds")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected PlayerAchievementData action")
+end
 
-print("\nTest Group: Metadata Query")
-local metadata = exec("get-achievement-metadata", {
-    Action = "GetAchievementMetadata",
-    From = "test",
-    Timestamp = "1006"
-})
-test("Get metadata responds", metadata ~= nil)
-test("Metadata action correct", metadata and metadata.Action == "AchievementMetadata")
+print("\n==================================================")
+print("📝 Test 8: GetAchievementMetadata query")
+local metadata = sendMessage("GetAchievementMetadata")
+if metadata and metadata.Action == "AchievementMetadata" then
+    print("✅ Test passed: Metadata query succeeds")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected AchievementMetadata action")
+end
 
-print("\nTest Group: Progress Tracking")
-local progress = exec("get-achievement-progress", {
-    Action = "GetAchievementProgress",
+print("\n==================================================")
+print("📝 Test 9: GetAchievementProgress - progress tracking")
+local progress = sendMessage("GetAchievementProgress", {
     PlayerId = "player5",
     AchievementId = "_100_RIBBONS",
-    CurrentValue = "75",
-    From = "test",
-    Timestamp = "1007"
+    CurrentValue = "75"
 })
-test("Get progress responds", progress ~= nil)
-test("Progress action correct", progress and progress.Action == "AchievementProgress")
-
-print("\n=== Test Summary ===")
-print(string.format("Passed: %d", passed))
-print(string.format("Failed: %d", failed))
-print(string.format("Total: %d", passed + failed))
-
-if failed == 0 then
-    print("\n✓ All tests passed!")
-    os.exit(0)
+if progress and progress.Action == "AchievementProgress" then
+    print("✅ Test passed: Progress tracking responds correctly")
+    passed = passed + 1
 else
-    print(string.format("\n✗ %d test(s) failed", failed))
-    os.exit(1)
+    error("❌ Test failed: Expected AchievementProgress action")
 end
+
+print("\n==================================================")
+print("📝 Test 10: ValidateAchievement - damage achievement")
+local damageAchv = sendMessage("ValidateAchievement", {
+    PlayerId = "player6",
+    AchievementId = "_250_DMG",
+    Args = json.encode({300})
+})
+if damageAchv and damageAchv.Action == "AchievementValidated" then
+    print("✅ Test passed: Damage achievement validation works")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected AchievementValidated for damage achievement")
+end
+
+print("\n==================================================")
+print("🎉 All tests completed!")
+print("==================================================")
+print(string.format("✅ Passed: %d", passed))
+print(string.format("❌ Failed: %d", failed))
+print(string.format("📊 Total: %d", passed + failed))
+print("==================================================")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

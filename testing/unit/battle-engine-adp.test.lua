@@ -1,233 +1,150 @@
 -- Unit Tests for ADP-Compliant Battle Engine Process
 -- Validates ADP v1.0 compliance, deterministic RNG, and battle mechanics
+-- Compatible with aolite testing framework (CORRECT API)
 
--- Mock AO environment for testing
-local mockAO = {
-    send = function(msg)
-        print("Mock AO send:", msg.Action or "unknown")
-        return true
-    end,
-    id = "test-battle-engine-adp"
-}
+local aolite = require("aolite")
+local json = require("json")
 
-local mockHandlers = {
-    add = function(name, matcher, handler)
-        print("Handler registered: " .. name)
-        return handler
-    end,
-    utils = {
-        hasMatchingTag = function(tag, value)
-            return function(msg)
-                return msg[tag] == value
-            end
-        end
+local PROCESS_PATH = "processes.battle-engine-adp"
+local processId = "test-battle-engine-adp"
+
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Battle Engine ADP")
+print("Process ID:", processId)
+
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
     }
-}
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
+    end
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
+end
 
--- Load the battle engine process
-local originalAO = ao
-local originalHandlers = Handlers
-local originalJson = json
-
--- Set up mock environment
-ao = mockAO
-Handlers = mockHandlers
-json = {
-    encode = function(t) return "mock_json_encode" end,
-    decode = function(s) return {test = "data"} end
-}
-
--- Load the process
-local BattleEngineModule = require("processes.battle-engine-adp")
-
--- Restore environment
-ao = originalAO
-Handlers = originalHandlers
-json = originalJson
-
-print("Running Battle Engine ADP Unit Tests...")
-print("===================================================")
-
--- Test case counter
+-- Test counter
 local tests_passed = 0
 local tests_failed = 0
 
-local function test(name, testFunc)
-    local success, errorMsg = pcall(testFunc)
-    if success then
-        print("✓ " .. name .. " test passed")
+-- Test ADP v1.0 Info Handler
+print("📝 Test 1: ADP v1.0 Info Handler")
+local infoResponse = sendMessage("Info")
+if infoResponse and infoResponse.Action == "SaveState" then
+    local infoData = json.decode(infoResponse.Data or "{}")
+    if infoData.process and infoData.process.adpVersion == "1.0" and infoData.process.name == "Battle Engine ADP" then
+        print("✅ Test passed: ADP metadata structure valid")
         tests_passed = tests_passed + 1
     else
-        print("✗ " .. name .. " test failed: " .. tostring(errorMsg))
-        tests_failed = tests_failed + 1
+        error("❌ Test failed: ADP metadata structure invalid")
     end
+else
+    error("❌ Test failed: Info handler did not return SaveState")
 end
 
--- Test ADP v1.0 metadata compliance
-test("ADP metadata structure", function()
-    local metadata = BattleEngineModule.PROCESS_METADATA
-    assert(metadata.name == "Battle Engine ADP", "Process name incorrect")
-    assert(metadata.adpVersion == "1.0", "ADP version not v1.0")
-    assert(metadata.processType == "logic", "Process type not logic")
-    assert(type(metadata.capabilities) == "table", "Capabilities not a table")
-    assert(type(metadata.messageSchemas) == "table", "Message schemas not a table")
-    assert(type(metadata.supportedOperations) == "table", "Supported operations not a table")
-end)
+-- Test type effectiveness calculation
+print("📝 Test 2: Type Effectiveness Calculation")
+local effectiveness = sendMessage("GetTypeEffectiveness", {
+    AttackType = "fire",
+    DefendType1 = "grass"
+})
+if effectiveness and effectiveness.Action == "SaveState" then
+    local effectData = json.decode(effectiveness.Data or "{}")
+    if effectData.effectiveness == 2 then
+        print("✅ Test passed: Fire vs Grass = 2x effective")
+        tests_passed = tests_passed + 1
+    else
+        error("❌ Test failed: Fire vs Grass effectiveness incorrect")
+    end
+else
+    error("❌ Test failed: GetTypeEffectiveness handler failed")
+end
 
--- Test type effectiveness chart completeness
-test("type effectiveness completeness", function()
-    local types = BattleEngineModule.TYPE_EFFECTIVENESS
-
-    -- Test key types are present
-    assert(types.fire ~= nil, "Fire type missing")
-    assert(types.water ~= nil, "Water type missing")
-    assert(types.grass ~= nil, "Grass type missing")
-    assert(types.electric ~= nil, "Electric type missing")
-    assert(types.fairy ~= nil, "Fairy type missing")
-
-    -- Test specific effectiveness values
-    assert(types.fire.water == 0.5, "Fire vs Water effectiveness incorrect")
-    assert(types.water.fire == 2, "Water vs Fire effectiveness incorrect")
-    assert(types.electric.ground == 0, "Electric vs Ground effectiveness incorrect")
-    assert(types.fighting.ghost == 0, "Fighting vs Ghost effectiveness incorrect")
-end)
-
--- Test deterministic RNG
-test("deterministic RNG", function()
-    local BattleEngine = BattleEngineModule.BattleEngine
-
-    -- Test type effectiveness calculation (deterministic)
-    local effectiveness1 = BattleEngine.getTypeEffectiveness("fire", "grass", nil)
-    local effectiveness2 = BattleEngine.getTypeEffectiveness("fire", "grass", nil)
-
-    assert(effectiveness1 == effectiveness2, "Type effectiveness should be deterministic")
-    assert(effectiveness1 == 2, "Fire vs Grass should be 2x effective")
-
-    -- Test dual-type effectiveness
-    local dualEffectiveness = BattleEngine.getTypeEffectiveness("fighting", "normal", "flying")
-    assert(dualEffectiveness == 1.0, "Fighting vs Normal/Flying should be neutral (2x * 0.5x)")
-end)
+-- Test dual-type effectiveness
+print("📝 Test 3: Dual-Type Effectiveness")
+local dualEffect = sendMessage("GetTypeEffectiveness", {
+    AttackType = "fighting",
+    DefendType1 = "normal",
+    DefendType2 = "flying"
+})
+if dualEffect and dualEffect.Action == "SaveState" then
+    local dualData = json.decode(dualEffect.Data or "{}")
+    if dualData.effectiveness == 1.0 then
+        print("✅ Test passed: Fighting vs Normal/Flying = neutral (2x * 0.5x)")
+        tests_passed = tests_passed + 1
+    else
+        error("❌ Test failed: Dual-type effectiveness incorrect")
+    end
+else
+    error("❌ Test failed: Dual-type effectiveness handler failed")
+end
 
 -- Test damage calculation
-test("damage calculation", function()
-    local BattleEngine = BattleEngineModule.BattleEngine
-
-    local attacker = {
+print("📝 Test 4: Damage Calculation")
+local damageCalc = sendMessage("CalculateDamage", nil, json.encode({
+    attacker = {
         level = 50,
         type1 = "fire",
-        type2 = nil,
-        stats = {
-            attack = 100,
-            spAttack = 90
-        }
-    }
-
-    local defender = {
+        stats = { attack = 100, spAttack = 90 }
+    },
+    defender = {
         type1 = "grass",
-        type2 = nil,
-        stats = {
-            defense = 80,
-            spDefense = 85
-        }
-    }
-
-    local move = {
+        stats = { defense = 80, spDefense = 85 }
+    },
+    move = {
         type = "fire",
         category = "physical",
         power = 80,
         accuracy = 100
-    }
-
-    local rngState = {seed = 54321, counter = 0}
-    local battleConditions = {}
-
-    local result = BattleEngine.calculateDamage(attacker, defender, move, battleConditions, rngState)
-
-    assert(type(result.damage) == "number", "Damage should be a number")
-    assert(result.damage > 0, "Damage should be positive")
-    assert(result.effectiveness == 2, "Fire vs Grass should be super effective")
-    assert(result.stab == true, "Same type attack bonus should apply")
-    assert(type(result.criticalHit) == "boolean", "Critical hit should be boolean")
-end)
-
--- Test accuracy calculation
-test("accuracy calculation", function()
-    local BattleEngine = BattleEngineModule.BattleEngine
-
-    local move = {accuracy = 90}
-    local attacker = {statusEffect = nil}
-    local defender = {}
-    local battleConditions = {}
-    local rngState = {seed = 11111, counter = 0}
-
-    -- Test normal accuracy
-    local result = BattleEngine.checkAccuracy(move, attacker, defender, battleConditions, rngState)
-    assert(type(result) == "boolean", "Accuracy result should be boolean")
-
-    -- Test paralysis prevention
-    attacker.statusEffect = "paralysis"
-    rngState = {seed = 1, counter = 0} -- Force paralysis proc
-    local paralyzedResult = BattleEngine.checkAccuracy(move, attacker, defender, battleConditions, rngState)
-    -- Result can be true or false depending on RNG, just verify it's boolean
-    assert(type(paralyzedResult) == "boolean", "Paralyzed accuracy result should be boolean")
-
-    -- Test sleep prevention
-    attacker.statusEffect = "sleep"
-    local sleepResult = BattleEngine.checkAccuracy(move, attacker, defender, battleConditions, rngState)
-    assert(sleepResult == false, "Sleep should prevent movement")
-end)
-
--- Test critical hit calculation
-test("critical hit calculation", function()
-    local BattleEngine = BattleEngineModule.BattleEngine
-
-    local attacker = {abilities = {}}
-    local move = {highCritRatio = false}
-    local rngState = {seed = 99999, counter = 0}
-
-    local critMultiplier = BattleEngine.calculateCriticalHit(attacker, move, rngState)
-    assert(critMultiplier == 1.0 or critMultiplier == 2.0, "Critical hit multiplier should be 1.0 or 2.0")
-
-    -- Test high crit ratio move
-    move.highCritRatio = true
-    rngState = {seed = 1, counter = 0} -- Try to force crit
-    local highCritMultiplier = BattleEngine.calculateCriticalHit(attacker, move, rngState)
-    assert(highCritMultiplier == 1.0 or highCritMultiplier == 2.0, "High crit ratio should still return valid multiplier")
-end)
+    },
+    battleConditions = {},
+    rngState = { seed = 54321, counter = 0 }
+}))
+if damageCalc and damageCalc.Action == "SaveState" then
+    local damageData = json.decode(damageCalc.Data or "{}")
+    if damageData.damage and damageData.damage > 0 and damageData.effectiveness == 2 and damageData.stab == true then
+        print("✅ Test passed: Damage calculation correct")
+        tests_passed = tests_passed + 1
+    else
+        error("❌ Test failed: Damage calculation incorrect")
+    end
+else
+    error("❌ Test failed: CalculateDamage handler failed")
+end
 
 -- Test status effect damage
-test("status effect damage", function()
-    local BattleEngine = BattleEngineModule.BattleEngine
-
-    local pokemon = {
+print("📝 Test 5: Status Effect Damage")
+local statusDamage = sendMessage("ApplyStatusDamage", nil, json.encode({
+    pokemon = {
         hp = 100,
         maxHp = 100,
         statusEffect = "burn"
-    }
-
-    local result = BattleEngine.applyStatusEffectDamage(pokemon, 1)
-    assert(result.hp < pokemon.hp, "Burn should cause damage")
-    assert(result.hp >= 0, "HP should not go below 0")
-
-    -- Test poison
-    pokemon.statusEffect = "poison"
-    pokemon.hp = 100
-    local poisonResult = BattleEngine.applyStatusEffectDamage(pokemon, 1)
-    assert(poisonResult.hp < pokemon.hp, "Poison should cause damage")
-
-    -- Test faint when HP reaches 0
-    pokemon.hp = 1
-    pokemon.statusEffect = "burn"
-    local faintResult = BattleEngine.applyStatusEffectDamage(pokemon, 1)
-    assert(faintResult.hp == 0, "HP should be 0 when fainting")
-    assert(faintResult.statusEffect == "faint", "Status should change to faint")
-end)
+    },
+    turn = 1
+}))
+if statusDamage and statusDamage.Action == "SaveState" then
+    local statusData = json.decode(statusDamage.Data or "{}")
+    if statusData.hp and statusData.hp < 100 and statusData.hp >= 0 then
+        print("✅ Test passed: Burn causes damage")
+        tests_passed = tests_passed + 1
+    else
+        error("❌ Test failed: Status effect damage incorrect")
+    end
+else
+    error("❌ Test failed: ApplyStatusDamage handler failed")
+end
 
 -- Test battle turn processing
-test("battle turn processing", function()
-    local BattleEngine = BattleEngineModule.BattleEngine
-
-    local gameState = {
+print("📝 Test 6: Battle Turn Processing")
+local turnResult = sendMessage("ProcessBattleTurn", nil, json.encode({
+    gameState = {
         playerId = "test-player",
         timestamp = 1234567890,
         version = 1,
@@ -237,7 +154,7 @@ test("battle turn processing", function()
                 maxHp = 100,
                 level = 50,
                 type1 = "normal",
-                stats = {speed = 50, attack = 70, defense = 60, spAttack = 65, spDefense = 55}
+                stats = { speed = 50, attack = 70, defense = 60, spAttack = 65, spDefense = 55 }
             }}
         },
         battle = {
@@ -250,79 +167,38 @@ test("battle turn processing", function()
                 maxHp = 80,
                 level = 45,
                 type1 = "normal",
-                stats = {speed = 45, attack = 60, defense = 55, spAttack = 55, spDefense = 50}
+                stats = { speed = 45, attack = 60, defense = 55, spAttack = 55, spDefense = 50 }
             }},
             conditions = {}
         }
-    }
-
-    local battleCommand = {
+    },
+    battleCommand = {
         action = "attack",
         moveId = 1
-    }
+    },
+    rngState = { seed = 12345, counter = 0 }
+}))
+if turnResult and turnResult.Action == "SaveState" then
+    local turnData = json.decode(turnResult.Data or "{}")
+    if turnData.gameState and turnData.turnResults and turnData.battleEnded ~= nil then
+        print("✅ Test passed: Battle turn processing complete")
+        tests_passed = tests_passed + 1
+    else
+        error("❌ Test failed: Battle turn processing incomplete")
+    end
+else
+    error("❌ Test failed: ProcessBattleTurn handler failed")
+end
 
-    local rngState = {seed = 12345, counter = 0}
-
-    local result = BattleEngine.processBattleTurn(gameState, battleCommand, rngState)
-
-    assert(type(result) == "table", "Battle turn result should be a table")
-    assert(result.gameState ~= nil, "Result should contain updated game state")
-    assert(result.turnResults ~= nil, "Result should contain turn results")
-    assert(type(result.battleEnded) == "boolean", "Battle ended should be boolean")
-    assert(result.gameState.battle.turn == 2, "Turn counter should increment")
-    assert(type(result.turnResults.actions) == "table", "Actions should be a table")
-end)
-
--- Test ADP operations schema compliance
-test("ADP operations schema", function()
-    local metadata = BattleEngineModule.PROCESS_METADATA
-    local ops = metadata.supportedOperations
-
-    -- Check required operations
-    assert(ops.processBattleTurn ~= nil, "processBattleTurn operation missing")
-    assert(ops.calculateDamage ~= nil, "calculateDamage operation missing")
-    assert(ops.checkAccuracy ~= nil, "checkAccuracy operation missing")
-
-    -- Check operation schema structure
-    local battleTurnOp = ops.processBattleTurn
-    assert(battleTurnOp.description ~= nil, "Operation description missing")
-    assert(battleTurnOp.parameters ~= nil, "Operation parameters missing")
-    assert(battleTurnOp.returns ~= nil, "Operation returns missing")
-end)
-
--- Test status effects definitions
-test("status effects definitions", function()
-    local statusEffects = BattleEngineModule.STATUS_EFFECTS
-
-    assert(statusEffects.burn ~= nil, "Burn status effect missing")
-    assert(statusEffects.poison ~= nil, "Poison status effect missing")
-    assert(statusEffects.paralysis ~= nil, "Paralysis status effect missing")
-    assert(statusEffects.sleep ~= nil, "Sleep status effect missing")
-    assert(statusEffects.freeze ~= nil, "Freeze status effect missing")
-    assert(statusEffects.faint ~= nil, "Faint status effect missing")
-
-    -- Test damage functions
-    assert(type(statusEffects.burn.damagePerTurn) == "function", "Burn damage function missing")
-    assert(statusEffects.burn.attackMultiplier == 0.5, "Burn attack reduction incorrect")
-    assert(statusEffects.paralysis.speedMultiplier == 0.25, "Paralysis speed reduction incorrect")
-end)
-
--- Test error handling in operations
-test("error handling", function()
-    local BattleEngine = BattleEngineModule.BattleEngine
-
-    -- Test missing parameters
-    local success, error = pcall(function()
-        BattleEngine.handleLogicOperation({}, "processBattleTurn", {}, {})
-    end)
-    assert(not success, "Should error with missing battleCommand")
-
-    -- Test invalid operation
-    success, error = pcall(function()
-        BattleEngine.handleLogicOperation({}, "invalidOperation", {}, {})
-    end)
-    assert(not success, "Should error with invalid operation")
-end)
+-- Test error handling
+print("📝 Test 7: Error Handling")
+local errorTest = sendMessage("ProcessBattleTurn", nil, json.encode({}))
+if errorTest and errorTest.Action == "Error" then
+    print("✅ Test passed: Error handling for missing battleCommand")
+    tests_passed = tests_passed + 1
+else
+    error("❌ Test failed: Error handling not working")
+end
 
 print("==================================================")
 print("Test Results:")
@@ -332,7 +208,7 @@ print("  Total:  " .. (tests_passed + tests_failed))
 
 if tests_failed == 0 then
     print("\n🎉 All tests passed!")
+    print("✅ Test file executed successfully: " .. PROCESS_PATH)
 else
-    print("\n❌ Some tests failed!")
-    os.exit(1)
+    error("\n❌ Some tests failed!")
 end

@@ -1,85 +1,106 @@
 -- Unit tests for Game Mode Engine - Wave Detection Tests
 -- Tests wave classification logic for all game modes
 
--- [Using same mock setup as game-mode-creation.test.lua]
-local testMessages = {}
-local testHandlers = {}
+-- Required imports
+local aolite = require("aolite")
+local json = require("json")
 
-local mockAO = {
-    id = "test-game-mode-process",
-    send = function(msg) table.insert(testMessages, msg); return true end
-}
+-- Test configuration
+local PROCESS_PATH = "processes.game-mode-engine"
+local processId = "test-game-mode-wave-detection"
 
-local mockHandlers = {
-    add = function(name, matcher, handler) testHandlers[name] = {matcher = matcher, handler = handler} end,
-    utils = {hasMatchingTag = function(tag, value) return function(msg) return msg[tag] == value end end}
-}
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
 
-local mockJSON = {
-    encode = function(t) return "{}" end,
-    decode = function(s) return {} end
-}
+print("🧪 Starting Aolite Tests for Game Mode Engine - Wave Detection")
+print("Process ID:", processId)
 
-local function setupTestEnvironment()
-    _G.ao = mockAO
-    _G.Handlers = mockHandlers
-    _G.json = mockJSON
-end
-
-local function invokeHandler(handlerName, msg)
-    testMessages = {}
-    local handler = testHandlers[handlerName]
-    if handler and handler.handler then
-        handler.handler(msg)
-        return testMessages[1]
+-- Test utilities
+local function sendMessage(action, tags)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action
+    }
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
     end
-    return nil
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
-local function runTests()
-    print("Running ADP v1.0 Game Mode Engine Unit Tests - Wave Detection")
-    print("=" .. string.rep("=", 50))
+-- Test counter
+local testsRun = 0
+local testsPassed = 0
 
-    setupTestEnvironment()
-    dofile("processes/game-mode-engine.lua")
-
-    local testsRun, testsPassed = 0, 0
-
-    -- Test: IsWaveFinal for CLASSIC (wave 200)
-    testsRun = testsRun + 1
-    local response = invokeHandler("is-wave-final", {From = "test", Action = "IsWaveFinal", ModeId = "0", WaveIndex = "200"})
-    if response and response.IsWaveFinal == "true" then testsPassed = testsPassed + 1; print("✓ CLASSIC final wave 200") else print("✗ CLASSIC final wave 200 failed") end
-
-    -- Test: IsWaveFinal for ENDLESS (wave 250)
-    testsRun = testsRun + 1
-    response = invokeHandler("is-wave-final", {From = "test", Action = "IsWaveFinal", ModeId = "1", WaveIndex = "250"})
-    if response and response.IsWaveFinal == "true" then testsPassed = testsPassed + 1; print("✓ ENDLESS final wave 250") else print("✗ ENDLESS final wave 250 failed") end
-
-    -- Test: IsWaveFinal for DAILY (wave 50)
-    testsRun = testsRun + 1
-    response = invokeHandler("is-wave-final", {From = "test", Action = "IsWaveFinal", ModeId = "3", WaveIndex = "50"})
-    if response and response.IsWaveFinal == "true" then testsPassed = testsPassed + 1; print("✓ DAILY final wave 50") else print("✗ DAILY final wave 50 failed") end
-
-    -- Test: Boss wave detection (wave 10)
-    testsRun = testsRun + 1
-    response = invokeHandler("get-wave-classification", {From = "test", Action = "GetWaveClassification", ModeId = "0", WaveIndex = "10"})
-    if response and response.IsBoss == "true" then testsPassed = testsPassed + 1; print("✓ Boss wave 10 detected") else print("✗ Boss wave 10 failed") end
-
-    -- Test: GetWaveForDifficulty DAILY
-    testsRun = testsRun + 1
-    response = invokeHandler("get-wave-for-difficulty", {From = "test", Action = "GetWaveForDifficulty", ModeId = "3", WaveIndex = "10"})
-    if response and response.EffectiveDifficulty == "42" then testsPassed = testsPassed + 1; print("✓ DAILY difficulty calculation") else print("✗ DAILY difficulty failed") end
-
-    print("\n" .. string.rep("=", 50))
-    print("Tests run: " .. testsRun .. ", Tests passed: " .. testsPassed)
-
-    if testsPassed == testsRun then
-        print("✅ All wave detection tests passed!")
-        return true
-    else
-        print("❌ Some wave detection tests failed!")
-        return false
-    end
+-- Test 1: IsWaveFinal for CLASSIC (wave 200)
+testsRun = testsRun + 1
+print("\n📝 Test 1: CLASSIC final wave 200")
+local response = sendMessage("IsWaveFinal", {ModeId = "0", WaveIndex = "200"})
+if response and response.IsWaveFinal == "true" then
+    print("✅ CLASSIC final wave 200")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CLASSIC final wave 200 failed")
 end
 
-return {runTests = runTests}
+-- Test 2: IsWaveFinal for ENDLESS (wave 250)
+testsRun = testsRun + 1
+print("\n📝 Test 2: ENDLESS final wave 250")
+response = sendMessage("IsWaveFinal", {ModeId = "1", WaveIndex = "250"})
+if response and response.IsWaveFinal == "true" then
+    print("✅ ENDLESS final wave 250")
+    testsPassed = testsPassed + 1
+else
+    error("❌ ENDLESS final wave 250 failed")
+end
+
+-- Test 3: IsWaveFinal for DAILY (wave 50)
+testsRun = testsRun + 1
+print("\n📝 Test 3: DAILY final wave 50")
+response = sendMessage("IsWaveFinal", {ModeId = "3", WaveIndex = "50"})
+if response and response.IsWaveFinal == "true" then
+    print("✅ DAILY final wave 50")
+    testsPassed = testsPassed + 1
+else
+    error("❌ DAILY final wave 50 failed")
+end
+
+-- Test 4: Boss wave detection (wave 10)
+testsRun = testsRun + 1
+print("\n📝 Test 4: Boss wave 10 detected")
+response = sendMessage("GetWaveClassification", {ModeId = "0", WaveIndex = "10"})
+if response and response.IsBoss == "true" then
+    print("✅ Boss wave 10 detected")
+    testsPassed = testsPassed + 1
+else
+    error("❌ Boss wave 10 failed")
+end
+
+-- Test 5: GetWaveForDifficulty DAILY
+testsRun = testsRun + 1
+print("\n📝 Test 5: DAILY difficulty calculation")
+response = sendMessage("GetWaveForDifficulty", {ModeId = "3", WaveIndex = "10"})
+if response and response.EffectiveDifficulty == "42" then
+    print("✅ DAILY difficulty calculation")
+    testsPassed = testsPassed + 1
+else
+    error("❌ DAILY difficulty failed")
+end
+
+-- Results summary
+print("\n" .. string.rep("=", 50))
+print("Tests run: " .. testsRun)
+print("Tests passed: " .. testsPassed)
+print("Tests failed: " .. (testsRun - testsPassed))
+
+if testsPassed == testsRun then
+    print("✅ All wave detection tests passed!")
+    print("✅ Test file executed successfully: " .. PROCESS_PATH)
+    return true
+else
+    print("❌ Some wave detection tests failed!")
+    return false
+end

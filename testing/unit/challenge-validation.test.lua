@@ -1,293 +1,179 @@
--- Unit Tests: Challenge Validation and Unlock Conditions
+-- Unit Tests: Challenge Validation and Unlock Conditions (CORRECT API)
+-- Migrated to real aolite framework
 -- Tests isUnlocked logic, condition functions, and unlock status validation
--- Target: 10 tests
 
--- Mock environment setup
-local testMessages = {}
-local testHandlers = {}
+-- Required imports
+local aolite = require("aolite")
+local json = require("json")
 
--- Mock AO environment
-_G.ao = {
-    id = "test-challenge-engine",
-    send = function(msg)
-        table.insert(testMessages, msg)
-        return true
-    end
-}
+-- Test configuration
+local PROCESS_PATH = "processes.challenge-framework-engine"
+local processId = "test-challenge-framework-engine"
 
--- Mock Handlers
-_G.Handlers = {
-    add = function(name, matcher, handler)
-        testHandlers[name] = {
-            matcher = matcher,
-            handler = handler
-        }
-    end,
-    utils = {
-        hasMatchingTag = function(tag, value)
-            return function(msg)
-                if type(value) == "table" then
-                    for _, v in ipairs(value) do
-                        if msg[tag] == v then
-                            return true
-                        end
-                    end
-                    return false
-                else
-                    return msg[tag] == value
-                end
-            end
-        end
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Challenge Validation")
+print("Process ID:", processId)
+
+-- Test utilities
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
     }
-}
-
--- Mock JSON
-_G.json = {
-    encode = function(t)
-        if type(t) ~= "table" then
-            return '"' .. tostring(t) .. '"'
-        end
-
-        local result = "{"
-        local first = true
-        for k, v in pairs(t) do
-            if not first then result = result .. "," end
-            first = false
-
-            result = result .. '"' .. tostring(k) .. '":'
-            if type(v) == "table" then
-                result = result .. _G.json.encode(v)
-            elseif type(v) == "string" then
-                result = result .. '"' .. v .. '"'
-            elseif type(v) == "boolean" then
-                result = result .. (v and "true" or "false")
-            else
-                result = result .. tostring(v)
-            end
-        end
-        result = result .. "}"
-        return result
-    end,
-
-    decode = function(s)
-        if type(s) ~= "string" then return s end
-        if s == "" or s == "{}" then return {} end
-
-        local content = s:match("^%s*{%s*(.-)%s*}%s*$")
-        if not content then return {} end
-
-        local result = {}
-        for match in content:gmatch('[^,]+') do
-            local key, value = match:match('%s*"([^"]+)"%s*:%s*"([^"]*)"')
-            if key and value then
-                result[key] = value
-            else
-                key, value = match:match('%s*"([^"]+)"%s*:%s*(%a+)')
-                if key and value then
-                    if value == "true" then
-                        result[key] = true
-                    elseif value == "false" then
-                        result[key] = false
-                    else
-                        result[key] = value
-                    end
-                else
-                    key, value = match:match('%s*"([^"]+)"%s*:%s*([%d.-]+)')
-                    if key and value then
-                        result[key] = tonumber(value)
-                    end
-                end
-            end
-        end
-        return result
-    end
-}
-
--- Helper to clear messages
-local function clearMessages()
-    testMessages = {}
-end
-
--- Helper to send message and get response
-local function sendMessage(msg)
-    clearMessages()
-
-    for name, handlerData in pairs(testHandlers) do
-        if handlerData.matcher(msg) then
-            handlerData.handler(msg)
-            break
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
         end
     end
-
-    return testMessages[1]
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
-
--- Mock package.loaded to provide json module
-package.loaded.json = _G.json
-
--- Load the challenge framework engine
-print("Loading challenge-framework-engine.lua...")
-dofile("processes/challenge-framework-engine.lua")
-print("✓ Process loaded successfully")
 
 -- Test counter
-local testsPassed = 0
-local testsFailed = 0
+local passed = 0
+local failed = 0
 
--- Test helper
-local function test(description, fn)
-    local success, err = pcall(fn)
-    if success then
-        print("✓ " .. description)
-        testsPassed = testsPassed + 1
-    else
-        print("✗ " .. description)
-        print("  Error: " .. tostring(err))
-        testsFailed = testsFailed + 1
-    end
+print("\n==================================================")
+print("📝 Test 1: Challenge with no conditions (always unlocked)")
+local result1 = sendMessage("ValidateChallenge", {
+    ChallengeId = "0"
+}, "{}")
+if result1 and result1.Action == "SaveState" and result1.Unlocked == "true" then
+    print("✅ Test passed: Challenge with no conditions is unlocked")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Unlocked=true for challenge with no conditions")
 end
 
-print("\n=== Challenge Validation Tests ===\n")
+print("\n==================================================")
+print("📝 Test 2: Validate SINGLE_TYPE challenge")
+local result2 = sendMessage("ValidateChallenge", {
+    ChallengeId = "1"
+}, "{}")
+if result2 and result2.Unlocked == "true" then
+    print("✅ Test passed: SINGLE_TYPE challenge validated")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Unlocked=true for SINGLE_TYPE")
+end
 
--- Test 1: Challenge with no conditions (always unlocked)
-test("should return unlocked for challenge with no conditions", function()
-    local result = sendMessage({
-        Target = ao.id,
-        Action = "ValidateChallenge",
-        ChallengeId = "0",
-        Data = "{}"
-    })
+print("\n==================================================")
+print("📝 Test 3: Validate FRESH_START challenge")
+local result3 = sendMessage("ValidateChallenge", {
+    ChallengeId = "4"
+}, "{}")
+if result3 and result3.Unlocked == "true" then
+    print("✅ Test passed: FRESH_START challenge validated")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Unlocked=true for FRESH_START")
+end
 
-    assert(result.Action == "SaveState", "Expected SaveState action")
-    assert(result.Unlocked == "true", "Expected unlocked = true with no conditions")
-end)
+print("\n==================================================")
+print("📝 Test 4: Validate INVERSE_BATTLE challenge")
+local result4 = sendMessage("ValidateChallenge", {
+    ChallengeId = "5"
+}, "{}")
+if result4 and result4.Unlocked == "true" then
+    print("✅ Test passed: INVERSE_BATTLE challenge validated")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Unlocked=true for INVERSE_BATTLE")
+end
 
--- Test 2: Validate SINGLE_TYPE challenge
-test("should validate SINGLE_TYPE challenge", function()
-    local result = sendMessage({
-        Target = ao.id,
-        Action = "ValidateChallenge",
-        ChallengeId = "1",
-        Data = "{}"
-    })
+print("\n==================================================")
+print("📝 Test 5: Validate HARDCORE challenge")
+local result5 = sendMessage("ValidateChallenge", {
+    ChallengeId = "9"
+}, "{}")
+if result5 and result5.Unlocked == "true" then
+    print("✅ Test passed: HARDCORE challenge validated")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Unlocked=true for HARDCORE")
+end
 
-    assert(result.Unlocked == "true", "Expected unlocked = true")
-end)
+print("\n==================================================")
+print("📝 Test 6: Validate with empty GameData")
+local result6 = sendMessage("ValidateChallenge", {
+    ChallengeId = "0"
+}, "")
+if result6 and result6.Unlocked == "true" then
+    print("✅ Test passed: Empty GameData handled correctly")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Unlocked=true with empty data")
+end
 
--- Test 3: Validate FRESH_START challenge
-test("should validate FRESH_START challenge", function()
-    local result = sendMessage({
-        Target = ao.id,
-        Action = "ValidateChallenge",
-        ChallengeId = "4",
-        Data = "{}"
-    })
-
-    assert(result.Unlocked == "true", "Expected unlocked = true")
-end)
-
--- Test 4: Validate INVERSE_BATTLE challenge
-test("should validate INVERSE_BATTLE challenge", function()
-    local result = sendMessage({
-        Target = ao.id,
-        Action = "ValidateChallenge",
-        ChallengeId = "5",
-        Data = "{}"
-    })
-
-    assert(result.Unlocked == "true", "Expected unlocked = true")
-end)
-
--- Test 5: Validate HARDCORE challenge
-test("should validate HARDCORE challenge", function()
-    local result = sendMessage({
-        Target = ao.id,
-        Action = "ValidateChallenge",
-        ChallengeId = "9",
-        Data = "{}"
-    })
-
-    assert(result.Unlocked == "true", "Expected unlocked = true")
-end)
-
--- Test 6: Validate with empty GameData
-test("should handle empty GameData", function()
-    local result = sendMessage({
-        Target = ao.id,
-        Action = "ValidateChallenge",
-        ChallengeId = "0",
-        Data = ""
-    })
-
-    assert(result.Unlocked == "true", "Expected unlocked = true with empty data")
-end)
-
--- Test 7: Validate with complex GameData
-test("should handle complex GameData", function()
-    local gameData = {
-        progression = {
-            beatGame = true,
-            unlockedAchievements = {1, 2, 3}
-        }
+print("\n==================================================")
+print("📝 Test 7: Validate with complex GameData")
+local gameData = json.encode({
+    progression = {
+        beatGame = true,
+        unlockedAchievements = {1, 2, 3}
     }
-
-    local result = sendMessage({
-        Target = ao.id,
-        Action = "ValidateChallenge",
-        ChallengeId = "0",
-        Data = json.encode(gameData)
-    })
-
-    assert(result.Unlocked == "true", "Expected unlocked = true")
-end)
-
--- Test 8: Error handling for missing ChallengeId
-test("should return error for missing ChallengeId", function()
-    local result = sendMessage({
-        Target = ao.id,
-        Action = "ValidateChallenge",
-        Data = "{}"
-    })
-
-    assert(result.Action == "Error", "Expected Error action")
-    assert(result.Error:find("ChallengeId required"), "Expected ChallengeId error message")
-end)
-
--- Test 9: Error handling for invalid ChallengeId
-test("should return error for invalid ChallengeId", function()
-    local result = sendMessage({
-        Target = ao.id,
-        Action = "ValidateChallenge",
-        ChallengeId = "999",
-        Data = "{}"
-    })
-
-    assert(result.Action == "Error", "Expected Error action")
-    assert(result.Error:find("not found"), "Expected challenge not found error")
-end)
-
--- Test 10: Validate all 10 challenge types
-test("should validate all 10 challenge types successfully", function()
-    local challengeIds = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
-
-    for _, challengeId in ipairs(challengeIds) do
-        local result = sendMessage({
-            Target = ao.id,
-            Action = "ValidateChallenge",
-            ChallengeId = challengeId,
-            Data = "{}"
-        })
-
-        assert(result.Unlocked == "true", "Expected unlocked = true for challenge " .. challengeId)
-    end
-end)
-
--- Summary
-print("\n=== Test Summary ===")
-print(string.format("Passed: %d", testsPassed))
-print(string.format("Failed: %d", testsFailed))
-print(string.format("Total:  %d", testsPassed + testsFailed))
-
-if testsFailed > 0 then
-    os.exit(1)
+})
+local result7 = sendMessage("ValidateChallenge", {
+    ChallengeId = "0"
+}, gameData)
+if result7 and result7.Unlocked == "true" then
+    print("✅ Test passed: Complex GameData handled correctly")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Unlocked=true with complex data")
 end
+
+print("\n==================================================")
+print("📝 Test 8: Error handling - missing ChallengeId")
+local result8 = sendMessage("ValidateChallenge", {}, "{}")
+if result8 and result8.Action == "Error" and result8.Error:find("ChallengeId required") then
+    print("✅ Test passed: Missing ChallengeId returns error")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Error action for missing ChallengeId")
+end
+
+print("\n==================================================")
+print("📝 Test 9: Error handling - invalid ChallengeId")
+local result9 = sendMessage("ValidateChallenge", {
+    ChallengeId = "999"
+}, "{}")
+if result9 and result9.Action == "Error" and result9.Error:find("not found") then
+    print("✅ Test passed: Invalid ChallengeId returns error")
+    passed = passed + 1
+else
+    error("❌ Test failed: Expected Error action for invalid ChallengeId")
+end
+
+print("\n==================================================")
+print("📝 Test 10: Validate all 10 challenge types")
+local allPassed = true
+for i = 0, 9 do
+    local result = sendMessage("ValidateChallenge", {
+        ChallengeId = tostring(i)
+    }, "{}")
+    if not (result and result.Unlocked == "true") then
+        allPassed = false
+        print(string.format("❌ Challenge %d failed validation", i))
+        break
+    end
+end
+if allPassed then
+    print("✅ Test passed: All 10 challenge types validated successfully")
+    passed = passed + 1
+else
+    error("❌ Test failed: Not all challenge types validated")
+end
+
+print("\n==================================================")
+print("🎉 All tests completed!")
+print("==================================================")
+print(string.format("✅ Passed: %d", passed))
+print(string.format("❌ Failed: %d", failed))
+print(string.format("📊 Total: %d", passed + failed))
+print("==================================================")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

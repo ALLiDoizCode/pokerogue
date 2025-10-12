@@ -3,7 +3,17 @@
 -- move availability, item interactions, and resistance calculations
 
 local aolite = require('aolite')
-local testProcess = aolite.spawnProcess('form-attributes-engine', '/Users/jonathangreen/Documents/pokerogue/processes/form-attributes-engine.lua')
+local json = require('json')
+
+-- Test configuration
+local PROCESS_PATH = "processes.form-attributes-engine"
+local processId = "test-form-attributes-engine"
+
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Form Attributes Engine")
+print("Process ID:", processId)
 
 -- Test Helper Functions
 local function assertEquals(actual, expected, message)
@@ -16,7 +26,7 @@ local function assertTableEquals(actual, expected, message)
     if type(actual) ~= "table" or type(expected) ~= "table" then
         error(string.format("%s: Both values must be tables", message or "Table assertion failed"))
     end
-    
+
     for k, v in pairs(expected) do
         if actual[k] ~= v then
             error(string.format("%s: Key %s - Expected %s, got %s", message or "Table assertion failed", tostring(k), tostring(v), tostring(actual[k])))
@@ -26,18 +36,20 @@ end
 
 local function sendMessage(action, data, tags)
     local msg = {
-        From = "test-sender",
+        From = processId,
+        Target = processId,
         Action = action,
-        Data = data or "",
-        Tags = tags or {}
+        Data = data or ""
     }
-    
-    -- Add action to tags if not present
-    if not msg.Tags.Action then
-        msg.Tags.Action = action
+
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
     end
-    
-    return testProcess.send(msg)
+
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
 -- Test Data
@@ -106,8 +118,8 @@ print("=== Testing Form Stat Calculations ===")
 
 -- Test 1.1: Aegislash Shield Form Stats
 print("Test 1.1: Aegislash Shield Form Stats")
-local response = sendMessage("CalculateFormStats", require('json').encode(aegislashShieldForm))
-local result = require('json').decode(response.Data)
+local response = sendMessage("CalculateFormStats", json.encode(aegislashShieldForm))
+local result = json.decode(response.Data)
 
 -- Expected Shield Form stats: 60/50/140/50/140/60 at level 50
 -- HP: ((2*60+31)*50/100)+50+10 = 165
@@ -124,10 +136,10 @@ assertEquals(result.calculatedStats[4], 104, "Aegislash Shield SPATK stat")
 assertEquals(result.calculatedStats[5], 160, "Aegislash Shield SPDEF stat")
 assertEquals(result.calculatedStats[6], 80, "Aegislash Shield SPEED stat")
 
--- Test 1.2: Aegislash Blade Form Stats  
+-- Test 1.2: Aegislash Blade Form Stats
 print("Test 1.2: Aegislash Blade Form Stats")
-response = sendMessage("CalculateFormStats", require('json').encode(aegislashBladeForm))
-result = require('json').decode(response.Data)
+response = sendMessage("CalculateFormStats", json.encode(aegislashBladeForm))
+result = json.decode(response.Data)
 
 -- Expected Blade Form stats: 60/140/50/140/50/60 at level 50
 -- HP: 165 (same)
@@ -146,8 +158,8 @@ assertEquals(result.calculatedStats[6], 80, "Aegislash Blade SPEED stat")
 
 -- Test 1.3: Darmanitan Standard vs Zen Mode Stats
 print("Test 1.3: Darmanitan Standard Form Stats")
-response = sendMessage("CalculateFormStats", require('json').encode(darmanitanStandardForm))
-result = require('json').decode(response.Data)
+response = sendMessage("CalculateFormStats", json.encode(darmanitanStandardForm))
+result = json.decode(response.Data)
 
 -- Expected Standard Mode stats: 105/140/55/30/55/95 at level 50
 -- HP: ((2*105+31)*50/100)+50+10 = 180
@@ -162,8 +174,8 @@ assertEquals(result.calculatedStats[2], 160, "Darmanitan Standard ATK stat")
 assertEquals(result.calculatedStats[6], 116, "Darmanitan Standard SPEED stat")
 
 print("Test 1.4: Darmanitan Zen Mode Stats")
-response = sendMessage("CalculateFormStats", require('json').encode(darmanitanZenForm))
-result = require('json').decode(response.Data)
+response = sendMessage("CalculateFormStats", json.encode(darmanitanZenForm))
+result = json.decode(response.Data)
 
 -- Expected Zen Mode stats: 105/30/105/140/105/55 at level 50
 -- HP: 180 (same)
@@ -183,16 +195,16 @@ print("=== Testing Form Type Changes ===")
 
 -- Test 2.1: Castform Weather Form Type Changes
 print("Test 2.1: Castform Type Changes")
-response = sendMessage("UpdateFormTypes", require('json').encode(castformNormalForm), {NewForm = "sunny"})
-result = require('json').decode(response.Data)
+response = sendMessage("UpdateFormTypes", json.encode(castformNormalForm), {NewForm = "sunny"})
+result = json.decode(response.Data)
 
 assertEquals(result.success, true, "Castform type change success")
 assertEquals(result.newForm, "sunny", "Castform new form")
 
 -- Test 2.2: Darmanitan Type Change to Zen Mode
 print("Test 2.2: Darmanitan Type Changes")
-response = sendMessage("UpdateFormTypes", require('json').encode(darmanitanStandardForm), {NewForm = "zen"})
-result = require('json').decode(response.Data)
+response = sendMessage("UpdateFormTypes", json.encode(darmanitanStandardForm), {NewForm = "zen"})
+result = json.decode(response.Data)
 
 assertEquals(result.success, true, "Darmanitan type change success")
 assertEquals(result.newForm, "zen", "Darmanitan new form")
@@ -202,16 +214,16 @@ print("=== Testing Form Ability Activation ===")
 
 -- Test 3.1: Aegislash Stance Change Ability
 print("Test 3.1: Aegislash Stance Change Ability")
-response = sendMessage("ActivateFormAbilities", require('json').encode(aegislashShieldForm), {TriggerContext = "move_use"})
-result = require('json').decode(response.Data)
+response = sendMessage("ActivateFormAbilities", json.encode(aegislashShieldForm), {TriggerContext = "move_use"})
+result = json.decode(response.Data)
 
 assertEquals(result.success, true, "Aegislash ability activation success")
 assertEquals(result.currentAbility, "STANCE_CHANGE", "Aegislash current ability")
 
 -- Test 3.2: Darmanitan Zen Mode Ability
-print("Test 3.2: Darmanitan Zen Mode Ability")  
-response = sendMessage("ActivateFormAbilities", require('json').encode(darmanitanZenForm), {TriggerContext = "hp_threshold"})
-result = require('json').decode(response.Data)
+print("Test 3.2: Darmanitan Zen Mode Ability")
+response = sendMessage("ActivateFormAbilities", json.encode(darmanitanZenForm), {TriggerContext = "hp_threshold"})
+result = json.decode(response.Data)
 
 assertEquals(result.success, true, "Darmanitan ability activation success")
 assertEquals(result.currentAbility, "ZEN_MODE", "Darmanitan current ability")
@@ -221,8 +233,8 @@ print("=== Testing Move Availability Validation ===")
 
 -- Test 4.1: Rotom Heat Form Exclusive Move
 print("Test 4.1: Rotom Heat Form Overheat Availability")
-response = sendMessage("ValidateMoveAvailability", require('json').encode(rotomHeatForm), {MoveId = "OVERHEAT"})
-result = require('json').decode(response.Data)
+response = sendMessage("ValidateMoveAvailability", json.encode(rotomHeatForm), {MoveId = "OVERHEAT"})
+result = json.decode(response.Data)
 
 assertEquals(result.isAvailable, true, "Rotom Heat Overheat availability")
 assertEquals(result.success, true, "Move validation success")
@@ -236,8 +248,8 @@ local rotomBaseForm = {
     types = {"ELECTRIC", "GHOST"},
     currentAbility = "LEVITATE"
 }
-response = sendMessage("ValidateMoveAvailability", require('json').encode(rotomBaseForm), {MoveId = "OVERHEAT"})
-result = require('json').decode(response.Data)
+response = sendMessage("ValidateMoveAvailability", json.encode(rotomBaseForm), {MoveId = "OVERHEAT"})
+result = json.decode(response.Data)
 
 assertEquals(result.isAvailable, false, "Rotom Base Overheat restriction")
 assertEquals(result.success, true, "Move validation success")
@@ -247,22 +259,22 @@ print("=== Testing Form Resistance Calculations ===")
 
 -- Test 5.1: Aegislash Steel/Ghost Resistances
 print("Test 5.1: Aegislash Fire Resistance")
-response = sendMessage("CalculateFormResistances", require('json').encode(aegislashShieldForm), {AttackType = "FIRE"})
-result = require('json').decode(response.Data)
+response = sendMessage("CalculateFormResistances", json.encode(aegislashShieldForm), {AttackType = "FIRE"})
+result = json.decode(response.Data)
 
 assertEquals(result.multiplier, 2.0, "Aegislash Fire weakness")
 assertEquals(result.success, true, "Resistance calculation success")
 
 print("Test 5.2: Aegislash Fighting Resistance")
-response = sendMessage("CalculateFormResistances", require('json').encode(aegislashShieldForm), {AttackType = "FIGHTING"})
-result = require('json').decode(response.Data)
+response = sendMessage("CalculateFormResistances", json.encode(aegislashShieldForm), {AttackType = "FIGHTING"})
+result = json.decode(response.Data)
 
 assertEquals(result.multiplier, 0.5, "Aegislash Fighting resistance")
 
 -- Test 5.3: Darmanitan Zen Mode Fire/Psychic Resistances
 print("Test 5.3: Darmanitan Zen Mode Fire Resistance")
-response = sendMessage("CalculateFormResistances", require('json').encode(darmanitanZenForm), {AttackType = "FIRE"})
-result = require('json').decode(response.Data)
+response = sendMessage("CalculateFormResistances", json.encode(darmanitanZenForm), {AttackType = "FIRE"})
+result = json.decode(response.Data)
 
 assertEquals(result.multiplier, 0.5, "Darmanitan Zen Fire resistance")
 
@@ -272,7 +284,7 @@ print("=== Testing Form Attribute Retrieval ===")
 -- Test 6.1: Get Aegislash Shield Form Attributes
 print("Test 6.1: Aegislash Shield Form Attributes")
 response = sendMessage("GetFormAttributes", "", {SpeciesId = "681", FormName = "shield"})
-result = require('json').decode(response.Data)
+result = json.decode(response.Data)
 
 assertEquals(result.success, true, "Form attributes retrieval success")
 assertEquals(result.speciesId, 681, "Species ID match")
@@ -283,7 +295,7 @@ assertTableEquals(result.attributes.types, {"STEEL", "GHOST"}, "Shield form type
 -- Test 6.2: Get Rotom Heat Form Attributes
 print("Test 6.2: Rotom Heat Form Attributes")
 response = sendMessage("GetFormAttributes", "", {SpeciesId = "479", FormName = "heat"})
-result = require('json').decode(response.Data)
+result = json.decode(response.Data)
 
 assertEquals(result.success, true, "Rotom attributes retrieval success")
 assertTableEquals(result.attributes.stats, {50, 65, 107, 105, 107, 86}, "Heat form stats")
@@ -295,11 +307,11 @@ print("=== Testing Form Item Interactions ===")
 -- Test 7.1: Basic Item Interaction Processing
 print("Test 7.1: Form Item Interaction Processing")
 local itemData = {id = "CHOICE_BAND", name = "Choice Band"}
-response = sendMessage("ProcessFormItemInteraction", require('json').encode(aegislashShieldForm), {
-    ItemData = require('json').encode(itemData),
+response = sendMessage("ProcessFormItemInteraction", json.encode(aegislashShieldForm), {
+    ItemData = json.encode(itemData),
     Context = "battle"
 })
-result = require('json').decode(response.Data)
+result = json.decode(response.Data)
 
 assertEquals(result.success, true, "Item interaction processing success")
 assertEquals(result.itemId, "CHOICE_BAND", "Item ID match")
@@ -310,7 +322,7 @@ print("=== Testing Error Handling ===")
 -- Test 8.1: Missing Required Parameters
 print("Test 8.1: Missing Parameters Error Handling")
 response = sendMessage("CalculateFormStats", "")
-result = require('json').decode(response.Data)
+result = json.decode(response.Data)
 
 -- Should receive error response
 assertEquals(response.Action, "Error", "Error response action")
@@ -318,8 +330,8 @@ assertEquals(response.Action, "Error", "Error response action")
 -- Test 8.2: Invalid Species ID
 print("Test 8.2: Invalid Species ID Handling")
 local invalidPokemon = {speciesId = 99999, currentForm = "invalid"}
-response = sendMessage("CalculateFormStats", require('json').encode(invalidPokemon))
-result = require('json').decode(response.Data)
+response = sendMessage("CalculateFormStats", json.encode(invalidPokemon))
+result = json.decode(response.Data)
 
 -- Should handle gracefully
 assertEquals(result.success, true, "Invalid species handling")
@@ -330,7 +342,7 @@ print("=== Testing ADP v1.0 Compliance ===")
 -- Test 9.1: Info Handler
 print("Test 9.1: ADP Info Handler")
 response = sendMessage("Info", "")
-result = require('json').decode(response.Data)
+result = json.decode(response.Data)
 
 assertEquals(result.Name, "Form Attributes Engine", "Process name")
 assertEquals(result.protocolVersion, "1.0", "ADP protocol version")

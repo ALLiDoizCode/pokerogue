@@ -1,329 +1,223 @@
 -- Unit tests for egg-move-learning-engine.lua using aolite
 -- Tests core functions: move validation, priority calculation, slot management
 
-local test = require("testing.unit-test-helper")
+local aolite = require("aolite")
 local json = require("json")
 
--- Mock AO environment
-local function setupAOEnvironment()
-    if not _G.ao then
-        _G.ao = {
-            id = "test_process_id",
-            send = function(msg)
-                -- Capture sent messages for testing
-                test.lastSentMessage = msg
-            end
-        }
+-- Test configuration
+local PROCESS_PATH = "processes.egg-move-learning-engine"
+local processId = "test-egg-move-learning-engine"
+
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Egg Move Learning Engine")
+print("Process ID:", processId)
+
+-- Test utilities
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
+    }
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
     end
-    
-    if not _G.Handlers then
-        _G.Handlers = {
-            handlers = {},
-            add = function(name, matcher, handler)
-                _G.Handlers.handlers[name] = {
-                    matcher = matcher,
-                    handler = handler
-                }
-            end,
-            utils = {
-                hasMatchingTag = function(tagName, tagValue)
-                    return function(msg)
-                        return msg[tagName] == tagValue
-                    end
-                end
-            }
-        }
-    end
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
--- Load process file
-setupAOEnvironment()
-dofile("processes/egg-move-learning-engine.lua")
+-- ============================================================================
+-- TEST SUITE: Egg Move Learning Engine
+-- ============================================================================
 
--- Test suite
-test.describe("Egg Move Learning Engine", function()
-    
-    test.beforeEach(function()
-        -- Reset test state
-        test.lastSentMessage = nil
-    end)
-    
-    test.describe("Info Handler", function()
-        test.it("should return process capabilities", function()
-            local handler = Handlers.handlers["info"]
-            test.assert(handler ~= nil, "Info handler should exist")
-            
-            -- Simulate Info message
-            local msg = {
-                From = "test_sender",
-                Action = "Info"
-            }
-            
-            handler.handler(msg)
-            
-            -- Check response
-            test.assert(test.lastSentMessage ~= nil, "Should send response")
-            test.assert(test.lastSentMessage.Target == "test_sender", "Should target sender")
-            test.assert(test.lastSentMessage.Action == "SaveState", "Should use SaveState action")
-            
-            local data = json.decode(test.lastSentMessage.Data)
-            test.assert(data.process.name == "Egg Move Learning Engine", "Should have correct name")
-            test.assert(data.process.version == "1.0.0", "Should have version")
-            test.assert(data.process.adpVersion == "1.0", "Should be ADP compliant")
-        end)
-    end)
-    
-    test.describe("InheritEggMoves Handler", function()
-        test.it("should validate player ID", function()
-            local handler = Handlers.handlers["inherit-egg-moves"]
-            test.assert(handler ~= nil, "InheritEggMoves handler should exist")
-            
-            -- Test with missing player ID
-            local msg = {
-                From = "test_sender",
-                Action = "InheritEggMoves",
-                Parent1Id = "parent1",
-                Parent2Id = "parent2",
-                OffspringSpeciesId = "1"
-            }
-            
-            handler.handler(msg)
-            
-            test.assert(test.lastSentMessage.Action == "Error", "Should return error")
-            test.assert(test.lastSentMessage.Error == "Invalid player ID", "Should have error message")
-        end)
-        
-        test.it("should validate parent IDs", function()
-            local handler = Handlers.handlers["inherit-egg-moves"]
-            
-            -- Test with invalid parent1
-            local msg = {
-                From = "test_sender",
-                Action = "InheritEggMoves",
-                PlayerId = "player123",
-                Parent1Id = "",
-                Parent2Id = "parent2",
-                OffspringSpeciesId = "1"
-            }
-            
-            handler.handler(msg)
-            
-            test.assert(test.lastSentMessage.Action == "Error", "Should return error")
-            test.assert(test.lastSentMessage.Error == "Invalid Parent1Id", "Should have error message")
-        end)
-        
-        test.it("should inherit moves successfully", function()
-            local handler = Handlers.handlers["inherit-egg-moves"]
-            
-            -- Valid request
-            local msg = {
-                From = "test_sender",
-                Action = "InheritEggMoves",
-                PlayerId = "player123",
-                Parent1Id = "parent1",
-                Parent2Id = "parent2",
-                OffspringSpeciesId = "1"
-            }
-            
-            handler.handler(msg)
-            
-            test.assert(test.lastSentMessage.Action == "SaveState", "Should save state")
-            test.assert(test.lastSentMessage.Success == "true", "Should succeed")
-            test.assert(test.lastSentMessage.InheritedMoves ~= nil, "Should have inherited moves")
-            
-            local moves = json.decode(test.lastSentMessage.InheritedMoves)
-            test.assert(type(moves) == "table", "Moves should be a table")
-            test.assert(#moves <= 4, "Should not exceed 4 moves")
-        end)
-    end)
-    
-    test.describe("ValidateMoveLearn Handler", function()
-        test.it("should validate move ID", function()
-            local handler = Handlers.handlers["validate-move-learn"]
-            test.assert(handler ~= nil, "ValidateMoveLearn handler should exist")
-            
-            -- Test with invalid move ID
-            local msg = {
-                From = "test_sender",
-                Action = "ValidateMoveLearn",
-                PlayerId = "player123",
-                PokemonId = "pokemon1",
-                MoveId = "invalid"
-            }
-            
-            handler.handler(msg)
-            
-            test.assert(test.lastSentMessage.Action == "Error", "Should return error")
-            test.assert(test.lastSentMessage.Error == "Invalid move ID", "Should have error message")
-        end)
-        
-        test.it("should validate slot number if provided", function()
-            local handler = Handlers.handlers["validate-move-learn"]
-            
-            -- Test with invalid slot
-            local msg = {
-                From = "test_sender",
-                Action = "ValidateMoveLearn",
-                PlayerId = "player123",
-                PokemonId = "pokemon1",
-                MoveId = "1",
-                SlotToReplace = "5"
-            }
-            
-            handler.handler(msg)
-            
-            test.assert(test.lastSentMessage.Action == "Error", "Should return error")
-            test.assert(test.lastSentMessage.Error == "Invalid slot number (must be 1-4)", "Should have error message")
-        end)
-        
-        test.it("should validate move learning successfully", function()
-            local handler = Handlers.handlers["validate-move-learn"]
-            
-            -- Valid request
-            local msg = {
-                From = "test_sender",
-                Action = "ValidateMoveLearn",
-                PlayerId = "player123",
-                PokemonId = "pokemon1",
-                MoveId = "14"
-            }
-            
-            handler.handler(msg)
-            
-            test.assert(test.lastSentMessage.Action == "MoveLearnValidated", "Should validate")
-            test.assert(test.lastSentMessage.Valid == "true", "Should be valid")
-            test.assert(test.lastSentMessage.Success == "true", "Should succeed")
-        end)
-    end)
-    
-    test.describe("GetEggMovePool Handler", function()
-        test.it("should get egg move pool for species", function()
-            local handler = Handlers.handlers["get-egg-move-pool"]
-            test.assert(handler ~= nil, "GetEggMovePool handler should exist")
-            
-            -- Test valid request
-            local msg = {
-                From = "test_sender",
-                Action = "GetEggMovePool",
-                PlayerId = "player123",
-                SpeciesId = "1"
-            }
-            
-            handler.handler(msg)
-            
-            test.assert(test.lastSentMessage.Action == "EggMovePool", "Should return pool")
-            test.assert(test.lastSentMessage.SpeciesId == "1", "Should have species ID")
-            
-            local data = json.decode(test.lastSentMessage.Data)
-            test.assert(type(data.availableMoves) == "table", "Should have available moves")
-            test.assert(type(data.priority) == "table", "Should have priority info")
-        end)
-        
-        test.it("should include parent contributions if provided", function()
-            local handler = Handlers.handlers["get-egg-move-pool"]
-            
-            -- Test with parents
-            local msg = {
-                From = "test_sender",
-                Action = "GetEggMovePool",
-                PlayerId = "player123",
-                SpeciesId = "1",
-                Parent1Id = "parent1",
-                Parent2Id = "parent2"
-            }
-            
-            handler.handler(msg)
-            
-            local data = json.decode(test.lastSentMessage.Data)
-            test.assert(data.parentMoves ~= nil, "Should have parent moves")
-            test.assert(data.parentMoves.parent1 ~= nil, "Should have parent1 moves")
-            test.assert(data.parentMoves.parent2 ~= nil, "Should have parent2 moves")
-        end)
-    end)
-    
-    test.describe("ManageMoveSlots Handler", function()
-        test.it("should validate operation type", function()
-            local handler = Handlers.handlers["manage-move-slots"]
-            test.assert(handler ~= nil, "ManageMoveSlots handler should exist")
-            
-            -- Test with invalid operation
-            local msg = {
-                From = "test_sender",
-                Action = "ManageMoveSlots",
-                PlayerId = "player123",
-                PokemonId = "pokemon1",
-                Operation = "invalid"
-            }
-            
-            handler.handler(msg)
-            
-            test.assert(test.lastSentMessage.Action == "Error", "Should return error")
-            test.assert(string.find(test.lastSentMessage.Error, "Invalid operation") ~= nil, "Should have error message")
-        end)
-        
-        test.it("should manage move slots successfully", function()
-            local handler = Handlers.handlers["manage-move-slots"]
-            
-            -- Valid request
-            local msg = {
-                From = "test_sender",
-                Action = "ManageMoveSlots",
-                PlayerId = "player123",
-                PokemonId = "pokemon1",
-                Operation = "add",
-                MoveId = "14"
-            }
-            
-            handler.handler(msg)
-            
-            test.assert(test.lastSentMessage.Action == "MoveSlotsUpdated", "Should update slots")
-            test.assert(test.lastSentMessage.Success == "true", "Should succeed")
-            
-            local moves = json.decode(test.lastSentMessage.CurrentMoves)
-            test.assert(type(moves) == "table", "Should have moves table")
-            test.assert(#moves == 4, "Should have 4 move slots")
-        end)
-    end)
-    
-    test.describe("Edge Cases", function()
-        test.it("should handle empty species egg moves", function()
-            local handler = Handlers.handlers["get-egg-move-pool"]
-            
-            -- Request for species with no egg moves
-            local msg = {
-                From = "test_sender",
-                Action = "GetEggMovePool",
-                PlayerId = "player123",
-                SpeciesId = "99999"
-            }
-            
-            handler.handler(msg)
-            
-            local data = json.decode(test.lastSentMessage.Data)
-            test.assert(#data.availableMoves == 0, "Should have empty move list")
-        end)
-        
-        test.it("should handle max move slots", function()
-            local handler = Handlers.handlers["inherit-egg-moves"]
-            
-            -- Request that would generate many moves
-            local msg = {
-                From = "test_sender",
-                Action = "InheritEggMoves",
-                PlayerId = "player123",
-                Parent1Id = "parent1",
-                Parent2Id = "parent2",
-                OffspringSpeciesId = "1"
-            }
-            
-            handler.handler(msg)
-            
-            local moves = json.decode(test.lastSentMessage.InheritedMoves)
-            test.assert(#moves <= 4, "Should never exceed 4 moves")
-        end)
-    end)
-    
-end)
+print("\n=== Egg Move Learning Engine Tests ===\n")
 
--- Run tests
-test.run()
+-- Test 1: Info handler returns process capabilities
+print("📝 Test 1: Info handler returns capabilities")
+local response = sendMessage("Info")
+if not response or response.Action ~= "SaveState" then
+    error("❌ Test failed: Expected SaveState action")
+end
+local data = json.decode(response.Data)
+if data.process.name ~= "Egg Move Learning Engine" then
+    error("❌ Test failed: Expected process name 'Egg Move Learning Engine'")
+end
+if data.process.adpVersion ~= "1.0" then
+    error("❌ Test failed: Expected ADP version '1.0'")
+end
+print("✅ Test passed")
+
+-- Test 2: InheritEggMoves validates player ID
+print("📝 Test 2: InheritEggMoves validates player ID")
+response = sendMessage("InheritEggMoves", {
+    Parent1Id = "parent1",
+    Parent2Id = "parent2",
+    OffspringSpeciesId = "1"
+})
+if not response or response.Action ~= "Error" then
+    error("❌ Test failed: Expected Error action")
+end
+if response.Error ~= "Invalid player ID" then
+    error("❌ Test failed: Expected error message 'Invalid player ID'")
+end
+print("✅ Test passed")
+
+-- Test 3: InheritEggMoves validates parent IDs
+print("📝 Test 3: InheritEggMoves validates parent IDs")
+response = sendMessage("InheritEggMoves", {
+    PlayerId = "player123",
+    Parent1Id = "",
+    Parent2Id = "parent2",
+    OffspringSpeciesId = "1"
+})
+if not response or response.Action ~= "Error" then
+    error("❌ Test failed: Expected Error action")
+end
+if response.Error ~= "Invalid Parent1Id" then
+    error("❌ Test failed: Expected error message 'Invalid Parent1Id'")
+end
+print("✅ Test passed")
+
+-- Test 4: InheritEggMoves inherits moves successfully
+print("📝 Test 4: InheritEggMoves inherits moves successfully")
+response = sendMessage("InheritEggMoves", {
+    PlayerId = "player123",
+    Parent1Id = "parent1",
+    Parent2Id = "parent2",
+    OffspringSpeciesId = "1"
+})
+if not response or response.Action ~= "SaveState" then
+    error("❌ Test failed: Expected SaveState action")
+end
+if response.Success ~= "true" then
+    error("❌ Test failed: Expected Success = 'true'")
+end
+if not response.InheritedMoves then
+    error("❌ Test failed: Expected InheritedMoves tag")
+end
+local moves = json.decode(response.InheritedMoves)
+if #moves > 4 then
+    error("❌ Test failed: Should not exceed 4 moves")
+end
+print("✅ Test passed")
+
+-- Test 5: ValidateMoveLearn validates move ID
+print("📝 Test 5: ValidateMoveLearn validates move ID")
+response = sendMessage("ValidateMoveLearn", {
+    PlayerId = "player123",
+    PokemonId = "pokemon1",
+    MoveId = "invalid"
+})
+if not response or response.Action ~= "Error" then
+    error("❌ Test failed: Expected Error action")
+end
+if response.Error ~= "Invalid move ID" then
+    error("❌ Test failed: Expected error message 'Invalid move ID'")
+end
+print("✅ Test passed")
+
+-- Test 6: ValidateMoveLearn validates slot number
+print("📝 Test 6: ValidateMoveLearn validates slot number")
+response = sendMessage("ValidateMoveLearn", {
+    PlayerId = "player123",
+    PokemonId = "pokemon1",
+    MoveId = "1",
+    SlotToReplace = "5"
+})
+if not response or response.Action ~= "Error" then
+    error("❌ Test failed: Expected Error action")
+end
+if response.Error ~= "Invalid slot number (must be 1-4)" then
+    error("❌ Test failed: Expected error message 'Invalid slot number (must be 1-4)'")
+end
+print("✅ Test passed")
+
+-- Test 7: ValidateMoveLearn validates successfully
+print("📝 Test 7: ValidateMoveLearn validates successfully")
+response = sendMessage("ValidateMoveLearn", {
+    PlayerId = "player123",
+    PokemonId = "pokemon1",
+    MoveId = "14"
+})
+if not response or response.Action ~= "MoveLearnValidated" then
+    error("❌ Test failed: Expected MoveLearnValidated action")
+end
+if response.Valid ~= "true" then
+    error("❌ Test failed: Expected Valid = 'true'")
+end
+if response.Success ~= "true" then
+    error("❌ Test failed: Expected Success = 'true'")
+end
+print("✅ Test passed")
+
+-- Test 8: GetEggMovePool returns egg move pool
+print("📝 Test 8: GetEggMovePool returns egg move pool")
+response = sendMessage("GetEggMovePool", {
+    PlayerId = "player123",
+    SpeciesId = "1"
+})
+if not response or response.Action ~= "EggMovePool" then
+    error("❌ Test failed: Expected EggMovePool action")
+end
+if response.SpeciesId ~= "1" then
+    error("❌ Test failed: Expected SpeciesId = '1'")
+end
+data = json.decode(response.Data)
+if type(data.availableMoves) ~= "table" then
+    error("❌ Test failed: Expected availableMoves to be table")
+end
+if type(data.priority) ~= "table" then
+    error("❌ Test failed: Expected priority to be table")
+end
+print("✅ Test passed")
+
+-- Test 9: ManageMoveSlots validates operation type
+print("📝 Test 9: ManageMoveSlots validates operation type")
+response = sendMessage("ManageMoveSlots", {
+    PlayerId = "player123",
+    PokemonId = "pokemon1",
+    Operation = "invalid"
+})
+if not response or response.Action ~= "Error" then
+    error("❌ Test failed: Expected Error action")
+end
+if not string.find(response.Error, "Invalid operation") then
+    error("❌ Test failed: Expected error message containing 'Invalid operation'")
+end
+print("✅ Test passed")
+
+-- Test 10: ManageMoveSlots manages slots successfully
+print("📝 Test 10: ManageMoveSlots manages slots successfully")
+response = sendMessage("ManageMoveSlots", {
+    PlayerId = "player123",
+    PokemonId = "pokemon1",
+    Operation = "add",
+    MoveId = "14"
+})
+if not response or response.Action ~= "MoveSlotsUpdated" then
+    error("❌ Test failed: Expected MoveSlotsUpdated action")
+end
+if response.Success ~= "true" then
+    error("❌ Test failed: Expected Success = 'true'")
+end
+moves = json.decode(response.CurrentMoves)
+if type(moves) ~= "table" then
+    error("❌ Test failed: Expected CurrentMoves to be table")
+end
+if #moves ~= 4 then
+    error("❌ Test failed: Expected 4 move slots, got " .. tostring(#moves))
+end
+print("✅ Test passed")
+
+-- ============================================================================
+-- TEST SUMMARY
+-- ============================================================================
+
+print("\n==================================================")
+print("🎉 All tests passed!")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)

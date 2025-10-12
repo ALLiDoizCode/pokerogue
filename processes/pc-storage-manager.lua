@@ -514,11 +514,19 @@ local function swapPartyPositions(playerId, position1, position2)
     
     position1 = tonumber(position1)
     position2 = tonumber(position2)
-    
+
     if position1 < 1 or position1 > MAX_PARTY_SIZE or position2 < 1 or position2 > MAX_PARTY_SIZE then
         return false, "Party positions must be between 1 and " .. MAX_PARTY_SIZE, nil
     end
-    
+
+    -- Validate both positions have Pokemon
+    if not storage.party.pokemon[position1] then
+        return false, "No Pokemon in party position " .. position1, nil
+    end
+    if not storage.party.pokemon[position2] then
+        return false, "No Pokemon in party position " .. position2, nil
+    end
+
     -- Swap Pokemon
     local pokemon1 = storage.party.pokemon[position1]
     local pokemon2 = storage.party.pokemon[position2]

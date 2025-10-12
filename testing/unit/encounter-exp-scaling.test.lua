@@ -1,8 +1,37 @@
 -- Unit Tests: Encounter Experience Scaling
 -- Tests experience reward calculation and wave scaling logic
 
-package.path = package.path .. ";./testing/aolite/?.lua;./development-tools/aolite/lua/aolite/lib/?.lua"
-local aolite = require("mock-aolite")
+local aolite = require("aolite")
+local json = require("json")
+
+-- Test configuration
+local PROCESS_PATH = "processes.encounter-reward-engine"
+local processId = "test-encounter-reward-engine"
+
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Encounter Exp Scaling")
+print("Process ID:", processId)
+
+-- Test utilities
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
+    }
+
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
+    end
+
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
+end
 
 local tests = {}
 local currentTest = ""
@@ -25,35 +54,21 @@ local function assertNotNil(value, message)
     end
 end
 
-local function setup()
-    local process = aolite.spawnProcess("encounter-reward-engine", "./processes/encounter-reward-engine.lua")
-    return process
-end
-
 -- ============================================================================
 -- Test: Exp Scaling with Wave Index
 -- ============================================================================
 
 tests["exp scaling with wave index enabled"] = function()
     currentTest = "exp scaling with wave index enabled"
-    local process = setup()
 
     local baseExp = 100
     local waveIndex = 50
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateExpReward",
+    local response = sendMessage("CalculateExpReward", {
         BaseExpValue = tostring(baseExp),
         WaveIndex = tostring(waveIndex),
         UseWaveIndex = "true"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
+    })
 
     assertEquals(response.Action, "SaveState", "Response should be SaveState")
     assertEquals(response.Success, "true", "Success should be true")
@@ -75,24 +90,15 @@ end
 
 tests["direct exp value without wave scaling"] = function()
     currentTest = "direct exp value without wave scaling"
-    local process = setup()
 
     local baseExp = 150
     local waveIndex = 50
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateExpReward",
+    local response = sendMessage("CalculateExpReward", {
         BaseExpValue = tostring(baseExp),
         WaveIndex = tostring(waveIndex),
         UseWaveIndex = "false"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
+    })
 
     local totalExp = tonumber(response.TotalExp)
     assertEquals(totalExp, baseExp, "Exp should equal base value when UseWaveIndex is false")
@@ -106,27 +112,18 @@ end
 
 tests["participant id filtering"] = function()
     currentTest = "participant id filtering"
-    local process = setup()
 
     local participantIds = "1,3,5"
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateExpReward",
+    local response = sendMessage("CalculateExpReward", {
         BaseExpValue = "100",
         ParticipantIds = participantIds,
         WaveIndex = "10"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
+    })
 
     assertEquals(response.ParticipantIds, participantIds, "Should preserve participant IDs")
 
-    local data = aolite.json.decode(response.Data)
+    local data = json.decode(response.Data)
     assertNotNil(data.participantIds, "Data should contain participantIds")
     assertEquals(#data.participantIds, 3, "Should have 3 participants")
 
@@ -139,7 +136,6 @@ end
 
 tests["base exp value guidelines range"] = function()
     currentTest = "base exp value guidelines range"
-    local process = setup()
 
     -- Test various base exp values from guidelines
     local testValues = {
@@ -154,19 +150,11 @@ tests["base exp value guidelines range"] = function()
     }
 
     for _, baseExp in ipairs(testValues) do
-        local msg = {
-            From = "test_player",
-            Action = "CalculateExpReward",
+        local response = sendMessage("CalculateExpReward", {
             BaseExpValue = tostring(baseExp),
             WaveIndex = "0",
             UseWaveIndex = "false"
-        }
-
-        aolite.send(msg, process)
-        aolite.runScheduler(process)
-
-        local responses = aolite.getAllMsgs(process)
-        local response = responses[#responses]
+        })
 
         assertEquals(response.Success, "true", "Should succeed with base exp " .. baseExp)
         local totalExp = tonumber(response.TotalExp)
@@ -182,7 +170,6 @@ end
 
 tests["wave scaling formula correctness"] = function()
     currentTest = "wave scaling formula correctness"
-    local process = setup()
 
     local baseExp = 100
 
@@ -196,19 +183,11 @@ tests["wave scaling formula correctness"] = function()
     }
 
     for _, testCase in ipairs(testCases) do
-        local msg = {
-            From = "test_player",
-            Action = "CalculateExpReward",
+        local response = sendMessage("CalculateExpReward", {
             BaseExpValue = tostring(baseExp),
             WaveIndex = tostring(testCase.wave),
             UseWaveIndex = "true"
-        }
-
-        aolite.send(msg, process)
-        aolite.runScheduler(process)
-
-        local responses = aolite.getAllMsgs(process)
-        local response = responses[#responses]
+        })
 
         local totalExp = tonumber(response.TotalExp)
         local expectedExp = baseExp * testCase.expectedMultiplier
@@ -225,24 +204,15 @@ end
 
 tests["default use wave index behavior"] = function()
     currentTest = "default use wave index behavior"
-    local process = setup()
 
     local baseExp = 100
     local waveIndex = 50
 
     -- Message without UseWaveIndex (should default to true)
-    local msg = {
-        From = "test_player",
-        Action = "CalculateExpReward",
+    local response = sendMessage("CalculateExpReward", {
         BaseExpValue = tostring(baseExp),
         WaveIndex = tostring(waveIndex)
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
+    })
 
     local totalExp = tonumber(response.TotalExp)
     local expectedExp = baseExp * (1 + (waveIndex / 50))
@@ -258,21 +228,12 @@ end
 
 tests["encounter type base exp derivation"] = function()
     currentTest = "encounter type base exp derivation"
-    local process = setup()
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateExpReward",
+    local response = sendMessage("CalculateExpReward", {
         EncounterType = "MYSTERIOUS_CHEST",
         WaveIndex = "0",
         UseWaveIndex = "false"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
+    })
 
     assertEquals(response.Success, "true", "Should succeed with EncounterType")
     assertNotNil(response.TotalExp, "Should derive base exp from encounter type")
@@ -289,20 +250,11 @@ end
 
 tests["missing base exp value error"] = function()
     currentTest = "missing base exp value error"
-    local process = setup()
 
     -- Message without BaseExpValue or valid EncounterType
-    local msg = {
-        From = "test_player",
-        Action = "CalculateExpReward",
+    local response = sendMessage("CalculateExpReward", {
         WaveIndex = "10"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
+    })
 
     -- Should either error or provide default value
     assert(response.Action == "Error" or response.Success == "true",
@@ -317,21 +269,12 @@ end
 
 tests["empty participant ids"] = function()
     currentTest = "empty participant ids"
-    local process = setup()
 
-    local msg = {
-        From = "test_player",
-        Action = "CalculateExpReward",
+    local response = sendMessage("CalculateExpReward", {
         BaseExpValue = "100",
         ParticipantIds = "",
         WaveIndex = "10"
-    }
-
-    aolite.send(msg, process)
-    aolite.runScheduler(process)
-
-    local responses = aolite.getAllMsgs(process)
-    local response = responses[1]
+    })
 
     assertEquals(response.Success, "true", "Should handle empty participant IDs")
     assertEquals(response.ParticipantIds, "", "Should preserve empty participant IDs")

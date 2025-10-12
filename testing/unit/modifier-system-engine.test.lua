@@ -2,11 +2,22 @@
 -- Tests modifier lookup, effect calculations, usage validation, and consumption mechanics
 
 local aolite = require('aolite')
+local json = require('json')
+
+-- Test configuration
+local PROCESS_PATH = "processes.modifier-system-engine"
+local processId = 'test-modifier-system-engine'
+
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Modifier System Engine")
+print("Process ID:", processId)
 
 -- Test Suite Configuration
 local testSuite = {
-    processPath = 'processes/modifier-system-engine.lua',
-    processId = 'modifier-system-test',
+    processPath = PROCESS_PATH,
+    processId = processId,
     tests = {}
 }
 
@@ -66,16 +77,39 @@ local function createBattleContext(overrides)
     return defaults
 end
 
+-- Helper function to send messages
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
+    }
+
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
+    end
+
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
+end
+
+-- Compatibility layer for ao.send() pattern used in tests
+local ao = {
+    send = function(msg)
+        msg.From = processId
+        msg.Target = msg.Target or processId
+        aolite.send(msg)
+        return aolite.getLastMsg(processId)
+    end
+}
+
 -- Test 1: Modifier Information Retrieval
 function testSuite.tests.test_modifier_info_retrieval()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test valid modifier lookup
-    local result = ao.send({
-        Target = testSuite.processId,
-        Action = "GetModifierInfo",
-        ModifierId = "POTION"
-    })
+    local result = sendMessage("GetModifierInfo", {ModifierId = "POTION"})
 
     assert(result.Success == "true", "Should successfully retrieve POTION info")
     local data = json.decode(result.Data)
@@ -85,21 +119,13 @@ function testSuite.tests.test_modifier_info_retrieval()
     assert(data.consumable == true, "Should indicate consumable")
 
     -- Test invalid modifier lookup
-    local errorResult = ao.send({
-        Target = testSuite.processId,
-        Action = "GetModifierInfo",
-        ModifierId = "INVALID_MODIFIER"
-    })
+    local errorResult = sendMessage("GetModifierInfo", {ModifierId = "INVALID_MODIFIER"})
 
     assert(errorResult.Action == "Error", "Should return error for invalid modifier")
     assert(string.find(errorResult.Error, "not found"), "Should indicate modifier not found")
 
     -- Test held item lookup
-    local heldResult = ao.send({
-        Target = testSuite.processId,
-        Action = "GetModifierInfo",
-        ModifierId = "EVIOLITE"
-    })
+    local heldResult = sendMessage("GetModifierInfo", {ModifierId = "EVIOLITE"})
 
     assert(heldResult.Success == "true", "Should successfully retrieve EVIOLITE info")
     local heldData = json.decode(heldResult.Data)
@@ -111,12 +137,10 @@ end
 
 -- Test 2: Held Item Stat Effect Calculations
 function testSuite.tests.test_held_item_stat_calculations()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test Eviolite defense boost for unevolved Pokemon
     local pokemon = createTestPokemon({canEvolve = true})
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateHeldModifierEffects",
         ModifierId = "EVIOLITE",
         Stat = "defense",
@@ -129,7 +153,7 @@ function testSuite.tests.test_held_item_stat_calculations()
     -- Test Eviolite with evolved Pokemon (no boost)
     local evolvedPokemon = createTestPokemon({canEvolve = false})
     local evolvedResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateHeldModifierEffects",
         ModifierId = "EVIOLITE",
         Stat = "defense",
@@ -141,7 +165,7 @@ function testSuite.tests.test_held_item_stat_calculations()
 
     -- Test Eviolite special defense boost
     local spdefResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateHeldModifierEffects",
         ModifierId = "EVIOLITE",
         Stat = "special_defense",
@@ -153,7 +177,7 @@ function testSuite.tests.test_held_item_stat_calculations()
 
     -- Test non-boosted stat
     local atkResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateHeldModifierEffects",
         ModifierId = "EVIOLITE",
         Stat = "attack",
@@ -168,12 +192,10 @@ end
 
 -- Test 3: Usage Restriction Validation
 function testSuite.tests.test_usage_restriction_validation()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test valid potion usage on injured Pokemon
     local injuredPokemon = createTestPokemon({currentHP = 100, maxHP = 200, isFainted = false})
     local validResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ValidateModifierUsage",
         ModifierId = "POTION",
         Context = "battle",
@@ -186,7 +208,7 @@ function testSuite.tests.test_usage_restriction_validation()
     -- Test invalid potion usage on full HP Pokemon
     local healthyPokemon = createTestPokemon({currentHP = 200, maxHP = 200, isFainted = false})
     local invalidResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ValidateModifierUsage",
         ModifierId = "POTION",
         Context = "battle",
@@ -200,7 +222,7 @@ function testSuite.tests.test_usage_restriction_validation()
     -- Test revive on fainted Pokemon
     local faintedPokemon = createTestPokemon({currentHP = 0, isFainted = true})
     local reviveResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ValidateModifierUsage",
         ModifierId = "REVIVE",
         Context = "battle",
@@ -213,7 +235,7 @@ function testSuite.tests.test_usage_restriction_validation()
     -- Test revive on conscious Pokemon
     local consciousPokemon = createTestPokemon({currentHP = 100, isFainted = false})
     local invalidReviveResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ValidateModifierUsage",
         ModifierId = "REVIVE",
         Context = "battle",
@@ -225,7 +247,7 @@ function testSuite.tests.test_usage_restriction_validation()
 
     -- Test context validation
     local wrongContextResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ValidateModifierUsage",
         ModifierId = "RARE_CANDY",
         Context = "battle",
@@ -241,12 +263,10 @@ end
 
 -- Test 4: Modifier Consumption Mechanics
 function testSuite.tests.test_modifier_consumption_mechanics()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test potion consumption and healing
     local pokemon = createTestPokemon({currentHP = 100, maxHP = 200})
     local consumeResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ProcessModifierConsumption",
         ModifierId = "POTION",
         Data = json.encode({pokemonData = pokemon})
@@ -263,7 +283,7 @@ function testSuite.tests.test_modifier_consumption_mechanics()
 
     -- Test Max Potion full heal
     local maxPotionResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ProcessModifierConsumption",
         ModifierId = "MAX_POTION",
         Data = json.encode({pokemonData = pokemon})
@@ -277,7 +297,7 @@ function testSuite.tests.test_modifier_consumption_mechanics()
     -- Test Revive consumption
     local faintedPokemon = createTestPokemon({currentHP = 0, maxHP = 200, isFainted = true})
     local reviveResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ProcessModifierConsumption",
         ModifierId = "REVIVE",
         Data = json.encode({pokemonData = faintedPokemon})
@@ -292,7 +312,7 @@ function testSuite.tests.test_modifier_consumption_mechanics()
     -- Test PP restoration
     local ppMove = {currentPP = 5, maxPP = 20}
     local etherResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ProcessModifierConsumption",
         ModifierId = "ETHER",
         Data = json.encode({
@@ -309,7 +329,7 @@ function testSuite.tests.test_modifier_consumption_mechanics()
     -- Test level increment
     local lowLevelPokemon = createTestPokemon({level = 25})
     local candyResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ProcessModifierConsumption",
         ModifierId = "RARE_CANDY",
         Data = json.encode({pokemonData = lowLevelPokemon})
@@ -325,12 +345,10 @@ end
 
 -- Test 5: Held Item Trigger Conditions
 function testSuite.tests.test_held_item_triggers()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test Sitrus Berry trigger (HP < 50%)
     local lowHPPokemon = createTestPokemon({currentHP = 80, maxHP = 200}) -- 40% HP
     local sitrusResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CheckHeldItemTriggers",
         ModifierId = "SITRUS_BERRY",
         Data = json.encode({pokemonData = lowHPPokemon})
@@ -343,7 +361,7 @@ function testSuite.tests.test_held_item_triggers()
     -- Test Sitrus Berry no trigger (HP > 50%)
     local highHPPokemon = createTestPokemon({currentHP = 120, maxHP = 200}) -- 60% HP
     local noTriggerResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CheckHeldItemTriggers",
         ModifierId = "SITRUS_BERRY",
         Data = json.encode({pokemonData = highHPPokemon})
@@ -355,7 +373,7 @@ function testSuite.tests.test_held_item_triggers()
     -- Test Lum Berry trigger (has status)
     local statusPokemon = createTestPokemon({status = "POISON"})
     local lumResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CheckHeldItemTriggers",
         ModifierId = "LUM_BERRY",
         Data = json.encode({pokemonData = statusPokemon})
@@ -368,7 +386,7 @@ function testSuite.tests.test_held_item_triggers()
     -- Test Leppa Berry trigger (move out of PP)
     local pokemon = createTestPokemon() -- Has move with 0 PP
     local leppaResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CheckHeldItemTriggers",
         ModifierId = "LEPPA_BERRY",
         Data = json.encode({pokemonData = pokemon})
@@ -381,7 +399,7 @@ function testSuite.tests.test_held_item_triggers()
     -- Test Leftovers trigger (HP not full)
     local injuredPokemon = createTestPokemon({currentHP = 150, maxHP = 200})
     local leftoversResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CheckHeldItemTriggers",
         ModifierId = "LEFTOVERS",
         Data = json.encode({pokemonData = injuredPokemon})
@@ -395,8 +413,6 @@ end
 
 -- Test 6: Modifier Stacking and Interactions
 function testSuite.tests.test_modifier_stacking_interactions()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test multiple held items stacking
     local modifierList = {
         {id = "EVIOLITE", stackCount = 1},
@@ -406,7 +422,7 @@ function testSuite.tests.test_modifier_stacking_interactions()
 
     local pokemon = createTestPokemon({canEvolve = true})
     local stackResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateModifierInteractions",
         Data = json.encode({
             modifierList = modifierList,
@@ -429,7 +445,7 @@ function testSuite.tests.test_adp_compliance()
     local ao = aolite.spawn(testSuite.processPath)
 
     local infoResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "Info"
     })
 
@@ -465,11 +481,9 @@ end
 
 -- Test 8: Error Handling
 function testSuite.tests.test_error_handling()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test missing ModifierId parameter
     local missingIdResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "GetModifierInfo"
     })
 
@@ -478,7 +492,7 @@ function testSuite.tests.test_error_handling()
 
     -- Test invalid modifier calculation
     local invalidCalcResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateHeldModifierEffects",
         ModifierId = "INVALID_ITEM",
         Data = "{}"
@@ -488,7 +502,7 @@ function testSuite.tests.test_error_handling()
 
     -- Test malformed JSON
     local malformedResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ProcessModifierConsumption",
         ModifierId = "POTION",
         Data = "invalid json"
@@ -507,8 +521,6 @@ end
 
 -- Test: Berry Information Retrieval
 function testSuite.tests.test_berry_info_retrieval()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test all berry types
     local berryIds = {
         "SITRUS_BERRY", "ENIGMA_BERRY", "LUM_BERRY", "LIECHI_BERRY",
@@ -518,7 +530,7 @@ function testSuite.tests.test_berry_info_retrieval()
 
     for _, berryId in ipairs(berryIds) do
         local result = ao.send({
-            Target = testSuite.processId,
+            Target = processId,
             Action = "GetBerryInfo",
             BerryId = berryId
         })
@@ -534,7 +546,7 @@ function testSuite.tests.test_berry_info_retrieval()
 
     -- Test invalid berry
     local invalidResult = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "GetBerryInfo",
         BerryId = "INVALID_BERRY"
     })
@@ -546,12 +558,10 @@ end
 
 -- Test: Berry Trigger Condition Evaluation
 function testSuite.tests.test_berry_trigger_evaluation()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test Sitrus Berry (HP below 50%)
     local lowHpPokemon = createTestPokemon({currentHP = 80, maxHP = 200}) -- 40% HP
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "EvaluateBerryTrigger",
         BerryId = "SITRUS_BERRY",
         Data = aolite.json.encode({
@@ -566,7 +576,7 @@ function testSuite.tests.test_berry_trigger_evaluation()
     -- Test with high HP (shouldn't trigger)
     local highHpPokemon = createTestPokemon({currentHP = 150, maxHP = 200}) -- 75% HP
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "EvaluateBerryTrigger",
         BerryId = "SITRUS_BERRY",
         Data = aolite.json.encode({
@@ -580,7 +590,7 @@ function testSuite.tests.test_berry_trigger_evaluation()
     -- Test Lum Berry (status condition)
     local poisonedPokemon = createTestPokemon({status = "POISON"})
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "EvaluateBerryTrigger",
         BerryId = "LUM_BERRY",
         Data = aolite.json.encode({
@@ -594,7 +604,7 @@ function testSuite.tests.test_berry_trigger_evaluation()
     -- Test Lum Berry (confusion)
     local confusedPokemon = createTestPokemon({isConfused = true})
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "EvaluateBerryTrigger",
         BerryId = "LUM_BERRY",
         Data = aolite.json.encode({
@@ -608,7 +618,7 @@ function testSuite.tests.test_berry_trigger_evaluation()
     -- Test Leppa Berry (PP depleted)
     local noPpPokemon = createTestPokemon()
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "EvaluateBerryTrigger",
         BerryId = "LEPPA_BERRY",
         Data = aolite.json.encode({
@@ -622,7 +632,7 @@ function testSuite.tests.test_berry_trigger_evaluation()
     -- Test Liechi Berry with ability threshold modification
     local lowHpPokemonForStat = createTestPokemon({currentHP = 40, maxHP = 200}) -- 20% HP
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "EvaluateBerryTrigger",
         BerryId = "LIECHI_BERRY",
         Data = aolite.json.encode({
@@ -635,7 +645,7 @@ function testSuite.tests.test_berry_trigger_evaluation()
 
     -- Test with Gluttony ability (modified threshold)
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "EvaluateBerryTrigger",
         BerryId = "LIECHI_BERRY",
         Data = aolite.json.encode({
@@ -651,12 +661,10 @@ end
 
 -- Test: Berry Effect Calculations
 function testSuite.tests.test_berry_effect_calculations()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test Sitrus Berry healing
     local pokemon = createTestPokemon({currentHP = 80, maxHP = 200})
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ConsumeBerry",
         BerryId = "SITRUS_BERRY",
         Data = aolite.json.encode({
@@ -675,7 +683,7 @@ function testSuite.tests.test_berry_effect_calculations()
 
     -- Test with Double Berry Effect
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ConsumeBerry",
         BerryId = "SITRUS_BERRY",
         Data = aolite.json.encode({
@@ -690,7 +698,7 @@ function testSuite.tests.test_berry_effect_calculations()
     -- Test Lum Berry status cure
     local poisonedPokemon = createTestPokemon({status = "POISON", isConfused = true})
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ConsumeBerry",
         BerryId = "LUM_BERRY",
         Data = aolite.json.encode({
@@ -707,7 +715,7 @@ function testSuite.tests.test_berry_effect_calculations()
     -- Test Liechi Berry stat boost
     local lowHpPokemon = createTestPokemon({currentHP = 40, maxHP = 200})
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ConsumeBerry",
         BerryId = "LIECHI_BERRY",
         Data = aolite.json.encode({
@@ -724,7 +732,7 @@ function testSuite.tests.test_berry_effect_calculations()
 
     -- Test Starf Berry random stat boost
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ConsumeBerry",
         BerryId = "STARF_BERRY",
         Data = aolite.json.encode({
@@ -739,7 +747,7 @@ function testSuite.tests.test_berry_effect_calculations()
 
     -- Test Lansat Berry crit boost
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ConsumeBerry",
         BerryId = "LANSAT_BERRY",
         Data = aolite.json.encode({
@@ -755,7 +763,7 @@ function testSuite.tests.test_berry_effect_calculations()
     -- Test Leppa Berry PP restoration
     local pokemon2 = createTestPokemon()
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ConsumeBerry",
         BerryId = "LEPPA_BERRY",
         Data = aolite.json.encode({
@@ -773,12 +781,10 @@ end
 
 -- Test: Berry Ability Interactions
 function testSuite.tests.test_berry_ability_interactions()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test berry threshold modification (Gluttony)
     local pokemon = createTestPokemon({currentHP = 120, maxHP = 200}) -- 60% HP
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "EvaluateBerryTrigger",
         BerryId = "LIECHI_BERRY",
         Data = aolite.json.encode({
@@ -792,7 +798,7 @@ function testSuite.tests.test_berry_ability_interactions()
     -- Test double berry effect (Ripen)
     local lowHpPokemon = createTestPokemon({currentHP = 80, maxHP = 200})
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ConsumeBerry",
         BerryId = "SITRUS_BERRY",
         Data = aolite.json.encode({
@@ -809,11 +815,9 @@ end
 
 -- Test: Berry Preservation
 function testSuite.tests.test_berry_preservation()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test without Berry Pouch
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CheckBerryPreservation",
         BerryId = "SITRUS_BERRY",
         Data = aolite.json.encode({
@@ -827,7 +831,7 @@ function testSuite.tests.test_berry_preservation()
 
     -- Test with Berry Pouch (using AMULET_COIN as placeholder)
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CheckBerryPreservation",
         BerryId = "SITRUS_BERRY",
         Data = aolite.json.encode({
@@ -843,8 +847,6 @@ end
 
 -- Test: Complex Berry Scenarios
 function testSuite.tests.test_complex_berry_scenarios()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test max stat stage prevention
     local maxedPokemon = createTestPokemon({
         currentHP = 40,
@@ -859,7 +861,7 @@ function testSuite.tests.test_complex_berry_scenarios()
     })
 
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "EvaluateBerryTrigger",
         BerryId = "LIECHI_BERRY",
         Data = aolite.json.encode({
@@ -881,7 +883,7 @@ function testSuite.tests.test_complex_berry_scenarios()
     })
 
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ConsumeBerry",
         BerryId = "LEPPA_BERRY",
         Data = aolite.json.encode({
@@ -895,7 +897,7 @@ function testSuite.tests.test_complex_berry_scenarios()
 
     -- Test Enigma Berry with super effective hit
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "EvaluateBerryTrigger",
         BerryId = "ENIGMA_BERRY",
         Data = aolite.json.encode({
@@ -911,11 +913,9 @@ end
 
 -- Test: Berry Error Handling
 function testSuite.tests.test_berry_error_handling()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test invalid berry ID
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "GetBerryInfo",
         BerryId = "INVALID_BERRY"
     })
@@ -924,7 +924,7 @@ function testSuite.tests.test_berry_error_handling()
 
     -- Test missing berry ID
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "EvaluateBerryTrigger",
         Data = aolite.json.encode({
             pokemonData = createTestPokemon(),
@@ -936,7 +936,7 @@ function testSuite.tests.test_berry_error_handling()
 
     -- Test malformed data
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ConsumeBerry",
         BerryId = "SITRUS_BERRY",
         Data = "invalid json"
@@ -950,11 +950,9 @@ end
 
 -- Test: Shop Generation
 function testSuite.tests.test_shop_generation()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test wave 1 shop generation
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "GenerateShop",
         WaveIndex = "1",
         BaseCost = "100"
@@ -967,7 +965,7 @@ function testSuite.tests.test_shop_generation()
 
     -- Test boss wave (no shop)
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "GenerateShop",
         WaveIndex = "10"
     })
@@ -978,7 +976,7 @@ function testSuite.tests.test_shop_generation()
 
     -- Test wave 95 shop (more items unlocked)
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "GenerateShop",
         WaveIndex = "95",
         BaseCost = "500"
@@ -992,11 +990,9 @@ end
 
 -- Test: Reroll Cost Calculation
 function testSuite.tests.test_reroll_cost_calculation()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test base reroll cost
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateRerollCost",
         WaveIndex = "1",
         RerollCount = "0"
@@ -1008,7 +1004,7 @@ function testSuite.tests.test_reroll_cost_calculation()
 
     -- Test reroll cost with count
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateRerollCost",
         WaveIndex = "1",
         RerollCount = "2"
@@ -1019,7 +1015,7 @@ function testSuite.tests.test_reroll_cost_calculation()
 
     -- Test with lock rarities
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateRerollCost",
         WaveIndex = "1",
         RerollCount = "0",
@@ -1041,11 +1037,9 @@ end
 
 -- Test: Purchase Validation
 function testSuite.tests.test_purchase_validation()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test valid purchase
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ValidatePurchase",
         ItemId = "POTION",
         PlayerMoney = "100",
@@ -1058,7 +1052,7 @@ function testSuite.tests.test_purchase_validation()
 
     -- Test insufficient funds
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ValidatePurchase",
         ItemId = "POTION",
         PlayerMoney = "30",
@@ -1071,7 +1065,7 @@ function testSuite.tests.test_purchase_validation()
 
     -- Test invalid item
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ValidatePurchase",
         ItemId = "INVALID_ITEM",
         PlayerMoney = "100",
@@ -1099,7 +1093,7 @@ function testSuite.tests.test_purchase_item()
 
     -- Test successful purchase
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "PurchaseItem",
         ItemId = "POTION",
         Cost = "50",
@@ -1118,7 +1112,7 @@ function testSuite.tests.test_purchase_item()
     -- Test failed purchase (insufficient funds)
     gameState.player.inventory.money = 20
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "PurchaseItem",
         ItemId = "POTION",
         Cost = "50",
@@ -1134,11 +1128,9 @@ end
 
 -- Test: Reroll Shop
 function testSuite.tests.test_reroll_shop()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test successful reroll
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "RerollShop",
         WaveIndex = "5",
         RerollCount = "0",
@@ -1154,7 +1146,7 @@ function testSuite.tests.test_reroll_shop()
 
     -- Test failed reroll (insufficient funds)
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "RerollShop",
         WaveIndex = "5",
         RerollCount = "0",
@@ -1168,11 +1160,9 @@ end
 
 -- Test: Money Reward Calculation
 function testSuite.tests.test_money_reward_calculation()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test basic money reward
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateMoneyReward",
         WaveIndex = "10",
         Multiplier = "1"
@@ -1184,7 +1174,7 @@ function testSuite.tests.test_money_reward_calculation()
 
     -- Test with multiplier
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateMoneyReward",
         WaveIndex = "10",
         Multiplier = "2.5"
@@ -1195,7 +1185,7 @@ function testSuite.tests.test_money_reward_calculation()
 
     -- Test with money multiplier modifiers (Amulet Coin)
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateMoneyReward",
         WaveIndex = "10",
         Multiplier = "1",
@@ -1210,11 +1200,9 @@ end
 
 -- Test: Format Money
 function testSuite.tests.test_format_money()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test full format
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "FormatMoney",
         Amount = "1234",
         Format = "full"
@@ -1224,7 +1212,7 @@ function testSuite.tests.test_format_money()
 
     -- Test abbreviated format (thousands)
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "FormatMoney",
         Amount = "1500",
         Format = "abbreviated"
@@ -1234,7 +1222,7 @@ function testSuite.tests.test_format_money()
 
     -- Test abbreviated format (millions)
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "FormatMoney",
         Amount = "2500000",
         Format = "abbreviated"
@@ -1247,11 +1235,9 @@ end
 
 -- Test: Economic Progression
 function testSuite.tests.test_economic_progression()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test wave 1 progression
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CheckEconomicProgression",
         WaveIndex = "1",
         Data = aolite.json.encode({
@@ -1271,7 +1257,7 @@ function testSuite.tests.test_economic_progression()
 
     -- Test wave 95 progression
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CheckEconomicProgression",
         WaveIndex = "95",
         Data = aolite.json.encode({
@@ -1294,11 +1280,9 @@ end
 
 -- Test: Process Economic Event
 function testSuite.tests.test_process_economic_event()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test battle victory reward
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ProcessEconomicEvent",
         EventType = "battle_victory",
         WaveIndex = "10"
@@ -1311,7 +1295,7 @@ function testSuite.tests.test_process_economic_event()
 
     -- Test trainer defeat (higher multiplier)
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ProcessEconomicEvent",
         EventType = "trainer_defeat",
         WaveIndex = "10"
@@ -1322,7 +1306,7 @@ function testSuite.tests.test_process_economic_event()
 
     -- Test boss defeat (even higher multiplier)
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "ProcessEconomicEvent",
         EventType = "boss_defeat",
         WaveIndex = "10"
@@ -1336,11 +1320,9 @@ end
 
 -- Test: Item Rarity Calculation
 function testSuite.tests.test_item_rarity_calculation()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test base rarity
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateItemRarity",
         ItemId = "POTION",
         WaveIndex = "1"
@@ -1351,7 +1333,7 @@ function testSuite.tests.test_item_rarity_calculation()
 
     -- Test with luck modifiers
     result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateItemRarity",
         ItemId = "GREAT_BALL",
         WaveIndex = "50",
@@ -1370,7 +1352,7 @@ function testSuite.tests.test_tier_probabilities()
     local ao = aolite.spawn(testSuite.processPath)
 
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "CalculateTierProbabilities",
         RerollCount = "0"
     })
@@ -1386,11 +1368,9 @@ end
 
 -- Test: Roll Modifier Tier
 function testSuite.tests.test_roll_modifier_tier()
-    local ao = aolite.spawn(testSuite.processPath)
-
     -- Test with fixed seed for deterministic result
     local result = ao.send({
-        Target = testSuite.processId,
+        Target = processId,
         Action = "RollModifierTier",
         RngSeed = "100",
         WaveIndex = "1",

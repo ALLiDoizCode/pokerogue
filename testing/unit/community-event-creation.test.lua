@@ -1,4 +1,4 @@
--- Aolite Unit Tests: Community Event Creation and Management
+-- Aolite Unit Tests: Community Event Creation and Management (CORRECT API)
 -- Tests event creation, validation, status transitions, and lifecycle management
 -- Compatible with aolite testing framework
 
@@ -6,25 +6,22 @@ local aolite = require("aolite")
 local json = require("json")
 
 -- Test configuration
-local TEST_TIMEOUT = 30000 -- 30 seconds
-local PROCESS_PATH = "processes/community-event-engine.lua"
+local PROCESS_PATH = "processes.community-event-engine"
+local processId = "test-community-event-engine"
 
--- Initialize test process
-local process = aolite.spawnProcess(PROCESS_PATH)
-if not process then
-    error("Failed to spawn process from " .. PROCESS_PATH)
-end
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
 
 print("🧪 Starting Aolite Tests for Community Event Creation")
-print("Process ID:", process.id)
+print("Process ID:", processId)
 
 -- Test utilities
-local function sendMessage(action, tags, data, timeout)
+local function sendMessage(action, tags, data)
     local msg = {
-        Target = process.id,
+        From = processId,
+        Target = processId,
         Action = action,
-        Data = data or "",
-        Timestamp = tostring(os.time() * 1000)
+        Data = data or ""
     }
 
     if tags then
@@ -33,7 +30,8 @@ local function sendMessage(action, tags, data, timeout)
         end
     end
 
-    return aolite.send(msg, timeout or TEST_TIMEOUT)
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
 -- Test 1: Create valid community event with all required fields

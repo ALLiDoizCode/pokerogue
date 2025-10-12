@@ -1,177 +1,104 @@
--- Unit Tests: Challenge Hooks
--- Tests challenge hook application for all types
--- Target: 20 tests (simplified for MVP)
+-- Unit Tests: Challenge Hooks (CORRECT API)
+-- Migrated to real aolite framework
+-- Tests challenge hook application for all types (MVP simplified)
 
--- Mock environment setup
-local testMessages = {}
-local testHandlers = {}
+-- Required imports
+local aolite = require("aolite")
+local json = require("json")
 
-_G.ao = {
-    id = "test-challenge-engine",
-    send = function(msg) table.insert(testMessages, msg); return true end
-}
+-- Test configuration
+local PROCESS_PATH = "processes.challenge-framework-engine"
+local processId = "test-challenge-framework-engine"
 
-_G.Handlers = {
-    add = function(name, matcher, handler)
-        testHandlers[name] = {matcher = matcher, handler = handler}
-    end,
-    utils = {
-        hasMatchingTag = function(tag, value)
-            return function(msg)
-                if type(value) == "table" then
-                    for _, v in ipairs(value) do
-                        if msg[tag] == v then return true end
-                    end
-                    return false
-                else
-                    return msg[tag] == value
-                end
-            end
-        end
+-- Spawn the process
+aolite.spawnProcess(processId, PROCESS_PATH)
+
+print("🧪 Starting Aolite Tests for Challenge Hooks")
+print("Process ID:", processId)
+
+-- Test utilities
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action,
+        Data = data or ""
     }
-}
-
-_G.json = {
-    encode = function(t)
-        if type(t) ~= "table" then return '"' .. tostring(t) .. '"' end
-        local result = "{"
-        local first = true
-        for k, v in pairs(t) do
-            if not first then result = result .. "," end
-            first = false
-            result = result .. '"' .. tostring(k) .. '":'
-            if type(v) == "table" then
-                result = result .. _G.json.encode(v)
-            elseif type(v) == "string" then
-                result = result .. '"' .. v .. '"'
-            elseif type(v) == "boolean" then
-                result = result .. (v and "true" or "false")
-            else
-                result = result .. tostring(v)
-            end
-        end
-        result = result .. "}"
-        return result
-    end,
-    decode = function(s)
-        if type(s) ~= "string" then return s end
-        if s == "" or s == "{}" then return {} end
-        local content = s:match("^%s*{%s*(.-)%s*}%s*$")
-        if not content then return {} end
-        local result = {}
-        for match in content:gmatch('[^,]+') do
-            local key, value = match:match('%s*"([^"]+)"%s*:%s*"([^"]*)"')
-            if key and value then
-                result[key] = value
-            else
-                key, value = match:match('%s*"([^"]+)"%s*:%s*(%a+)')
-                if key and value then
-                    if value == "true" then result[key] = true
-                    elseif value == "false" then result[key] = false
-                    else result[key] = value end
-                else
-                    key, value = match:match('%s*"([^"]+)"%s*:%s*([%d.-]+)')
-                    if key and value then result[key] = tonumber(value) end
-                end
-            end
-        end
-        return result
-    end
-}
-
-local function clearMessages()
-    testMessages = {}
-end
-
-local function sendMessage(msg)
-    clearMessages()
-    for name, handlerData in pairs(testHandlers) do
-        if handlerData.matcher(msg) then
-            handlerData.handler(msg)
-            break
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
         end
     end
-    return testMessages[1]
+    aolite.send(msg)
+    return aolite.getLastMsg(processId)
 end
 
-package.loaded.json = _G.json
+-- Test counter
+local passed = 0
+local failed = 0
 
-print("Loading challenge-framework-engine.lua...")
-dofile("processes/challenge-framework-engine.lua")
-print("✓ Process loaded successfully")
-
-local testsPassed = 0
-local testsFailed = 0
-
-local function test(description, fn)
-    local success, err = pcall(fn)
-    if success then
-        print("✓ " .. description)
-        testsPassed = testsPassed + 1
-    else
-        print("✗ " .. description)
-        print("  Error: " .. tostring(err))
-        testsFailed = testsFailed + 1
-    end
-end
-
-print("\n=== Challenge Hooks Tests (MVP) ===\n")
-
--- Test 1-5: Starter Choice Hooks
+print("\n==================================================")
+print("📝 Test Suite 1: Starter Choice Hooks (Tests 1-5)")
 for i = 1, 5 do
-    test("should validate challenge hook functionality " .. i, function()
-        local result = sendMessage({
-            Target = ao.id,
-            Action = "GetChallengeInfo",
-            ChallengeId = tostring(i - 1)
-        })
-        assert(result.Action == "SaveState", "Expected SaveState")
-    end)
+    local result = sendMessage("GetChallengeInfo", {
+        ChallengeId = tostring(i - 1)
+    })
+    if result and result.Action == "SaveState" then
+        print(string.format("✅ Test %d passed: Challenge hook functionality validated", i))
+        passed = passed + 1
+    else
+        error(string.format("❌ Test %d failed: Expected SaveState from GetChallengeInfo", i))
+    end
 end
 
--- Test 6-10: Type Effectiveness and Stats Hooks
+print("\n==================================================")
+print("📝 Test Suite 2: Type Effectiveness and Stats Hooks (Tests 6-10)")
 for i = 6, 10 do
-    test("should validate challenge hook functionality " .. i, function()
-        local result = sendMessage({
-            Target = ao.id,
-            Action = "ValidateChallenge",
-            ChallengeId = tostring(i - 6),
-            Data = "{}"
-        })
-        assert(result.Unlocked == "true", "Expected unlocked")
-    end)
+    local result = sendMessage("ValidateChallenge", {
+        ChallengeId = tostring(i - 6)
+    }, "{}")
+    if result and result.Unlocked == "true" then
+        print(string.format("✅ Test %d passed: Challenge hook functionality validated", i))
+        passed = passed + 1
+    else
+        error(string.format("❌ Test %d failed: Expected Unlocked=true", i))
+    end
 end
 
--- Test 11-15: Shop and Item Hooks
+print("\n==================================================")
+print("📝 Test Suite 3: Shop and Item Hooks (Tests 11-15)")
 for i = 11, 15 do
-    test("should validate challenge hook functionality " .. i, function()
-        local result = sendMessage({
-            Target = ao.id,
-            Action = "CreateChallenge",
-            ChallengeId = tostring((i - 11) % 10)
-        })
-        assert(result.Action == "SaveState", "Expected SaveState")
-    end)
+    local result = sendMessage("CreateChallenge", {
+        ChallengeId = tostring((i - 11) % 10)
+    })
+    if result and result.Action == "SaveState" then
+        print(string.format("✅ Test %d passed: Challenge hook functionality validated", i))
+        passed = passed + 1
+    else
+        error(string.format("❌ Test %d failed: Expected SaveState from CreateChallenge", i))
+    end
 end
 
--- Test 16-20: Special Hooks and Edge Cases
+print("\n==================================================")
+print("📝 Test Suite 4: Special Hooks and Edge Cases (Tests 16-20)")
 for i = 16, 20 do
-    test("should validate challenge hook functionality " .. i, function()
-        local result = sendMessage({
-            Target = ao.id,
-            Action = "ModifyChallenge",
-            ChallengeId = "0",
-            Operation = "Reset"
-        })
-        assert(result.Modified == "true", "Expected modified")
-    end)
+    local result = sendMessage("ModifyChallenge", {
+        ChallengeId = "0",
+        Operation = "Reset"
+    })
+    if result and result.Modified == "true" then
+        print(string.format("✅ Test %d passed: Challenge hook functionality validated", i))
+        passed = passed + 1
+    else
+        error(string.format("❌ Test %d failed: Expected Modified=true", i))
+    end
 end
 
-print("\n=== Test Summary ===")
-print(string.format("Passed: %d", testsPassed))
-print(string.format("Failed: %d", testsFailed))
-print(string.format("Total:  %d", testsPassed + testsFailed))
-
-if testsFailed > 0 then
-    os.exit(1)
-end
+print("\n==================================================")
+print("🎉 All tests completed!")
+print("==================================================")
+print(string.format("✅ Passed: %d", passed))
+print(string.format("❌ Failed: %d", failed))
+print(string.format("📊 Total: %d", passed + failed))
+print("==================================================")
+print("✅ Test file executed successfully: " .. PROCESS_PATH)
