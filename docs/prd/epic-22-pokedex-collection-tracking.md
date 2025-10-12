@@ -1,8 +1,8 @@
-# Epic 23: Pokedex & Collection Tracking
+# Epic 22: Pokedex & Collection Tracking
 
 Migrate species discovery/registration, collection progress/statistics, advanced Pokedex features, and community sharing while maintaining identical data accuracy and tracking behavior.
 
-## Story 23.1: Species Discovery and Registration Migration
+## Story 22.1: Species Discovery and Registration Migration
 As a **pokedex registration engineer**,  
 I want **species discovery and registration systems migrated to stateless AO process**,  
 so that **Pokemon discovery tracking maintains identical registration logic and data accuracy**.
@@ -17,7 +17,7 @@ so that **Pokemon discovery tracking maintains identical registration logic and 
 7. Complex discovery scenarios maintain identical registration resolution and data integrity preservation
 8. Comprehensive testing validates 100% species discovery system registration and accuracy parity
 
-## Story 23.2: Collection Progress and Statistics Migration
+## Story 22.2: Collection Progress and Statistics Migration
 As a **collection statistics engineer**,  
 I want **collection progress and statistical analysis migrated to stateless AO process**,  
 so that **collection tracking maintains identical calculation accuracy and analytical behavior**.
@@ -32,7 +32,7 @@ so that **collection tracking maintains identical calculation accuracy and analy
 7. Complex statistics scenarios maintain identical calculation resolution and analytical accuracy
 8. Comprehensive testing validates 100% collection statistics system calculation and analysis parity
 
-## Story 23.3: Advanced Pokedex Features Migration
+## Story 22.3: Advanced Pokedex Features Migration
 As a **advanced pokedex engineer**,  
 I want **advanced Pokedex functionality migrated to stateless AO process**,  
 so that **enhanced features maintain identical search capability and data presentation behavior**.
@@ -47,7 +47,7 @@ so that **enhanced features maintain identical search capability and data presen
 7. Complex feature scenarios maintain identical functionality resolution and performance optimization
 8. Comprehensive testing validates 100% advanced Pokedex system feature and presentation parity
 
-## Story 23.4: Community Sharing Migration
+## Story 22.4: Community Sharing Migration
 As a **community sharing engineer**,  
 I want **community sharing and collaboration systems migrated to stateless AO process**,  
 so that **sharing functionality maintains identical data exchange and community interaction behavior**.

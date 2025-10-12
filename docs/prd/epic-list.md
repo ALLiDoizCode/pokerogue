@@ -60,20 +60,17 @@ Migrate seasonal events, dynamic content modification, special event species, an
 ## Epic 21: Gacha & Voucher Systems
 Migrate gacha mechanics, voucher economy, egg tier rewards, and gacha integration/balance systems.
 
-## Epic 22: Tutorial & Help Systems
-Migrate interactive tutorials, contextual help, advanced mechanic explanations, and player onboarding systems.
-
-## Epic 23: Pokedex & Collection Tracking
+## Epic 22: Pokedex & Collection Tracking
 Migrate species discovery/registration, collection progress/statistics, advanced Pokedex features, and community sharing.
 
-## Epic 24: Achievement & Ribbon Systems
+## Epic 23: Achievement & Ribbon Systems
 Migrate achievement framework, ribbon awards, scoring/rankings, and special recognition systems.
 
-## Epic 25: Statistics & Analytics System
+## Epic 24: Statistics & Analytics System
 Migrate battle statistics, collection analytics, economic statistics, and advanced insights systems.
 
-## Epic 26: Run Tracking & Session Management
-Migrate run lifecycle management, naming/customization, historical records, and session identity/continuity.
+## Epic 25: Run Tracking & Session Management
+Migrate run lifecycle management, naming/customization, historical records, and session identity/continuity (includes tutorial completion flags).
 
-## Epic 27: Integration & Deployment
+## Epic 26: Integration & Deployment
 Complete AO process integration with comprehensive orchestration, performance optimization, and production deployment.

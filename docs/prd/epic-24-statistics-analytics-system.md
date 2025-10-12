@@ -1,8 +1,8 @@
-# Epic 25: Statistics & Analytics System
+# Epic 24: Statistics & Analytics System
 
 Migrate battle statistics, collection analytics, economic statistics, and advanced insights systems while maintaining identical data accuracy and analytical calculation behavior.
 
-## Story 25.1: Battle Statistics Migration
+## Story 24.1: Battle Statistics Migration
 As a **battle statistics engineer**,  
 I want **battle performance statistics migrated to stateless AO process**,  
 so that **battle analytics maintain identical calculation accuracy and insight generation behavior**.
@@ -17,7 +17,7 @@ so that **battle analytics maintain identical calculation accuracy and insight g
 7. Complex battle analytics scenarios maintain identical calculation resolution and insight accuracy
 8. Comprehensive testing validates 100% battle statistics system calculation and analysis parity
 
-## Story 25.2: Collection Analytics Migration
+## Story 24.2: Collection Analytics Migration
 As a **collection analytics engineer**,  
 I want **collection analysis and insights migrated to stateless AO process**,  
 so that **collection analytics maintain identical statistical calculation and trend analysis behavior**.
@@ -32,7 +32,7 @@ so that **collection analytics maintain identical statistical calculation and tr
 7. Complex collection scenarios maintain identical analysis resolution and insight accuracy
 8. Comprehensive testing validates 100% collection analytics system calculation and insight parity
 
-## Story 25.3: Economic Statistics Migration
+## Story 24.3: Economic Statistics Migration
 As a **economic statistics engineer**,  
 I want **economic analysis and market insights migrated to stateless AO process**,  
 so that **economic analytics maintain identical calculation methodology and market analysis behavior**.
@@ -47,7 +47,7 @@ so that **economic analytics maintain identical calculation methodology and mark
 7. Complex economic scenarios maintain identical analysis resolution and market insight accuracy
 8. Comprehensive testing validates 100% economic statistics system calculation and market analysis parity
 
-## Story 25.4: Predictive Analytics & Forecasting Migration
+## Story 24.4: Predictive Analytics & Forecasting Migration
 As a **predictive analytics engineer**,  
 I want **predictive analytics and forecasting systems migrated to stateless AO process**,  
 so that **trend prediction maintains identical forecasting accuracy and methodology**.
@@ -59,7 +59,7 @@ so that **trend prediction maintains identical forecasting accuracy and methodol
 4. Complex prediction scenarios maintain identical forecasting resolution and trend analysis
 5. Comprehensive testing validates 100% predictive analytics system forecasting and trend parity
 
-## Story 25.5: Pattern Intelligence Generation Migration
+## Story 24.5: Pattern Intelligence Generation Migration
 As a **pattern intelligence engineer**,  
 I want **pattern recognition and intelligence generation migrated to stateless AO process**,  
 so that **pattern analysis maintains identical intelligence calculation methodology**.
@@ -71,7 +71,7 @@ so that **pattern analysis maintains identical intelligence calculation methodol
 4. Complex intelligence scenarios maintain identical pattern resolution and analytical sophistication
 5. Comprehensive testing validates 100% pattern intelligence system analysis and recognition parity
 
-## Story 25.6: Advanced Comparison Analytics Migration
+## Story 24.6: Advanced Comparison Analytics Migration
 As a **advanced comparison engineer**,  
 I want **advanced comparison and assessment analytics migrated to stateless AO process**,  
 so that **sophisticated comparison maintains identical assessment methodology**.
@@ -83,7 +83,7 @@ so that **sophisticated comparison maintains identical assessment methodology**.
 4. Complex comparison scenarios maintain identical evaluation resolution and analytical sophistication
 5. Comprehensive testing validates 100% advanced comparison system assessment and evaluation parity
 
-## Story 25.7: Insight Visualization & Presentation Migration
+## Story 24.7: Insight Visualization & Presentation Migration
 As a **insight visualization engineer**,  
 I want **insight visualization and presentation systems migrated to stateless AO process**,  
 so that **data presentation maintains identical visualization behavior and accuracy**.
