@@ -31,24 +31,31 @@ TestMapper.excludes = {
     "%.test%.lua$",
     "%.spec%.lua$",
     "_test%.lua$",
-    
+
     -- Data files
     "^ao%-processes/data/",
     "^data/",
+    "^data%-migration/",
     "^fixtures/",
-    
+    "^parity%-testing/",
+
+    -- Generated files
+    "^processes/generated/",
+    "^processes/species%-tables%.lua$",
+    "^processes/temp%-full%-test%.lua$",
+
     -- Templates
     "^templates/",
     "^scripts/generators/templates/",
-    
+
     -- Documentation and examples
     "^docs/",
     "^examples/",
-    
+
     -- Configuration files
     "%-config%.lua$",
     "^config/",
-    
+
     -- Archive directory
     "^archive/"
 }

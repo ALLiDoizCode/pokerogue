@@ -162,7 +162,7 @@ for FILE in $MODIFIED_LUA_FILES; do
     fi
     
     # Skip certain directories that don't require tests
-    if echo "$FILE" | grep -q 'data/\|templates/\|fixtures/'; then
+    if echo "$FILE" | grep -q 'data/\|data-migration/\|templates/\|fixtures/\|archive/\|parity-testing/\|processes/generated/\|processes/species-tables\.lua\|processes/temp-full-test\.lua'; then
         continue
     fi
     
