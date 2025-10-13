@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TDD Progress Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="dashboard-header">
+            <h1>🧪 TDD Progress Dashboard</h1>
+            <div class="last-updated">
+                Last updated: <span id="lastUpdated">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Status Overview -->
+        <section class="status-overview">
+            <div class="status-card" id="overallStatus">
+                <div class="status-icon">📊</div>
+                <div class="status-content">
+                    <h3>Overall Status</h3>
+                    <div class="status-value" id="overallValue">Loading...</div>
+                    <div class="status-label">TDD Compliance</div>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <div class="status-icon">✅</div>
+                <div class="status-content">
+                    <h3>Tests Passing</h3>
+                    <div class="status-value" id="passingTests">Loading...</div>
+                    <div class="status-label">Test Pass Rate</div>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <div class="status-icon">📈</div>
+                <div class="status-content">
+                    <h3>Coverage</h3>
+                    <div class="status-value" id="coveragePercent">Loading...</div>
+                    <div class="status-label">Code Coverage</div>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <div class="status-icon">🔧</div>
+                <div class="status-content">
+                    <h3>Generated Tests</h3>
+                    <div class="status-value" id="generatedTests">Loading...</div>
+                    <div class="status-label">Auto-Generated</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section">
+            <div class="chart-container">
+                <h3>Coverage Trend</h3>
+                <canvas id="coverageTrendChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h3>Test Pass Rate</h3>
+                <canvas id="passRateChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Coverage Heatmap -->
+        <section class="heatmap-section">
+            <h3>File Coverage Heatmap</h3>
+            <div id="coverageHeatmap" class="heatmap-container">
+                Loading coverage data...
+            </div>
+        </section>
+
+        <!-- Test Results Table -->
+        <section class="results-section">
+            <h3>Recent Test Results</h3>
+            <div class="table-container">
+                <table id="testResultsTable">
+                    <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>Test Type</th>
+                            <th>Status</th>
+                            <th>Coverage</th>
+                            <th>Last Run</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" class="loading">Loading test results...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Functionality Matrix -->
+        <section class="matrix-section">
+            <h3>Functionality Coverage Matrix</h3>
+            <div id="functionalityMatrix" class="matrix-container">
+                Loading functionality matrix...
+            </div>
+        </section>
+
+        <!-- Action Buttons -->
+        <section class="actions-section">
+            <button id="refreshData" class="btn btn-primary">🔄 Refresh Data</button>
+            <button id="exportReport" class="btn btn-secondary">📄 Export Report</button>
+            <button id="runTests" class="btn btn-success">▶️ Run Tests</button>
+            <button id="generateTests" class="btn btn-info">🔧 Generate Tests</button>
+        </section>
+    </div>
+
+    <!-- Scripts -->
+    <script src="coverage-visualizer.js"></script>
+    <script src="test-results-viewer.js"></script>
+    <script>
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            const dashboard = new TDDDashboard();
+            dashboard.init();
+        });
+
+        // Main dashboard controller
+        class TDDDashboard {
+            constructor() {
+                this.data = {
+                    coverage: null,
+                    testResults: null,
+                    trends: null
+                };
+                this.refreshInterval = 30000; // 30 seconds
+            }
+
+            async init() {
+                this.setupEventListeners();
+                await this.loadData();
+                this.startAutoRefresh();
+            }
+
+            setupEventListeners() {
+                document.getElementById('refreshData').addEventListener('click', () => this.loadData());
+                document.getElementById('exportReport').addEventListener('click', () => this.exportReport());
+                document.getElementById('runTests').addEventListener('click', () => this.runTests());
+                document.getElementById('generateTests').addEventListener('click', () => this.generateTests());
+            }
+
+            async loadData() {
+                try {
+                    // Load coverage data
+                    this.data.coverage = await this.fetchData('/api/coverage/latest');
+                    
+                    // Load test results
+                    this.data.testResults = await this.fetchData('/api/tests/latest');
+                    
+                    // Load trend data
+                    this.data.trends = await this.fetchData('/api/coverage/history');
+                    
+                    this.updateUI();
+                } catch (error) {
+                    console.error('Failed to load dashboard data:', error);
+                    this.loadMockData();
+                }
+            }
+
+            async fetchData(url) {
+                // In production, this would fetch from actual API
+                // For now, return mock data or load from local files
+                return this.getMockData(url);
+            }
+
+            getMockData(url) {
+                // Mock data for development
+                if (url.includes('coverage/latest')) {
+                    return {
+                        timestamp: new Date().toISOString(),
+                        summary: {
+                            linesCoveragePercentage: 87.5,
+                            functionsCoveragePercentage: 92.3,
+                            totalFiles: 45,
+                            coveredFiles: 39
+                        },
+                        files: [
+                            {path: 'processes/battle-engine.lua', lines: {percentage: 95.2}},
+                            {path: 'processes/pokemon-manager.lua', lines: {percentage: 78.1}},
+                            {path: 'ao-processes/stat-calculator.lua', lines: {percentage: 100.0}},
+                            {path: 'scripts/coverage/collector.lua', lines: {percentage: 45.6}}
+                        ],
+                        passed: true
+                    };
+                } else if (url.includes('tests/latest')) {
+                    return {
+                        timestamp: new Date().toISOString(),
+                        summary: {
+                            total: 156,
+                            passed: 143,
+                            failed: 13,
+                            passRate: 91.7
+                        },
+                        suites: [
+                            {name: 'Battle Engine Tests', passed: 23, failed: 2, duration: 1.2},
+                            {name: 'Pokemon Manager Tests', passed: 18, failed: 1, duration: 0.8},
+                            {name: 'Stat Calculator Tests', passed: 15, failed: 0, duration: 0.3}
+                        ]
+                    };
+                } else if (url.includes('coverage/history')) {
+                    const dates = [];
+                    const coverage = [];
+                    for (let i = 29; i >= 0; i--) {
+                        const date = new Date();
+                        date.setDate(date.getDate() - i);
+                        dates.push(date.toISOString().split('T')[0]);
+                        coverage.push(Math.max(70, 87.5 + (Math.random() - 0.5) * 10));
+                    }
+                    return {dates, coverage};
+                }
+                return {};
+            }
+
+            loadMockData() {
+                // Fallback to mock data if API calls fail
+                this.data.coverage = this.getMockData('/api/coverage/latest');
+                this.data.testResults = this.getMockData('/api/tests/latest');
+                this.data.trends = this.getMockData('/api/coverage/history');
+                this.updateUI();
+            }
+
+            updateUI() {
+                this.updateStatusCards();
+                this.updateCharts();
+                this.updateHeatmap();
+                this.updateTestResultsTable();
+                this.updateFunctionalityMatrix();
+                this.updateLastUpdated();
+            }
+
+            updateStatusCards() {
+                const coverage = this.data.coverage;
+                const tests = this.data.testResults;
+
+                // Overall status
+                const overallValue = document.getElementById('overallValue');
+                const overallStatus = document.getElementById('overallStatus');
+                if (coverage && coverage.passed) {
+                    overallValue.textContent = '✅ Compliant';
+                    overallStatus.className = 'status-card status-success';
+                } else {
+                    overallValue.textContent = '⚠️ Issues';
+                    overallStatus.className = 'status-card status-warning';
+                }
+
+                // Test pass rate
+                if (tests) {
+                    document.getElementById('passingTests').textContent = `${tests.summary.passRate.toFixed(1)}%`;
+                }
+
+                // Coverage
+                if (coverage) {
+                    document.getElementById('coveragePercent').textContent = `${coverage.summary.linesCoveragePercentage.toFixed(1)}%`;
+                }
+
+                // Generated tests (mock data)
+                document.getElementById('generatedTests').textContent = '23';
+            }
+
+            updateCharts() {
+                // Coverage trend chart
+                if (this.data.trends) {
+                    const ctx = document.getElementById('coverageTrendChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: this.data.trends.dates,
+                            datasets: [{
+                                label: 'Coverage %',
+                                data: this.data.trends.coverage,
+                                borderColor: '#007bff',
+                                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    min: 70,
+                                    max: 100
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Pass rate chart
+                if (this.data.testResults) {
+                    const ctx2 = document.getElementById('passRateChart').getContext('2d');
+                    new Chart(ctx2, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Passed', 'Failed'],
+                            datasets: [{
+                                data: [
+                                    this.data.testResults.summary.passed,
+                                    this.data.testResults.summary.failed
+                                ],
+                                backgroundColor: ['#28a745', '#dc3545']
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            updateHeatmap() {
+                const heatmapContainer = document.getElementById('coverageHeatmap');
+                
+                if (this.data.coverage && this.data.coverage.files) {
+                    const files = this.data.coverage.files;
+                    let heatmapHTML = '<div class="heatmap-grid">';
+                    
+                    files.forEach(file => {
+                        const coverage = file.lines.percentage;
+                        const className = coverage >= 90 ? 'high' : 
+                                        coverage >= 70 ? 'medium' : 'low';
+                        
+                        heatmapHTML += `
+                            <div class="heatmap-cell ${className}" title="${file.path}: ${coverage.toFixed(1)}%">
+                                <div class="cell-label">${file.path.split('/').pop()}</div>
+                                <div class="cell-value">${coverage.toFixed(1)}%</div>
+                            </div>
+                        `;
+                    });
+                    
+                    heatmapHTML += '</div>';
+                    heatmapContainer.innerHTML = heatmapHTML;
+                }
+            }
+
+            updateTestResultsTable() {
+                const tbody = document.querySelector('#testResultsTable tbody');
+                
+                if (this.data.testResults && this.data.testResults.suites) {
+                    let tableHTML = '';
+                    
+                    this.data.testResults.suites.forEach(suite => {
+                        const status = suite.failed === 0 ? 'passed' : 'failed';
+                        const statusIcon = suite.failed === 0 ? '✅' : '❌';
+                        const coverage = Math.random() * 30 + 70; // Mock coverage
+                        
+                        tableHTML += `
+                            <tr class="test-row ${status}">
+                                <td>${suite.name}</td>
+                                <td>Unit</td>
+                                <td>${statusIcon} ${status}</td>
+                                <td>${coverage.toFixed(1)}%</td>
+                                <td>Just now</td>
+                                <td>
+                                    <button class="btn-small" onclick="viewDetails('${suite.name}')">View</button>
+                                    <button class="btn-small" onclick="runSuite('${suite.name}')">Run</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    tbody.innerHTML = tableHTML;
+                }
+            }
+
+            updateFunctionalityMatrix() {
+                const matrixContainer = document.getElementById('functionalityMatrix');
+                
+                // Mock functionality matrix
+                const features = [
+                    {name: 'Battle System', coverage: 92, tests: 45},
+                    {name: 'Pokemon Management', coverage: 78, tests: 32},
+                    {name: 'Stat Calculations', coverage: 100, tests: 28},
+                    {name: 'Evolution System', coverage: 65, tests: 15},
+                    {name: 'Items & Effects', coverage: 43, tests: 8}
+                ];
+                
+                let matrixHTML = '<div class="matrix-grid">';
+                
+                features.forEach(feature => {
+                    const className = feature.coverage >= 90 ? 'high' : 
+                                    feature.coverage >= 70 ? 'medium' : 'low';
+                    
+                    matrixHTML += `
+                        <div class="matrix-cell ${className}">
+                            <div class="cell-title">${feature.name}</div>
+                            <div class="cell-stats">
+                                <div class="stat">Coverage: ${feature.coverage}%</div>
+                                <div class="stat">Tests: ${feature.tests}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                matrixHTML += '</div>';
+                matrixContainer.innerHTML = matrixHTML;
+            }
+
+            updateLastUpdated() {
+                document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+            }
+
+            startAutoRefresh() {
+                setInterval(() => this.loadData(), this.refreshInterval);
+            }
+
+            async exportReport() {
+                // Generate and download report
+                const report = this.generateReport();
+                const blob = new Blob([report], {type: 'text/html'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `tdd-report-${new Date().toISOString().split('T')[0]}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            generateReport() {
+                return `
+                    <html>
+                    <head><title>TDD Report</title></head>
+                    <body>
+                        <h1>TDD Progress Report</h1>
+                        <p>Generated: ${new Date().toLocaleString()}</p>
+                        <p>Coverage: ${this.data.coverage?.summary?.linesCoveragePercentage?.toFixed(1)}%</p>
+                        <p>Test Pass Rate: ${this.data.testResults?.summary?.passRate?.toFixed(1)}%</p>
+                    </body>
+                    </html>
+                `;
+            }
+
+            async runTests() {
+                // Trigger test run
+                alert('Running tests... (not implemented)');
+            }
+
+            async generateTests() {
+                // Trigger test generation
+                alert('Generating tests... (not implemented)');
+            }
+        }
+
+        // Global functions for table actions
+        window.viewDetails = function(suiteName) {
+            alert(`Viewing details for: ${suiteName}`);
+        };
+
+        window.runSuite = function(suiteName) {
+            alert(`Running suite: ${suiteName}`);
+        };
+    </script>
+</body>
+</html>

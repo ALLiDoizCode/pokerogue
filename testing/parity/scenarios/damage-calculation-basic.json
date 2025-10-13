@@ -1,0 +1,32 @@
+{
+  "id": "damage-calculation-basic",
+  "name": "Basic Damage Calculation",
+  "description": "Test basic damage calculation with type effectiveness",
+  "scenarioType": "battle",
+  "inputGameState": {
+    "attacker": {
+      "level": 50,
+      "attack": 100,
+      "species": "Pikachu"
+    },
+    "defender": {
+      "level": 50,
+      "defense": 80,
+      "species": "Geodude"
+    },
+    "move": {
+      "name": "Thunderbolt",
+      "power": 90,
+      "type": "Electric"
+    }
+  },
+  "expectedOutput": {
+    "damage": 51,
+    "effectiveness": "super_effective",
+    "critical": false
+  },
+  "tolerances": {
+    "damage": 2
+  },
+  "requiresStatisticalAnalysis": false
+}

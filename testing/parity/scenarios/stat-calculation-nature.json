@@ -1,0 +1,29 @@
+{
+  "id": "stat-calculation-nature",
+  "name": "Stat Calculation with Nature",
+  "description": "Test Pokemon stat calculation with nature modifiers",
+  "scenarioType": "pokemon",
+  "inputGameState": {
+    "pokemon": {
+      "species": "Charizard",
+      "level": 50,
+      "nature": "Adamant",
+      "ivs": {
+        "attack": 31,
+        "hp": 31,
+        "defense": 20
+      },
+      "evs": {
+        "attack": 252,
+        "hp": 252
+      }
+    }
+  },
+  "expectedOutput": {
+    "hp": 153,
+    "attack": 156,
+    "defense": 98
+  },
+  "tolerances": {},
+  "requiresStatisticalAnalysis": false
+}

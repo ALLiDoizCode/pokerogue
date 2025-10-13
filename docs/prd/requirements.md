@@ -2,34 +2,44 @@
 
 ## Functional
 
-**FR1:** The AO process shall implement complete battle turn resolution including damage calculation, type effectiveness, status effects, and move mechanics with 100% parity to current TypeScript implementation.
+**FR1:** The system shall implement 26 specialized stateless AO processes with clear separation between data processes and logic processes
 
-**FR2:** The system shall provide persistent player state management including character stats, experience, levels, creature roster, item inventory, and currency through AO process storage.
+**FR2:** Each process shall be completely self-contained with no external dependencies and under 500KB size constraint
 
-**FR3:** The AO handlers shall support complete creature capture mechanics including wild encounters, capture probability calculations, PC storage, and creature stat/moveset management.
+**FR3:** The coordinator process shall orchestrate complex multi-step workflows through async message passing coordination
 
-**FR4:** The system shall implement world progression logic including biome advancement, gym leader battles, Elite Four encounters, and champion battles with proper difficulty scaling.
+**FR4:** Data processes shall provide pure reference data queries without GameState modification (pokemon-species-db, moves-database, items-database, abilities-database)
 
-**FR5:** The system shall support complete item management including shop interactions, item effects, consumable usage, and inventory organization.
+**FR5:** Logic processes shall perform pure computation on received GameState and return updated state (battle-engine, evolution-engine, capture-engine, status-effects-engine)
 
-**FR6:** The AO handlers shall implement RNG systems for encounters, battle outcomes, and loot generation with deterministic reproducibility across process instances.
+**FR6:** All processes shall return responses via uniform "SaveState" action while accepting domain-specific input actions
 
-**FR7:** The system shall provide AO message-based APIs for all game operations enabling external system integration and agent participation.
+**FR7:** The system shall maintain 100% functional parity with original PokéRogue gameplay mechanics through distributed process implementation
 
-**FR8:** The AO process shall comply with AO documentation protocol including mandatory Info handler and discoverable handler specifications.
+**FR8:** GameState shall flow through processes without persistent storage within any individual process
 
-**FR9:** The system shall support AOConnect integration enabling UI-to-AO message translation for Phase 2 browser interface.
+**FR9:** The system shall integrate with Arweave AO protocol for process deployment and inter-process message passing
 
-## Non-Functional  
+**FR10:** Process communication shall be fully asynchronous with operation state tracking in the coordinator process
 
-**NFR1:** The system shall maintain 99.9% uptime through AO's decentralized infrastructure with no single points of failure.
+## Non Functional
 
-**NFR2:** Game state queries must return complete, accurate information within 200ms to support responsive UI integration.
+**NFR1:** Each process deployment shall remain under 500KB through aggressive code optimization and inlining
 
-**NFR3:** The AO process shall support 1,000+ concurrent active games without performance degradation or memory limitations.
+**NFR2:** Coordinated battle turns shall complete in <5 seconds including all async data collection and processing
 
-**NFR4:** All game mechanics must achieve 100% functional parity with current browser version, with zero gameplay regressions during migration.
+**NFR3:** The system shall handle 100+ concurrent coordinated operations without performance degradation
 
-**NFR5:** The system shall provide zero data loss or corruption during gameplay sessions through AO's atomic message processing.
+**NFR4:** Process-to-process message latency shall average <500ms within the AO network
 
-**NFR6:** The architecture shall be designed for future multi-process expansion while maintaining single-process MVP simplicity.
+**NFR5:** Memory usage within processes shall be bounded and not grow with number of operations processed
+
+**NFR6:** Data processes shall provide sub-100ms response times for reference data queries
+
+**NFR7:** The coordinator shall support 1000+ active operations simultaneously with proper state management
+
+**NFR8:** Process crash recovery shall complete within 30 seconds through client-side timeout and retry mechanisms
+
+**NFR9:** AO sandbox validation shall prevent deployment of processes using forbidden APIs or exceeding size limits
+
+**NFR10:** Comprehensive test suite shall achieve 100% parity validation with TypeScript reference implementation

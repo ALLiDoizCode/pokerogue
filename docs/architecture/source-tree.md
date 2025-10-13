@@ -2,77 +2,72 @@
 
 ```plaintext
 pokerogue-ao-migration/
-├── ao-processes/                           # AO Process Implementation
-│   ├── main.lua                           # Primary AO process entry point
-│   ├── handlers/                          # AO Message Handlers
-│   │   ├── battle-handler.lua            # Battle resolution logic
-│   │   ├── state-handler.lua             # Pokemon state management
-│   │   ├── query-handler.lua             # State query responses
-│   │   ├── game-management-handler.lua   # Save/load operations
-│   │   └── admin-handler.lua             # Process info and discovery
+├── processes/                              # AO Process Implementation
+│   ├── battle-engine.lua                 # Battle resolution process
+│   ├── biome-progression-engine.lua      # Biome and world progression
+│   ├── daily-run-engine.lua              # Daily challenge generation
+│   ├── challenge-framework-engine.lua    # Challenge creation and management
+│   ├── trainer-encounter-engine.lua      # Trainer battle mechanics
+│   ├── ai-move-selection-engine.lua      # AI decision making
+│   └── [additional process files]        # Other stateless AO processes
+│
+├── testing/                                # Test Suite (AO-First Testing Strategy)
+│   ├── unit/                              # Unit tests for AO processes (*.test.lua)
+│   │   ├── battle-*.test.lua             # Battle engine unit tests
+│   │   ├── biome-*.test.lua              # Biome progression unit tests
+│   │   ├── daily-run-*.test.lua          # Daily run unit tests
+│   │   ├── challenge-*.test.lua          # Challenge framework unit tests
+│   │   └── [additional test files]       # Other process unit tests
 │   │
-│   ├── game-logic/                        # Core Game Systems
-│   │   ├── pokemon/                       # Pokemon mechanics
-│   │   │   ├── stat-calculator.lua       # Exact TypeScript stat formulas
-│   │   │   ├── evolution-system.lua      # Evolution processing
-│   │   │   └── status-effects.lua        # Status condition logic
-│   │   │
-│   │   ├── battle/                        # Battle mechanics
-│   │   │   ├── damage-calculator.lua     # Damage formulas and type effectiveness
-│   │   │   ├── turn-processor.lua        # Turn resolution and command execution
-│   │   │   └── battle-conditions.lua     # Weather, terrain, field effects
-│   │   │
-│   │   ├── rng/                          # Random Number Generation
-│   │   │   ├── crypto-rng.lua           # AO crypto module wrapper
-│   │   │   └── battle-rng.lua           # Deterministic battle randomness
-│   │   │
-│   │   └── progression/                   # Game progression
-│   │       └── experience-system.lua     # EXP calculation and leveling
+│   ├── parity/                            # TypeScript behavioral comparison tests
+│   │   ├── battle-parity.test.lua        # Battle engine parity tests
+│   │   ├── biome-parity.test.lua         # Biome progression parity tests
+│   │   ├── daily-run-parity.test.lua     # Daily run parity tests
+│   │   └── [additional parity tests]     # Other parity validations
 │   │
-│   ├── data/                              # Embedded Game Data
-│   │   ├── species/                       # Pokemon species data
-│   │   │   ├── species-database.lua     # All Pokemon species (900+)
-│   │   │   ├── evolution-chains.lua     # Evolution relationships
-│   │   │   └── species-indexes.lua      # Fast lookup indexes
-│   │   │
-│   │   ├── moves/                         # Move data and mechanics
-│   │   │   ├── move-database.lua        # All moves (800+) with effects
-│   │   │   └── move-indexes.lua         # Move lookup indexes
-│   │   │
-│   │   ├── items/                         # Items and berries
-│   │   │   ├── item-database.lua        # All items with effects
-│   │   │   └── berry-database.lua       # Berry-specific data
-│   │   │
-│   │   └── constants/                     # Game constants and enums
-│   │       ├── enums.lua               # All game enums (Species, Moves, etc.)
-│   │       ├── type-chart.lua          # Type effectiveness matrix
-│   │       └── nature-modifiers.lua    # Nature stat multipliers
+│   ├── integration/                       # Multi-process integration tests (aos-local)
+│   │   ├── battle-integration.test.lua   # Battle flow integration
+│   │   ├── biome-integration.test.lua    # Biome progression integration
+│   │   └── [additional integration]      # Other integration scenarios
 │   │
-│   └── tests/                             # AO Process Tests
-│       ├── unit/                         # Unit tests for individual components
-│       ├── integration/                  # Handler integration tests
-│       └── fixtures/                     # Test data and scenarios
+│   ├── performance/                       # Performance benchmarking tests
+│   │   ├── battle-performance.test.lua   # Battle engine performance
+│   │   └── [additional benchmarks]       # Other performance tests
+│   │
+│   ├── fixtures/                          # Test data and mock objects
+│   ├── utils/                             # Testing utilities and helpers
+│   └── reports/                           # Generated test reports
 │
-├── typescript-reference/                  # Original TypeScript Implementation
-│   └── src/                              # Copy of current PokéRogue source
+├── src/                                    # Original TypeScript Implementation (Reference)
+│   ├── data/                              # Game data (species, moves, items, etc.)
+│   ├── field/                             # Battle field and Pokemon management
+│   ├── system/                            # Game systems and mechanics
+│   └── [additional TypeScript files]     # Other TypeScript sources
 │
-├── parity-testing/                        # Cross-Implementation Validation
-│   ├── test-harness/                     # Automated parity validation
-│   ├── test-cases/                       # Comprehensive test scenarios
-│   └── reports/                          # Generated parity reports
+├── scripts/                               # Build and Automation Scripts
+│   ├── run-aolite-tests.lua              # Unit test runner (aolite framework)
+│   ├── hooks/                             # Git hooks and CI validation
+│   │   ├── tdd-pre-commit.sh             # TDD validation pre-commit hook
+│   │   └── ao-compliance.sh              # AO compliance validation
+│   └── [additional scripts]              # Other automation scripts
 │
-├── development-tools/                     # Development Infrastructure
-│   ├── ao-local-setup/                  # Local AO development environment
-│   ├── data-migration/                   # TypeScript to Lua data conversion
-│   └── debugging/                        # Development debugging tools
+├── tools/                                  # Development Tools
+│   ├── ao-sandbox-validator.lua          # AO compliance validation tool
+│   └── [additional tools]                # Other development utilities
 │
-├── documentation/                         # Project Documentation
-│   ├── architecture/                     # Architecture documentation
-│   ├── migration-guide/                  # Migration process documentation
-│   └── api-reference/                    # API documentation
-│
-└── scripts/                               # Build and Automation Scripts
-    ├── build/                           # Build automation
-    ├── testing/                         # Testing automation
-    └── deployment/                      # Deployment automation
+└── docs/                                   # Project Documentation
+    ├── architecture/                      # Architecture documentation
+    │   ├── source-tree.md                # This file
+    │   ├── tech-stack.md                 # Technology stack
+    │   ├── coding-standards.md           # Coding standards
+    │   └── ao-compliance-guidelines.md   # AO compliance requirements
+    ├── prd/                               # Product Requirements Documents
+    │   ├── epic-*.md                     # Epic specifications
+    │   └── [additional PRDs]             # Other requirements
+    ├── stories/                           # Story documents
+    │   ├── *.story.md                    # Story specifications
+    │   └── [additional stories]          # Other stories
+    └── qa/                                # QA documentation
+        └── gates/                         # QA gate files
+            └── *.yml                     # QA validation results
 ```

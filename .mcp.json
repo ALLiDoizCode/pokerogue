@@ -1,8 +1,11 @@
 {
-  "servers": {
+  "mcpServers": {
     "permamind": {
       "command": "npx",
-      "args": ["permamind"]
+      "args": ["permamind"],
+      "env": {
+        "SEED_PHRASE": "siege unit board shop primary border way use blossom curve garlic thrive"
+      }
     },
     "aolite Docs": {
       "type": "sse",
@@ -11,6 +14,10 @@
     "harlequin-toolkit Docs": {
       "type": "sse",
       "url": "https://gitmcp.io/the-permaweb-harlequin/harlequin-toolkit"
+    },
+    "aos-local Docs": {
+      "type": "sse",
+      "url": "https://gitmcp.io/twilson63/aos-local"
     }
   }
 }

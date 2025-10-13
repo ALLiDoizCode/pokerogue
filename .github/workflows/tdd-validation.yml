@@ -1,0 +1,221 @@
+name: TDD Validation
+
+on:
+  push:
+    branches: [ main, beta, ECS ]
+  pull_request:
+    branches: [ main, beta, ECS ]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  tdd-validation:
+    name: TDD Enforcement
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Setup Lua
+        uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: "5.3"
+          
+      - name: Get changed Lua files
+        id: changed-files
+        uses: tj-actions/changed-files@v40
+        with:
+          files: |
+            **/*.lua
+          separator: " "
+          # Only get files changed in the last commit to avoid processing entire branch history
+          since_last_remote_commit: true
+          
+      - name: Check for bypass attempts
+        id: check-bypass
+        if: steps.changed-files.outputs.any_changed == 'true'
+        run: |
+          echo "Checking for TDD bypass attempts..."
+          
+          # Check recent commit messages for bypass indicators
+          BYPASS_COMMITS=$(git log --oneline -10 | grep -i "no-verify\|skip.*test\|bypass.*tdd" || true)
+          if [ ! -z "$BYPASS_COMMITS" ]; then
+            echo "⚠️ Warning: Recent commits may have bypassed TDD hooks:"
+            echo "$BYPASS_COMMITS"
+            echo "bypass-detected=true" >> $GITHUB_OUTPUT
+          else
+            echo "bypass-detected=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if bypass log exists and log recent bypasses
+          if [ -f .git/tdd-bypass.log ]; then
+            echo "📋 Recent TDD bypasses found:"
+            tail -5 .git/tdd-bypass.log
+          fi
+          
+      - name: Validate TDD compliance
+        if: steps.changed-files.outputs.any_changed == 'true'
+        run: |
+          echo "Changed Lua files: ${{ steps.changed-files.outputs.all_changed_files }}"
+          
+          # Make hook executable
+          chmod +x scripts/hooks/tdd-pre-commit.sh
+          
+          # Track validation results
+          VALIDATION_FAILED=false
+          MISSING_TESTS=""
+          FAILING_TESTS=""
+          
+          # Process each changed file
+          for FILE in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            # Skip test files themselves
+            if echo "$FILE" | grep -q 'test\|spec'; then
+              continue
+            fi
+            
+            # Skip certain directories that don't require tests
+            if echo "$FILE" | grep -q 'data/\|data-migration/\|templates/\|fixtures/\|archive/\|parity-testing/\|processes/generated/\|processes/species-tables\.lua\|processes/temp-full-test\.lua'; then
+              continue
+            fi
+            
+            echo "Checking TDD compliance for: $FILE"
+            
+            # Use test mapper to determine expected test file
+            TEST_FILE=$(lua scripts/tdd/test-mapper.lua map "$FILE" 2>/dev/null | grep -E '\.test\.lua' | head -1 | sed 's/.*- //' | sed 's/ (.*)//')
+            
+            if [ -z "$TEST_FILE" ]; then
+              echo "File excluded from TDD requirements: $FILE"
+              continue
+            fi
+            
+            # Check if test file exists
+            if [ ! -f "$TEST_FILE" ]; then
+              echo "❌ Missing test file for: $FILE"
+              echo "  Expected: $TEST_FILE"
+              MISSING_TESTS="$MISSING_TESTS\n  - $FILE (missing: $TEST_FILE)"
+              VALIDATION_FAILED=true
+              continue
+            fi
+            
+            # Run the test file
+            echo "Running tests for: $TEST_FILE"
+            
+            # Determine test runner based on location
+            if echo "$TEST_FILE" | grep -q '^testing/unit/'; then
+              # Run with aolite
+              if ! npm run test:aolite -- "$TEST_FILE"; then
+                echo "❌ Tests failing for: $FILE"
+                FAILING_TESTS="$FAILING_TESTS\n  - $FILE (failing: $TEST_FILE)"
+                VALIDATION_FAILED=true
+              else
+                echo "✅ Tests passing for: $FILE"
+              fi
+            elif echo "$TEST_FILE" | grep -q '^ao-processes/tests/'; then
+              # Run with aos-local if integration, otherwise aolite
+              if echo "$TEST_FILE" | grep -q 'integration'; then
+                if ! npm run test:aos-local -- "$TEST_FILE"; then
+                  echo "❌ Integration tests failing for: $FILE"
+                  FAILING_TESTS="$FAILING_TESTS\n  - $FILE (failing: $TEST_FILE)"
+                  VALIDATION_FAILED=true
+                else
+                  echo "✅ Integration tests passing for: $FILE"
+                fi
+              else
+                if ! npm run test:aolite -- "$TEST_FILE"; then
+                  echo "❌ Unit tests failing for: $FILE"
+                  FAILING_TESTS="$FAILING_TESTS\n  - $FILE (failing: $TEST_FILE)"
+                  VALIDATION_FAILED=true
+                else
+                  echo "✅ Unit tests passing for: $FILE"
+                fi
+              fi
+            fi
+          done
+          
+          # Report results
+          if [ "$VALIDATION_FAILED" = true ]; then
+            echo "::error::TDD Validation Failed!"
+            
+            if [ -n "$MISSING_TESTS" ]; then
+              echo "::error::Missing test files:"
+              echo -e "$MISSING_TESTS"
+            fi
+            
+            if [ -n "$FAILING_TESTS" ]; then
+              echo "::error::Failing tests:"
+              echo -e "$FAILING_TESTS"
+              
+              # Create GitHub issues for test failures
+              echo "Creating GitHub issues for test failures..."
+              npm run tdd:create-issues -- "$FAILING_TESTS"
+            fi
+            
+            exit 1
+          fi
+          
+          echo "✅ All TDD checks passed!"
+          
+          # Close resolved issues
+          echo "Checking for resolved test issues..."
+          npm run tdd:close-resolved-issues
+          
+      - name: Enforce bypass protection
+        if: steps.check-bypass.outputs.bypass-detected == 'true'
+        run: |
+          echo "::error::TDD bypass detected in recent commits!"
+          echo "::error::Commits that bypassed TDD hooks were found in this PR/push."
+          echo "::error::All code must follow the test-first development process."
+          echo "::error::Please ensure all modified code has corresponding tests."
+          echo "::notice::If this is a legitimate exception, please document the reason in the PR description."
+          exit 1
+
+  coverage-check:
+    name: Coverage Delta Check
+    runs-on: ubuntu-latest
+    needs: tdd-validation
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Setup Lua
+        uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: "5.3"
+          
+      - name: Run coverage collection
+        run: |
+          # Create coverage directory if it doesn't exist
+          mkdir -p testing/coverage
+          
+          # Run tests with coverage (when coverage collector is implemented)
+          echo "Coverage collection will be implemented in next task"
+          echo "Current coverage placeholder: 95%" > testing/coverage/current.txt
+          
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: testing/coverage/

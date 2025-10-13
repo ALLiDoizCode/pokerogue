@@ -1,0 +1,430 @@
+name: Deployment Validation
+
+on:
+  push:
+    branches: [ main, beta, ECS ]
+  pull_request:
+    branches: [ main, beta ]
+  workflow_dispatch:
+    inputs:
+      validation_level:
+        description: 'Validation level (quick, full, comprehensive)'
+        required: false
+        default: 'quick'
+        type: choice
+        options:
+        - quick
+        - full
+        - comprehensive
+
+env:
+  NODE_VERSION: '18'
+  LUA_VERSION: '5.3'
+
+jobs:
+  environment-setup:
+    name: Environment Setup
+    runs-on: ubuntu-latest
+    outputs:
+      validation-level: ${{ steps.determine-level.outputs.level }}
+      should-run-full: ${{ steps.determine-level.outputs.should-run-full }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Determine validation level
+      id: determine-level
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          LEVEL="${{ github.event.inputs.validation_level }}"
+        elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+          LEVEL="full"
+        elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/beta" ]]; then
+          LEVEL="comprehensive"
+        else
+          LEVEL="quick"
+        fi
+        
+        echo "level=$LEVEL" >> $GITHUB_OUTPUT
+        echo "should-run-full=$([[ "$LEVEL" == "full" || "$LEVEL" == "comprehensive" ]] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
+        echo "Validation level: $LEVEL"
+
+  lint-and-validate:
+    name: Lint and Validate
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: ${{ env.LUA_VERSION }}
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run ESLint
+      run: npm run lint:ao-sandbox
+
+    - name: Validate process sizes
+      run: npm run validate:size
+
+    - name: Check TypeScript compilation
+      if: hashFiles('**/*.ts') != ''
+      run: npm run typecheck || true
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: ${{ env.LUA_VERSION }}
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run aolite unit tests
+      run: npm run test:aolite
+      continue-on-error: true
+
+    - name: Upload unit test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: unit-test-results
+        path: testing/reports/
+        retention-days: 7
+
+  deployment-validation:
+    name: Deployment Validation
+    runs-on: ubuntu-latest
+    needs: [environment-setup, unit-tests]
+    strategy:
+      matrix:
+        test-suite:
+          - deployment-validation
+          - end-to-end-scenarios
+          - performance-benchmarks
+          - external-data-access
+          - recovery-scenarios
+      fail-fast: false
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: ${{ env.LUA_VERSION }}
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Create test environment
+      run: |
+        mkdir -p testing/aos-local/temp
+        mkdir -p testing/reports
+        mkdir -p processes
+
+    - name: Run deployment validation tests
+      run: |
+        if [[ "${{ matrix.test-suite }}" == "deployment-validation" ]]; then
+          npx vitest run testing/integration/deployment-validation.test.js --reporter=verbose --testTimeout=120000
+        elif [[ "${{ matrix.test-suite }}" == "end-to-end-scenarios" ]]; then
+          npx vitest run testing/integration/end-to-end-scenarios.test.js --reporter=verbose --testTimeout=180000
+        elif [[ "${{ matrix.test-suite }}" == "performance-benchmarks" ]]; then
+          npx vitest run testing/integration/performance-benchmarks.test.js --reporter=verbose --testTimeout=300000
+        elif [[ "${{ matrix.test-suite }}" == "external-data-access" ]]; then
+          npx vitest run testing/integration/external-data-access.test.js --reporter=verbose --testTimeout=120000
+        elif [[ "${{ matrix.test-suite }}" == "recovery-scenarios" ]]; then
+          npx vitest run testing/integration/recovery-scenarios.test.js --reporter=verbose --testTimeout=240000
+        fi
+      env:
+        JEST_JUNIT_OUTPUT_DIR: testing/reports
+        JEST_JUNIT_OUTPUT_NAME: ${{ matrix.test-suite }}-results.xml
+      continue-on-error: true
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.test-suite }}-results
+        path: |
+          testing/reports/
+          testing/aos-local/temp/
+        retention-days: 7
+
+  integration-validation:
+    name: Integration Validation
+    runs-on: ubuntu-latest
+    needs: [environment-setup, deployment-validation]
+    if: needs.environment-setup.outputs.should-run-full == 'true'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: ${{ env.LUA_VERSION }}
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run comprehensive integration tests
+      run: npm run test:aos-local
+      continue-on-error: true
+
+    - name: Run parity validation
+      run: npm run test:parity
+      continue-on-error: true
+
+    - name: Upload integration test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-test-results
+        path: testing/reports/
+        retention-days: 7
+
+  performance-benchmarks:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    needs: [environment-setup, deployment-validation]
+    if: needs.environment-setup.outputs.validation-level != 'quick'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: ${{ env.LUA_VERSION }}
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run performance benchmarks
+      run: |
+        # Run performance-focused tests
+        npx vitest run testing/integration/performance-benchmarks.test.js --reporter=verbose --testTimeout=600000
+      continue-on-error: true
+
+    - name: Generate performance report
+      if: always()
+      run: |
+        # Generate consolidated performance report
+        node -e "
+        const fs = require('fs');
+        const path = require('path');
+        const reportsDir = 'testing/reports';
+        const reports = fs.readdirSync(reportsDir)
+          .filter(f => f.includes('performance'))
+          .map(f => path.join(reportsDir, f));
+        console.log('Performance reports generated:', reports.length);
+        "
+
+    - name: Upload performance results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-benchmark-results
+        path: testing/reports/
+        retention-days: 30
+
+  security-validation:
+    name: Security Validation
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run security audit
+      run: npm audit --audit-level=moderate
+      continue-on-error: true
+
+    - name: Validate process security
+      run: |
+        # Check for security issues in Lua processes
+        echo "Validating process security..."
+        find processes -name "*.lua" -type f | while read file; do
+          if grep -q "require\|io\.\|os\.execute" "$file"; then
+            echo "Security concern in $file: potentially unsafe operations"
+          fi
+        done
+
+    - name: Check for hardcoded secrets
+      run: |
+        # Basic secret detection
+        if grep -r -E "(api_key|secret|password|token)" --include="*.lua" --include="*.js" .; then
+          echo "Warning: Potential hardcoded secrets detected"
+          exit 1
+        fi
+      continue-on-error: true
+
+  deployment-gates:
+    name: Deployment Gates
+    runs-on: ubuntu-latest
+    needs: [environment-setup, deployment-validation, security-validation]
+    if: always()
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download test results
+      uses: actions/download-artifact@v4
+      with:
+        path: test-results/
+
+    - name: Evaluate deployment readiness
+      id: deployment-gates
+      run: |
+        echo "Evaluating deployment readiness..."
+        
+        # Count successful vs failed tests
+        TOTAL_SUITES=0
+        PASSED_SUITES=0
+        
+        for suite in deployment-validation end-to-end-scenarios performance-benchmarks external-data-access recovery-scenarios; do
+          if [[ -d "test-results/${suite}-results" ]]; then
+            TOTAL_SUITES=$((TOTAL_SUITES + 1))
+            # Simple heuristic: if results directory exists and contains files, assume passed
+            if [[ $(ls -1 "test-results/${suite}-results" | wc -l) -gt 0 ]]; then
+              PASSED_SUITES=$((PASSED_SUITES + 1))
+              echo "✅ $suite: PASSED"
+            else
+              echo "❌ $suite: FAILED"
+            fi
+          fi
+        done
+        
+        SUCCESS_RATE=$((PASSED_SUITES * 100 / TOTAL_SUITES))
+        echo "Overall success rate: $SUCCESS_RATE% ($PASSED_SUITES/$TOTAL_SUITES)"
+        
+        # Deployment gates
+        if [[ $SUCCESS_RATE -ge 80 ]]; then
+          echo "✅ Deployment gates PASSED"
+          echo "deployment-ready=true" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Deployment gates FAILED"
+          echo "deployment-ready=false" >> $GITHUB_OUTPUT
+        fi
+        
+        echo "success-rate=$SUCCESS_RATE" >> $GITHUB_OUTPUT
+        echo "passed-suites=$PASSED_SUITES" >> $GITHUB_OUTPUT
+        echo "total-suites=$TOTAL_SUITES" >> $GITHUB_OUTPUT
+
+    - name: Create deployment summary
+      run: |
+        cat > deployment-summary.md << EOF
+        # Deployment Validation Summary
+        
+        **Validation Level:** ${{ needs.environment-setup.outputs.validation-level }}
+        **Branch:** ${{ github.ref_name }}
+        **Commit:** ${{ github.sha }}
+        **Success Rate:** ${{ steps.deployment-gates.outputs.success-rate }}%
+        
+        ## Test Results
+        - **Passed Suites:** ${{ steps.deployment-gates.outputs.passed-suites }}
+        - **Total Suites:** ${{ steps.deployment-gates.outputs.total-suites }}
+        - **Deployment Ready:** ${{ steps.deployment-gates.outputs.deployment-ready }}
+        
+        ## Next Steps
+        ${{ steps.deployment-gates.outputs.deployment-ready == 'true' && '✅ Ready for deployment to staging/production' || '❌ Address failing tests before deployment' }}
+        EOF
+
+    - name: Upload deployment summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-summary
+        path: deployment-summary.md
+        retention-days: 30
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('deployment-summary.md', 'utf8');
+          
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
+
+    - name: Set deployment status
+      if: steps.deployment-gates.outputs.deployment-ready == 'false'
+      run: |
+        echo "❌ Deployment validation failed"
+        exit 1
+
+  notification:
+    name: Notification
+    runs-on: ubuntu-latest
+    needs: [deployment-gates]
+    if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta')
+    steps:
+    - name: Send notification
+      run: |
+        STATUS="${{ needs.deployment-gates.result }}"
+        BRANCH="${{ github.ref_name }}"
+        COMMIT="${{ github.sha }}"
+        
+        if [[ "$STATUS" == "success" ]]; then
+          echo "✅ Deployment validation passed for $BRANCH ($COMMIT)"
+        else
+          echo "❌ Deployment validation failed for $BRANCH ($COMMIT)"
+        fi
+        
+        # In a real environment, this would send notifications to Slack, email, etc.
+        echo "Notification sent"

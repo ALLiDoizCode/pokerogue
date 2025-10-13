@@ -1,0 +1,145 @@
+name: Rotate GitHub Tokens
+
+on:
+  schedule:
+    # Run every 75 days (to stay within 90-day rotation requirement)
+    - cron: '0 3 */75 * *'
+  workflow_dispatch:
+    inputs:
+      force_rotation:
+        description: 'Force immediate token rotation'
+        required: false
+        default: 'false'
+
+jobs:
+  rotate-tokens:
+    name: Rotate GitHub Integration Tokens
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'your-org' # Replace with actual org
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          
+      - name: Check token age
+        id: check-age
+        run: |
+          # Check when tokens were last rotated
+          LAST_ROTATION=$(gh secret list --repo ${{ github.repository }} | grep "TDD_GITHUB_TOKEN_CREATED" | awk '{print $3}' || echo "")
+          
+          if [ -z "$LAST_ROTATION" ]; then
+            echo "No previous rotation date found - forcing rotation"
+            echo "needs-rotation=true" >> $GITHUB_OUTPUT
+          else
+            # Calculate days since last rotation
+            DAYS_AGO=$(( ($(date +%s) - $(date -d "$LAST_ROTATION" +%s)) / 86400 ))
+            echo "Days since last rotation: $DAYS_AGO"
+            
+            if [ $DAYS_AGO -gt 75 ] || [ "${{ github.event.inputs.force_rotation }}" = "true" ]; then
+              echo "needs-rotation=true" >> $GITHUB_OUTPUT
+            else
+              echo "needs-rotation=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Generate new token
+        id: generate-token
+        if: steps.check-age.outputs.needs-rotation == 'true'
+        run: |
+          echo "Generating new GitHub token for TDD integration..."
+          
+          # This would typically integrate with your organization's token management system
+          # For now, create a notification for manual token rotation
+          
+          echo "::notice::GitHub token rotation required for TDD integration"
+          echo "::notice::Please generate a new token with issues:write permissions and update TDD_GITHUB_TOKEN secret"
+          echo "::notice::Current token is older than 75 days and should be rotated for security"
+          
+          # Set the new creation timestamp
+          echo "token-created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
+          
+      - name: Update token metadata
+        if: steps.check-age.outputs.needs-rotation == 'true'
+        run: |
+          # Update the token creation timestamp secret
+          gh secret set TDD_GITHUB_TOKEN_CREATED --body "${{ steps.generate-token.outputs.token-created }}" --repo ${{ github.repository }}
+          
+          echo "Token rotation timestamp updated: ${{ steps.generate-token.outputs.token-created }}"
+          
+          # Create issue for manual token update
+          gh issue create \
+            --title "🔐 GitHub Token Rotation Required for TDD Integration" \
+            --body "## Security Notice: Token Rotation Required
+
+          The GitHub token used for TDD issue integration needs to be rotated for security compliance.
+
+          ### Action Required:
+          1. Generate a new GitHub personal access token or GitHub App token
+          2. Ensure the token has **issues:write** permissions only
+          3. Update the \`TDD_GITHUB_TOKEN\` repository secret with the new token
+          4. Close this issue once completed
+
+          ### Token Requirements:
+          - **Permissions**: \`issues:write\` (minimal required permissions)
+          - **Expiration**: Set to 90 days or less
+          - **Scope**: Repository access only
+
+          ### Rotation Schedule:
+          - **Current rotation**: ${{ steps.generate-token.outputs.token-created }}
+          - **Next rotation due**: $(date -d '+75 days' -u +%Y-%m-%d)
+
+          This is an automated security reminder to maintain secure access to the TDD integration system." \
+            --label "security,tdd,automation" \
+            --assignee "@me"
+            
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Verify integration health
+        run: |
+          echo "Verifying TDD integration health..."
+          
+          # Check if TDD token is configured
+          if [ -z "${{ secrets.TDD_GITHUB_TOKEN }}" ]; then
+            echo "::warning::TDD_GITHUB_TOKEN secret is not configured"
+            echo "::notice::TDD issue integration will not function without this token"
+          else
+            echo "✅ TDD_GITHUB_TOKEN is configured"
+          fi
+          
+          # Check if issue templates exist
+          if [ -f ".github/ISSUE_TEMPLATE/test_failure.yml" ]; then
+            echo "✅ Test failure issue template exists"
+          else
+            echo "::warning::Test failure issue template not found"
+          fi
+          
+          # Test token permissions (if configured)
+          if [ -n "${{ secrets.TDD_GITHUB_TOKEN }}" ]; then
+            echo "Testing token permissions..."
+            # This would test the token's ability to create issues
+            # gh api repos/${{ github.repository }}/issues --method POST --field title="Test" --field body="Test" --dry-run
+          fi
+          
+  notify-rotation-complete:
+    name: Notify Rotation Status
+    runs-on: ubuntu-latest
+    needs: rotate-tokens
+    if: always()
+    
+    steps:
+      - name: Send notification
+        run: |
+          if [ "${{ needs.rotate-tokens.result }}" = "success" ]; then
+            echo "✅ Token rotation workflow completed successfully"
+          else
+            echo "⚠️ Token rotation workflow encountered issues"
+            echo "Please check the workflow logs and ensure tokens are properly rotated"
+          fi

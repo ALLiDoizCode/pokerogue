@@ -1,0 +1,535 @@
+{
+  "testScenario": {
+    "id": "wild-capture-001",
+    "name": "Wild Pokemon Capture Complete Workflow",
+    "type": "end-to-end",
+    "description": "Tests complete capture workflow from encounter through party integration",
+    "processes": [
+      "coordinator-process",
+      "battle-engine",
+      "capture-engine",
+      "pokemon-species-db",
+      "items-database",
+      "rng-coordinator",
+      "state-validator",
+      "inventory-manager"
+    ]
+  },
+  "initialGameState": {
+    "version": "1.0.0",
+    "playerId": "test-player-capture-001",
+    "battleId": "capture-battle-001",
+    "party": [
+      {
+        "id": "pokemon-001",
+        "speciesId": 25,
+        "name": "Pikachu",
+        "level": 22,
+        "currentHp": 65,
+        "stats": {
+          "hp": 65,
+          "attack": 42,
+          "defense": 35,
+          "specialAttack": 48,
+          "specialDefense": 41,
+          "speed": 58
+        },
+        "moves": [85, 86, 129, 98]
+      }
+    ],
+    "inventory": {
+      "pokeballs": [
+        {
+          "itemId": 4,
+          "name": "Poke Ball",
+          "quantity": 5
+        },
+        {
+          "itemId": 3,
+          "name": "Great Ball",
+          "quantity": 2
+        }
+      ],
+      "items": []
+    },
+    "currentBattle": {
+      "battleType": "wild",
+      "turn": 3,
+      "phase": "capture_attempt",
+      "playerPokemon": {
+        "id": "pokemon-001",
+        "currentHp": 65
+      },
+      "wildPokemon": {
+        "speciesId": 16,
+        "level": 18,
+        "currentHp": 25,
+        "maxHp": 55,
+        "stats": {
+          "hp": 55,
+          "attack": 38,
+          "defense": 34,
+          "specialAttack": 29,
+          "specialDefense": 29,
+          "speed": 45
+        },
+        "statusCondition": "sleep",
+        "nature": "Hardy"
+      },
+      "battleSeed": "capture-seed-12345"
+    },
+    "progression": {
+      "pokedexSeen": 25,
+      "pokedexCaught": 12
+    }
+  },
+  "messageFlow": [
+    {
+      "step": 1,
+      "source": "test-client",
+      "target": "coordinator-process",
+      "action": "CoordinateWorkflow",
+      "data": {
+        "workflowType": "pokemon_capture",
+        "battleId": "capture-battle-001",
+        "captureData": {
+          "pokeball": {
+            "itemId": 4,
+            "name": "Poke Ball",
+            "captureRate": 1.0
+          },
+          "targetPokemon": {
+            "speciesId": 16,
+            "level": 18,
+            "currentHp": 25,
+            "maxHp": 55,
+            "statusCondition": "sleep"
+          },
+          "battleSeed": "capture-seed-12345"
+        }
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true
+      },
+      "timeout": 10000,
+      "description": "Initiate Pokemon capture workflow"
+    },
+    {
+      "step": 2,
+      "source": "coordinator-process",
+      "target": "items-database",
+      "action": "QueryItem",
+      "data": {
+        "itemId": 4
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "itemId": 4,
+          "name": "Poke Ball",
+          "category": "pokeball",
+          "captureRate": 1.0,
+          "effects": ["basic_capture"]
+        }
+      },
+      "timeout": 2000,
+      "description": "Get pokeball information for capture calculation"
+    },
+    {
+      "step": 3,
+      "source": "coordinator-process",
+      "target": "pokemon-species-db",
+      "action": "QuerySpecies",
+      "data": {
+        "speciesId": 16
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "speciesId": 16,
+          "name": "Pidgey",
+          "type1": "Normal",
+          "type2": "Flying",
+          "baseCaptureRate": 255,
+          "baseStats": {
+            "hp": 40,
+            "attack": 45,
+            "defense": 40,
+            "specialAttack": 35,
+            "specialDefense": 35,
+            "speed": 56
+          }
+        }
+      },
+      "timeout": 2000,
+      "description": "Get target Pokemon species data for capture calculation"
+    },
+    {
+      "step": 4,
+      "source": "coordinator-process",
+      "target": "capture-engine",
+      "action": "CalculateCapture",
+      "data": {
+        "targetPokemon": {
+          "speciesId": 16,
+          "level": 18,
+          "currentHp": 25,
+          "maxHp": 55,
+          "baseCaptureRate": 255,
+          "statusCondition": "sleep"
+        },
+        "pokeball": {
+          "itemId": 4,
+          "captureRate": 1.0
+        },
+        "battleSeed": "capture-seed-12345"
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "captureRate": 127.5,
+          "shakeCount": 4,
+          "captureSuccessful": true,
+          "criticalCapture": false,
+          "modifiers": {
+            "hpModifier": 0.5,
+            "statusModifier": 2.0,
+            "ballModifier": 1.0
+          }
+        }
+      },
+      "timeout": 3000,
+      "description": "Calculate capture probability and determine success"
+    },
+    {
+      "step": 5,
+      "source": "coordinator-process",
+      "target": "inventory-manager",
+      "action": "ConsumeItem",
+      "data": {
+        "itemId": 4,
+        "quantity": 1,
+        "context": "pokeball_used"
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "itemConsumed": true,
+          "remainingQuantity": 4,
+          "inventoryUpdated": true
+        }
+      },
+      "timeout": 1000,
+      "description": "Remove used pokeball from inventory"
+    },
+    {
+      "step": 6,
+      "source": "coordinator-process",
+      "target": "battle-engine",
+      "action": "GenerateCapturedPokemon",
+      "data": {
+        "wildPokemon": {
+          "speciesId": 16,
+          "level": 18,
+          "currentHp": 25,
+          "maxHp": 55,
+          "statusCondition": "sleep",
+          "nature": "Hardy"
+        },
+        "captureContext": {
+          "captureLocation": "Route 1",
+          "captureDate": "2025-09-22",
+          "pokeball": "Poke Ball"
+        },
+        "battleSeed": "capture-seed-12345"
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "capturedPokemon": {
+            "id": "pokemon-002",
+            "speciesId": 16,
+            "name": "Pidgey",
+            "level": 18,
+            "experience": 5832,
+            "nature": "Hardy",
+            "ivs": {
+              "hp": 12,
+              "attack": 8,
+              "defense": 15,
+              "specialAttack": 11,
+              "specialDefense": 7,
+              "speed": 13
+            },
+            "stats": {
+              "hp": 55,
+              "attack": 38,
+              "defense": 40,
+              "specialAttack": 29,
+              "specialDefense": 29,
+              "speed": 45
+            },
+            "currentHp": 55,
+            "moves": [16, 28, 17, 98],
+            "captureInfo": {
+              "location": "Route 1",
+              "date": "2025-09-22",
+              "pokeball": "Poke Ball"
+            }
+          }
+        }
+      },
+      "timeout": 3000,
+      "description": "Generate captured Pokemon with stats and moves"
+    },
+    {
+      "step": 7,
+      "source": "coordinator-process",
+      "target": "state-validator",
+      "action": "ValidateParty",
+      "data": {
+        "party": [
+          {
+            "id": "pokemon-001",
+            "speciesId": 25,
+            "name": "Pikachu",
+            "level": 22,
+            "currentHp": 65
+          },
+          {
+            "id": "pokemon-002",
+            "speciesId": 16,
+            "name": "Pidgey",
+            "level": 18,
+            "currentHp": 55
+          }
+        ],
+        "partyLimit": 6
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "valid": true,
+          "partySize": 2,
+          "validationErrors": [],
+          "warnings": []
+        }
+      },
+      "timeout": 2000,
+      "description": "Validate party state after adding captured Pokemon"
+    }
+  ],
+  "finalGameState": {
+    "version": "1.0.0",
+    "playerId": "test-player-capture-001",
+    "battleId": null,
+    "party": [
+      {
+        "id": "pokemon-001",
+        "speciesId": 25,
+        "name": "Pikachu",
+        "level": 22,
+        "currentHp": 65,
+        "stats": {
+          "hp": 65,
+          "attack": 42,
+          "defense": 35,
+          "specialAttack": 48,
+          "specialDefense": 41,
+          "speed": 58
+        },
+        "moves": [85, 86, 129, 98]
+      },
+      {
+        "id": "pokemon-002",
+        "speciesId": 16,
+        "name": "Pidgey",
+        "level": 18,
+        "experience": 5832,
+        "nature": "Hardy",
+        "currentHp": 55,
+        "stats": {
+          "hp": 55,
+          "attack": 38,
+          "defense": 40,
+          "specialAttack": 29,
+          "specialDefense": 29,
+          "speed": 45
+        },
+        "moves": [16, 28, 17, 98],
+        "captureInfo": {
+          "location": "Route 1",
+          "date": "2025-09-22",
+          "pokeball": "Poke Ball"
+        }
+      }
+    ],
+    "inventory": {
+      "pokeballs": [
+        {
+          "itemId": 4,
+          "name": "Poke Ball",
+          "quantity": 4
+        },
+        {
+          "itemId": 3,
+          "name": "Great Ball",
+          "quantity": 2
+        }
+      ],
+      "items": []
+    },
+    "progression": {
+      "pokedexSeen": 25,
+      "pokedexCaught": 13
+    }
+  },
+  "assertions": [
+    {
+      "type": "state_consistency",
+      "condition": "pokemon_captured_successfully",
+      "expected": true,
+      "description": "Wild Pokemon should be successfully captured and added to party"
+    },
+    {
+      "type": "data_integrity",
+      "condition": "pokeball_consumed",
+      "expected": true,
+      "description": "Pokeball should be removed from inventory after use"
+    },
+    {
+      "type": "coordination",
+      "condition": "capture_workflow_completed",
+      "expected": true,
+      "description": "Complete capture workflow should succeed without errors"
+    },
+    {
+      "type": "performance",
+      "condition": "total_execution_time",
+      "expected": "<10000ms",
+      "tolerance": "10%",
+      "description": "Capture workflow should complete within 10 seconds"
+    },
+    {
+      "type": "data_integrity",
+      "condition": "captured_pokemon_stats_valid",
+      "expected": true,
+      "description": "Captured Pokemon should have valid stats and IVs"
+    },
+    {
+      "type": "state_consistency",
+      "condition": "party_size_increased",
+      "expected": true,
+      "description": "Party size should increase from 1 to 2"
+    },
+    {
+      "type": "data_integrity",
+      "condition": "capture_info_preserved",
+      "expected": true,
+      "description": "Capture information should be stored with Pokemon"
+    },
+    {
+      "type": "state_consistency",
+      "condition": "battle_ended",
+      "expected": true,
+      "description": "Battle should end after successful capture"
+    },
+    {
+      "type": "data_integrity",
+      "condition": "pokedex_updated",
+      "expected": true,
+      "description": "Pokedex caught count should increase"
+    }
+  ],
+  "captureCalculation": {
+    "formula": "Modified Gen III capture formula",
+    "factors": [
+      {
+        "name": "HP Factor",
+        "calculation": "(3 * maxHp - 2 * currentHp) / (3 * maxHp)",
+        "value": 0.5
+      },
+      {
+        "name": "Status Factor",
+        "condition": "sleep",
+        "multiplier": 2.0
+      },
+      {
+        "name": "Ball Factor",
+        "item": "Poke Ball",
+        "multiplier": 1.0
+      },
+      {
+        "name": "Species Factor",
+        "baseCaptureRate": 255,
+        "description": "Pidgey has high base capture rate"
+      }
+    ],
+    "expectedRate": 127.5,
+    "successThreshold": 65535
+  },
+  "stateTransitions": [
+    {
+      "step": "battle_active",
+      "description": "Wild battle in progress, capture attempt initiated",
+      "key_values": {
+        "battleActive": true,
+        "wildPokemonHp": 25,
+        "statusCondition": "sleep"
+      }
+    },
+    {
+      "step": "capture_calculation",
+      "description": "Capture rate calculated based on factors",
+      "key_values": {
+        "captureRate": 127.5,
+        "modifiers": ["hp", "status", "pokeball"]
+      }
+    },
+    {
+      "step": "capture_successful",
+      "description": "Pokemon captured, ball consumed",
+      "key_values": {
+        "captured": true,
+        "shakeCount": 4,
+        "criticalCapture": false
+      }
+    },
+    {
+      "step": "pokemon_generated",
+      "description": "Captured Pokemon added to party with stats",
+      "key_values": {
+        "pokemonId": "pokemon-002",
+        "statsGenerated": true,
+        "movesAssigned": true
+      }
+    },
+    {
+      "step": "state_updated",
+      "description": "Game state updated with new Pokemon and inventory changes",
+      "key_values": {
+        "partySize": 2,
+        "pokeballCount": 4,
+        "pokedexCaught": 13
+      }
+    }
+  ],
+  "metadata": {
+    "author": "Integration Test Framework",
+    "created": "2025-09-22",
+    "tags": ["capture", "wild-pokemon", "end-to-end", "workflow"],
+    "priority": "high",
+    "complexity": "advanced",
+    "expectedDuration": 10000,
+    "retryCount": 2,
+    "gameFeature": "pokemon_capture",
+    "testCategory": "core_gameplay"
+  }
+}

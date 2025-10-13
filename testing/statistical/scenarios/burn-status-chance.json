@@ -1,0 +1,16 @@
+{
+  "id": "burn-status-chance",
+  "name": "Burn Status Effect Chance",
+  "type": "status_effect_chance",
+  "category": "probability",
+  "description": "Validate burn application rate",
+  "iterations": 10000,
+  "parameters": {
+    "baseChance": 0.1,
+    "moveModifier": 1,
+    "effectType": "burn"
+  },
+  "expectedDistribution": {
+    "rate": 0.1
+  }
+}

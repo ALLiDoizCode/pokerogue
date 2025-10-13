@@ -1,0 +1,25 @@
+{
+  "name": "validation",
+  "description": "Validation and linting stage for AO process compliance",
+  "commands": ["npm run lint:ao-sandbox", "npm run validate:size"],
+  "timeout": 120000,
+  "required": true,
+  "parallel": false,
+  "artifacts": ["testing/reports/validation-*.json", "testing/coverage/validation-*.txt"],
+  "qualityGates": [
+    {
+      "name": "ao-sandbox-compliance",
+      "requirement": "All processes must be AO runtime compliant",
+      "critical": true
+    },
+    {
+      "name": "process-size-limits",
+      "requirement": "All processes must be under 500KB",
+      "critical": true
+    }
+  ],
+  "environment": {
+    "NODE_ENV": "test",
+    "AO_VALIDATION": "strict"
+  }
+}

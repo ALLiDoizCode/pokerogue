@@ -1,0 +1,70 @@
+schema: 1
+story: "20.4"
+story_title: "Fix Game Mode Tests"
+gate: CONCERNS
+status_reason: "Tests pass and meet all acceptance criteria, but minor maintainability improvements recommended for long-term code clarity."
+reviewer: "Quinn (Test Architect)"
+updated: "2025-10-09T00:00:00Z"
+
+waiver:
+  active: false
+
+top_issues:
+  - id: "MAINT-001"
+    severity: low
+    finding: "Magic numbers in daily-run-biome-selection.test.lua (seed length 30, biome range 1-33) lack explanatory comments"
+    suggested_action: "Add inline comments documenting why specific constants are used"
+    suggested_owner: dev
+  - id: "MAINT-002"
+    severity: low
+    finding: "Redundant field checks (biome/startingBiome/biomeId) in daily-run-biome-selection.test.lua without explanation"
+    suggested_action: "Add comment explaining process API evolution and field fallback strategy"
+    suggested_owner: dev
+
+risk_summary:
+  totals:
+    critical: 0
+    high: 0
+    medium: 0
+    low: 4
+  highest: 4
+  recommendations:
+    must_fix: []
+    monitor:
+      - "Watch for process changes in game-mode-engine.lua or daily-run-engine.lua that could invalidate test assumptions"
+
+quality_score: 80
+expires: "2025-10-23T00:00:00Z"
+
+evidence:
+  tests_reviewed: 2
+  tests_created: 1
+  tests_verified: 1
+  risks_identified: 4
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: "Testing infrastructure story with no security surface area changes. Deterministic RNG validation prevents seed manipulation exploits."
+  performance:
+    status: PASS
+    notes: "Test execution within acceptable bounds. Uses efficient aolite framework. Full test suite completes in <30 seconds."
+  reliability:
+    status: PASS
+    notes: "Tests are deterministic and repeatable. Uses correct aolite API pattern. Error handling validated."
+  maintainability:
+    status: CONCERNS
+    notes: "Minor documentation improvements needed: magic numbers lack comments, redundant field checks unexplained. Code follows correct pattern otherwise."
+
+recommendations:
+  immediate: []
+  future:
+    - action: "Add inline comments for magic numbers (seed length 30 chars, biome range 1-33)"
+      refs: ["testing/unit/daily-run-biome-selection.test.lua:54", "testing/unit/daily-run-biome-selection.test.lua:95"]
+    - action: "Document field fallback strategy (biome/startingBiome/biomeId checks)"
+      refs: ["testing/unit/daily-run-biome-selection.test.lua:63", "testing/unit/daily-run-biome-selection.test.lua:68"]
+    - action: "Consider extracting test helper functions to shared testing utilities module (future refactoring opportunity)"
+      refs: ["testing/unit/game-mode-creation.test.lua:28-41", "testing/unit/daily-run-biome-selection.test.lua:28-45"]

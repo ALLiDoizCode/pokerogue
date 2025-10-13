@@ -1,2421 +1,1948 @@
-# PokéRogue Product Requirements Document (PRD)
+# PokéRogue Stateless AO Process Product Requirements Document (PRD)
 
 ## Goals and Background Context
 
 ### Goals
-Based on your Project Brief, here are the key desired outcomes this PRD will deliver:
-
-• **Complete AO-Native Game Engine Migration** - Achieve 100% functional parity with current PokéRogue on AO processes with zero game mechanics lost
-• **Establish Permanent Save System** - Eliminate save corruption and enable cross-device gameplay through AO process persistence  
-• **Enable Autonomous Agent Integration** - Create first UI-agnostic roguelike where AI agents can participate as first-class players
-• **Demonstrate AO Gaming Feasibility** - Prove complex game logic can operate effectively on AO protocol at scale
-• **Build Decentralized Gaming Foundation** - Remove centralized server dependencies while maintaining player experience
-• **Create Open Source Reference** - Establish reproducible workflow for AO game development that other projects can adopt
+- Transform PokéRogue into a highly scalable, modular game architecture using 26 specialized stateless AO processes
+- Achieve optimal resource utilization through process specialization and async coordination patterns
+- Create the world's first decentralized roguelike optimized for autonomous agent participation using stateless process topology
+- Establish a modern foundation that eliminates monolithic architecture limitations through distributed processing
+- Enable infinite scalability through stateless process design and horizontal scaling capabilities
+- Demonstrate cutting-edge distributed process patterns that can serve as reference architecture for decentralized games
 
 ### Background Context
 
-This PRD addresses the fundamental limitation that PokéRogue, as a browser-dependent centralized game, excludes the growing ecosystem of autonomous AI agents from participation. The current architecture creates fragile save systems (15-20% of players lose progress), requires centralized servers, and prevents the emerging market of 500+ AO agent developers from building gaming integrations.
+PokéRogue represents a revolutionary leap from monolithic game architecture to a distributed 26-process stateless system optimized for the Arweave AO protocol. This stateless approach eliminates the constraints of state management within processes, enabling unprecedented scalability and fault tolerance through pure functional process design and async message coordination.
 
-The migration strategy leverages AO's turn-based message-passing architecture to solve these problems through a three-phase approach: first migrating game mechanics to AO handlers for permanent storage and reliability, then integrating the existing UI through AOConnect, and finally enabling AI agents to participate alongside human players in a truly decentralized PVPVE environment.
+The Stateless AO Process architecture addresses fundamental scalability bottlenecks in traditional game engines by treating processes as pure computation functions that receive complete state, perform specialized logic, and return updated state. This approach enables the game to scale horizontally across the AO network while maintaining deterministic behavior, positioning PokéRogue as the first truly scalable decentralized game.
 
 ### Change Log
+
 | Date | Version | Description | Author |
-|------|---------|-------------|--------|
-| 2025-08-26 | 1.0 | Initial PRD creation based on Project Brief | John (PM Agent) |
+|------|---------|-------------|---------|
+| 2025-09-08 | 1.0.0 | Initial ECS PRD for greenfield architecture | Product Manager |
+| 2025-09-10 | 2.0.0 | **MAJOR REVISION**: 26-Process Stateless AO Architecture | Product Manager |
+| 2025-09-11 | 3.0.0 | **ARCHITECTURE ALIGNMENT**: Updated to stateless AO processes | BMad Master |
 
 ## Requirements
 
 ### Functional
 
-**FR1:** The AO process shall implement complete battle turn resolution including damage calculation, type effectiveness, status effects, and move mechanics with 100% parity to current TypeScript implementation.
+**FR1:** The system shall implement 26 specialized stateless AO processes with clear separation between data processes and logic processes
 
-**FR2:** The system shall provide persistent player state management including character stats, experience, levels, creature roster, item inventory, and currency through AO process storage.
+**FR2:** Each process shall be completely self-contained with no external dependencies and under 500KB size constraint, implemented as monolithic AO processes with embedded dependencies and proper `Handlers.add()` patterns (no require() statements, no direct handler assignment)
 
-**FR3:** The AO handlers shall support complete creature capture mechanics including wild encounters, capture probability calculations, PC storage, and creature stat/moveset management.
+**FR3:** The coordinator process shall orchestrate complex multi-step workflows through async message passing coordination
 
-**FR4:** The system shall implement world progression logic including biome advancement, gym leader battles, Elite Four encounters, and champion battles with proper difficulty scaling.
+**FR4:** Data processes shall provide pure reference data queries without GameState modification (pokemon-species-db, moves-database, items-database, abilities-database)
 
-**FR5:** The system shall support complete item management including shop interactions, item effects, consumable usage, and inventory organization.
+**FR5:** Logic processes shall perform pure computation on received GameState and return updated state (battle-engine, evolution-engine, capture-engine, status-effects-engine)
 
-**FR6:** The AO handlers shall implement RNG systems for encounters, battle outcomes, and loot generation with deterministic reproducibility across process instances.
+**FR6:** All processes shall return responses via uniform "SaveState" action while accepting domain-specific input actions
 
-**FR7:** The system shall provide AO message-based APIs for all game operations enabling external system integration and agent participation.
+**FR7:** The system shall maintain 100% functional parity with original PokéRogue gameplay mechanics through distributed process implementation
 
-**FR8:** The AO process shall comply with AO documentation protocol including mandatory Info handler and discoverable handler specifications.
+**FR8:** GameState shall flow through processes without persistent storage within any individual process
 
-**FR9:** The system shall support AOConnect integration enabling UI-to-AO message translation for Phase 2 browser interface.
+**FR9:** The system shall integrate with Arweave AO protocol for process deployment and inter-process message passing
 
-### Non-Functional  
+**FR10:** Process communication shall be fully asynchronous with operation state tracking in the coordinator process
 
-**NFR1:** The system shall maintain 99.9% uptime through AO's decentralized infrastructure with no single points of failure.
+**FR11:** All processes shall comply with AO runtime requirements: monolithic design with embedded dependencies, proper `Handlers.add(name, matcher, handler)` pattern, wrapped error handling with pcall, and timeout monitoring under 5-second execution limits
 
-**NFR2:** Game state queries must return complete, accurate information within 200ms to support responsive UI integration.
+**FR12:** Process implementations shall use only available AO globals (ao.send, ao.id, Handlers, json, standard Lua) with no access to require(), io, debug, or external filesystem operations
 
-**NFR3:** The AO process shall support 1,000+ concurrent active games without performance degradation or memory limitations.
+### Non Functional
 
-**NFR4:** All game mechanics must achieve 100% functional parity with current browser version, with zero gameplay regressions during migration.
+**NFR1:** Each process deployment shall remain under 500KB through aggressive code optimization and inlining
 
-**NFR5:** The system shall provide zero data loss or corruption during gameplay sessions through AO's atomic message processing.
+**NFR2:** Coordinated battle turns shall complete in <5 seconds including all async data collection and processing
 
-**NFR6:** The architecture shall be designed for future multi-process expansion while maintaining single-process MVP simplicity.
+**NFR3:** The system shall handle 100+ concurrent coordinated operations without performance degradation
 
-## User Interface Design Goals
+**NFR4:** Process-to-process message latency shall average <500ms within the AO network
 
-### Overall UX Vision
-The user experience transitions from traditional browser-based gaming to a hybrid model where human players use familiar interfaces while autonomous agents interact directly with game logic. Phase 1 focuses on headless AO functionality, Phase 2 reintegrates the existing Phaser UI through AOConnect, and Phase 3 enables seamless human-agent mixed gameplay where both interaction methods feel natural and equivalent.
+**NFR5:** Memory usage within processes shall be bounded and not grow with number of operations processed
 
-### Key Interaction Paradigms
-- **Message-Driven Architecture:** All game actions (battle commands, item usage, movement) translate to AO messages, enabling both UI clicks and agent API calls to trigger identical game responses
-- **Asynchronous Turn-Based Flow:** Leverages AO's message-passing for turn-based mechanics that work naturally across time zones and don't require real-time coordination
-- **Cross-Device Continuity:** Game state accessible from any device with AO connectivity, eliminating browser-specific save dependencies
-- **Transparent Backend Integration:** Players experience identical gameplay to current version while benefiting from AO's permanent storage and reliability
+**NFR6:** Data processes shall provide sub-100ms response times for reference data queries
 
-### Core Screens and Views
-From a product perspective, the critical screens necessary to deliver PRD value:
-- **Battle Interface** - Core turn-based combat with creature, move, and status display
-- **Creature Management Screen** - PC storage, party management, creature stats/movesets
-- **Inventory and Shop Interface** - Item management, purchases, consumable usage
-- **World Map/Progress Screen** - Biome navigation, gym/elite four progress tracking
-- **Game State Dashboard** - Save/load functionality, cross-device sync status
-- **Settings and Configuration** - AOConnect setup, account management for AO integration
+**NFR7:** The coordinator shall support 1000+ active operations simultaneously with proper state management
 
-### Accessibility: WCAG AA
-Maintain current accessibility standards while adding AO-specific considerations:
-- Screen reader compatibility for AO connection status and game state information
-- Keyboard navigation for all AOConnect-bridged functionality
-- High contrast modes that work with AO message loading states
-- Alternative input methods for players who prefer direct AO message interaction over UI
+**NFR8:** Process crash recovery shall complete within 30 seconds through client-side timeout and retry mechanisms
 
-### Branding
-Preserve PokéRogue's existing visual identity and game feel:
-- Maintain current pixel art aesthetic and creature designs
-- Preserve existing color palette and UI styling from Phaser implementation  
-- Simple wallet connect/disconnect button for AO connectivity without disrupting game immersion
-- Agent interactions visible to human players for spectating and mixed gameplay awareness
-- Ensure autonomous agent battles feel integrated as part of the game world
+**NFR9:** AO sandbox validation shall prevent deployment of processes using forbidden APIs or exceeding size limits
 
-### Target Device and Platforms: Web Responsive
-- **Primary:** Desktop browsers with AOConnect support (Chrome 90+, Firefox 88+, Safari 14+)
-- **Secondary:** Mobile browsers for monitoring game state and simple interactions
-- **Agent Interface:** Headless AO message API for autonomous agent participation
-- **Cross-Platform Consistency:** Identical game logic and state across all access methods
+**NFR10:** Comprehensive test suite shall achieve 100% parity validation with TypeScript reference implementation
 
 ## Technical Assumptions
 
 ### Repository Structure: Monorepo
-Single repository approach with organized directories maintaining clean separation:
-- `/typescript/` - Existing PokéRogue TypeScript/Phaser codebase
-- `/lua/` - AO process Lua handler implementations
-- `/bridge/` - AOConnect integration layer for Phase 2
-- `/tests/` - Parity testing between TypeScript and Lua implementations
-- No shared code folders - each implementation remains completely independent
-- Unified repository enables coordinated development while maintaining codebase isolation
+Single repository approach for coordinated stateless process development:
+- `/processes/` - 26 stateless Lua processes (battle-engine.lua, pokemon-species-db.lua, etc.)
+- `/testing/` - Comprehensive TDD framework (aolite unit tests, aos-local integration, parity validation)
+- `/tools/` - AO sandbox validation, process size monitoring, performance testing
+- `/fixtures/` - Test data and golden master outputs for parity validation
+- `/typescript-reference/` - Current implementation for parity testing
 
 ### Service Architecture
-**Phase 1: Single Comprehensive AO Process**
-- All game logic consolidated into one AO process for MVP simplicity
-- Handler specialization within single process (battle, state, queries)
-- Internal message routing for different game operations
-- Architecture designed for potential multi-process expansion in later phases
+**26-Process Stateless Architecture with Async Coordination**
+- Data processes provide pure reference data (pokemon-species-db, moves-database, items-database, abilities-database)
+- Logic processes perform pure computation (battle-engine, evolution-engine, capture-engine, status-effects-engine)
+- Coordinator process orchestrates complex multi-step async workflows
+- Client-side GameState persistence eliminates persistent state within processes
+- Fixed process topology with predefined process addresses
 
-**Rationale:** Single process reduces deployment complexity and ensures atomic game state management while proving AO feasibility for complex games.
+**Rationale:** Stateless process architecture enables infinite horizontal scalability while maintaining deterministic behavior and eliminating single points of failure through pure functional design.
 
-### Testing Requirements: Full Testing Pyramid
-**Critical Requirement:** Comprehensive testing to ensure zero functionality loss during migration
-- **Parity Testing:** Automated comparison of TypeScript vs Lua battle outcomes
-- **Integration Testing:** AOConnect bridge functionality and message handling
-- **Load Testing:** AO process performance under concurrent game load
-- **End-to-End Testing:** Complete game runs from start to champion victory
-- **Agent Integration Testing:** Autonomous agent message protocol validation
+### Testing Requirements: Migration Parity Validation
+**Critical Requirement:** 100% functional parity with existing TypeScript implementation
+- **Parity Testing:** Automated comparison of TypeScript vs stateless process outcomes for identical inputs
+- **Process Testing:** Unit testing of individual Lua processes with TypeScript reference validation using aolite
+- **Integration Testing:** Coordinator process orchestration with async message routing and external data fetching
+- **End-to-End Testing:** Complete game scenarios comparing TypeScript vs stateless AO process implementations
 
 ### Additional Technical Assumptions and Requests
 
-**Core Language and Framework:**
-- **Backend:** Lua 5.3 for AO process handler implementation using AO's native `Handlers.add()` pattern
-- **Frontend Bridge:** Continue using existing Phaser.js with TypeScript, integrated via `@permaweb/aoconnect`
-- **Message Protocol:** AO's native message-passing system for all game interactions
+**Core Architecture:**
+- **Coordinator Process:** Central orchestration process managing async workflows and operation state
+- **Specialized Processes:** 26 stateless Lua processes with clear data/logic separation
+- **External Data Storage:** Arweave transactions for Pokemon species, moves, and items databases (2MB+ data moved external)
+- **Process Communication:** Coordinator-mediated message routing to appropriate processes based on operation type
 
-**Development Environment:**
-- **Local AO Emulation:** Required for development and testing workflow
-- **Handler Debugging:** AO process logging and message trace analysis capabilities
-- **Cross-Platform Development:** Support for contributors on different operating systems
-
-**Data Management:**
-- **State Persistence:** Automatic through AO process storage on Arweave (no additional database required)
-- **Message Serialization:** JSON format for complex game objects and state transfers
-- **Deterministic RNG:** Reproducible random number generation for consistent gameplay across process instances
+**Migration Approach:**
+- **TypeScript Reference:** Preserve existing implementation for parity validation
+- **Stateless Process Logic:** Migrate battle calculations, stat computations, evolution logic to specialized Lua processes
+- **External Data Migration:** Move static game data to Arweave for bundle size optimization
+- **GameState Flow:** Client-side state persistence with processes performing pure computation transformations
 
 **Performance Requirements:**
-- **Handler Optimization:** Lua code optimized for AO runtime constraints
-- **Message Efficiency:** Minimize message size and frequency for optimal network performance
-- **State Query Optimization:** Efficient game state retrieval for UI synchronization
-
-**AO Protocol Compliance:**
-- **Documentation Protocol:** Mandatory `Info` handler and discoverable handler specifications
-- **Handler Discoverability:** All game operations must be queryable through AO documentation protocol
-- **Process Metadata:** Version tracking and capability information for agent integration
+- **Bundle Size:** <500KB per process through external data references and optimization  
+- **Parity Validation:** Zero functional differences between TypeScript and stateless process implementations
+- **Response Time:** Coordinated battle turns complete within <5 seconds for complex workflows
 
 ## Epic List
 
-Based on comprehensive analysis of the PokéRogue codebase, here's the complete epic structure organized for optimal parallel development:
+### Epic 1: Stateless AO Process Foundation & Architecture
+Establish foundational 26-process stateless AO architecture with async coordination framework, process specialization patterns, and comprehensive testing infrastructure.
 
-## Phase 1: Foundation & Core Systems (Epics 1-8)
-*Sequential - Must complete before parallel phases*
+### Epic 2: TDD Testing Suite & Validation Framework
+Establish comprehensive Test-Driven Development infrastructure using aolite, aos-local, and Lua testing frameworks to validate TypeScript→stateless process migration parity before implementation.
 
-**Epic 1: AO Process Foundation & Security**
-Establish AO process infrastructure, handler framework, and implement authorization patterns with message sender validation and anti-cheating protections.
+### Epic 3: Pokemon Data System & Species Management  
+Migrate Pokemon species database, abilities, nature/IV systems, and individual Pokemon instance management to specialized data processes.
 
-**Epic 2: Pokémon Data System & Species Management**
-Migrate all Pokémon species data, forms, abilities, movesets, stats, nature system, and individual Pokémon instance management to AO handlers.
+### Epic 5: Core Battle System & Turn Resolution
+Migrate turn-based battle engine, damage calculation, battle state management, and victory/defeat conditions to specialized logic processes.
 
-**Epic 3: Move System & Battle Actions**
-Migrate complete move database, move learning, TM/TR systems, move categories, accuracy calculations, and special move effects to AO handlers.
+### Epic 6: Status Effects & Environmental Systems
+Migrate Pokemon status conditions, weather systems, terrain effects, and environmental interactions to specialized logic processes.
 
-**Epic 4: Core Battle System & Turn Resolution**
-Implement turn-based battle mechanics including damage calculation, type effectiveness, status effects, move execution, and battle state management.
+### Epic 7: Arena Effects & Field Conditions
+Migrate entry hazards, field conditions, side-specific effects, and positional battle mechanics to environmental logic processes.
 
-**Epic 5: Status Effects & Environmental Systems**
-Migrate status conditions, terrain effects, weather systems, and all environmental battle modifiers to AO handlers.
+### Epic 8: Player Progression & Experience Systems
+Migrate experience/leveling, evolution systems, friendship mechanics, and player character progression to progression logic processes.
 
-**Epic 6: Arena Tag & Field Effects System**
-Implement battlefield-wide effects including entry hazards (spikes, stealth rocks), field conditions (trick room), side-specific effects, and positional battlefield mechanics.
+### Epic 9: Item & Modifier Systems
+Migrate item database, held item effects, berry systems, and shop/economic functionality to item management processes.
 
-**Epic 7: Player Progression & Experience Systems**
-Port player character data, Pokémon leveling, evolution mechanics, experience gain, friendship systems, and level cap functionality to AO processes.
+### Epic 10: Pokemon Fusion System
+Migrate fusion creation, battle mechanics, evolution/form changes, and separation management to fusion-specific logic processes.
 
-**Epic 8: Item & Modifier Systems**
-Port inventory management, item effects, shop systems, held items, berries, consumables, and all modifier systems to AO processes.
+### Epic 11: Dynamic Form Change System
+Migrate conditional form changes, move-based transformations, temporary vs permanent changes, and form-specific stats/abilities to form change processes.
 
-## Phase 2A: Independent Advanced Mechanics (Epics 9-11, 14)
-*Parallel with Phase 2B and 3A - No external dependencies*
+### Epic 12: Terastalization System
+Migrate Tera type mechanics, Stellar Tera implementation, Tera Crystal resources, and terastalization battle integration to terastalization processes.
 
-**Epic 9: Pokémon Fusion System**
-Implement Pokemon fusion mechanics including fusion creation, hybrid stats calculation, fusion sprites, fusion evolution, and fusion-specific battle interactions.
+### Epic 13: Capture & Collection Mechanics
+Migrate wild Pokemon encounters, Pokeball/capture mechanics, PC storage/party management, and collection tracking to capture and storage processes.
 
-**Epic 10: Dynamic Form Change System**
-Migrate complex Pokemon transformation system with weather-based, item-triggered, ability-based, move-learned, post-move, and timed form changes.
+### Epic 14: Egg System & Breeding Mechanics
+Migrate breeding compatibility, genetic inheritance, egg moves, and hatching/incubation systems to breeding management processes.
 
-**Epic 11: Terastalization System**
-Implement terastalization mechanics including tera type changes, tera crystals, stellar tera type, and terastalization-triggered form changes.
+### Epic 15: Passive Abilities & Unlockables
+Migrate passive ability systems, unlockable content, achievement-based progression, and special ability unlock conditions to progression processes.
 
-**Epic 14: Passive Abilities & Unlockables**
-Migrate passive ability system, unlockable content progression, and special ability unlock conditions to AO handlers.
+### Epic 16: World Progression & Biome System
+Migrate biome progression, trainer encounters, gym leader/Elite Four systems, and environmental cycles to world management processes.
 
-## Phase 2B: Collection Systems (Epics 12-13)
-*Parallel with Phase 2A and 3A - Required before Phase 3B*
+### Epic 17: Trainer & AI Systems
+Migrate AI battle decision making, trainer personalities, dynamic party generation, and NPC interaction systems to AI logic processes.
 
-**Epic 12: Capture & Collection Mechanics**
-Implement wild Pokémon encounters, capture mechanics, Pokéball systems, PC storage, party management, and Pokémon collection tracking.
+### Epic 18: Challenge & Game Mode Systems
+Migrate daily runs, challenge frameworks, alternative game modes, and difficulty scaling systems to challenge management processes.
 
-**Epic 13: Egg System & Breeding Mechanics**
-Implement egg generation, hatching mechanics, breeding compatibility, egg moves, and Pokémon reproduction systems.
+### Epic 19: Mystery Encounter System
+Migrate mystery encounter framework, dialogue/narrative systems, special events, and encounter rewards/consequences to encounter processes.
 
-## Phase 3A: Independent World Systems (Epics 16-20)
-*Parallel with Phases 2A and 2B - No external dependencies*
+### Epic 20: Timed Events System
+Migrate seasonal events, dynamic content modification, special event species, and community event integration to event management processes.
 
-**Epic 16: Trainer & AI Systems**
-Port trainer data, AI battle logic, enemy party generation, trainer types, and NPC battle mechanics to AO processes.
+### Epic 21: Gacha & Voucher Systems
+Migrate gacha mechanics, voucher economy, egg tier rewards, and gacha integration/balance systems to economy management processes.
 
-**Epic 17: Challenge & Game Mode Systems**
-Migrate daily runs, challenges, difficulty modifiers, special battle formats, alternative game modes, and unlockables (endless mode, mini black hole, spliced endless) to AO handlers.
+### Epic 22: Tutorial & Help Systems
+Migrate interactive tutorials, contextual help, advanced mechanic explanations, and player onboarding systems to tutorial processes.
 
-**Epic 18: Mystery Encounter System**
-Port the complete mystery encounter framework, encounter types, dialogue systems, and special event mechanics.
+### Epic 23: Pokedex & Collection Tracking
+Migrate species discovery/registration, collection progress/statistics, advanced Pokedex features, and community sharing to collection processes.
 
-**Epic 19: Timed Events System**
-Implement seasonal/special events including modified encounter rates, shiny rate changes, mystery encounter tier modifications, music replacements, wave rewards, and challenge modifications.
+### Epic 24: Achievement & Ribbon Systems
+Migrate achievement framework, ribbon awards, scoring/rankings, and special recognition systems to achievement processes.
 
-**Epic 20: Gacha & Voucher Systems**
-Implement egg gacha mechanics, voucher types (regular, plus, premium, golden), gacha pull logic, and reward distribution systems.
+### Epic 25: Statistics & Analytics System
+Migrate battle statistics, collection analytics, economic statistics, and advanced insights systems to analytics processes.
 
-## Phase 3B: Dependent Systems (Epics 15, 21)
-*Sequential after Phase 2B and 2A completion*
+### Epic 26: Run Tracking & Session Management
+Migrate run lifecycle management, naming/customization, historical records, and session identity/continuity to session management processes.
 
-**Epic 15: World Progression & Biome System**
-Implement biome progression, wave mechanics, trainer encounters, gym leaders, Elite Four, Champion battles, victory conditions, and time-of-day cycles affecting spawns and events.
-*Dependencies: Epic 12 (Capture), Epic 13 (Breeding)*
+### Epic 27: Integration & Deployment
+Complete stateless AO process integration with comprehensive coordinator orchestration, performance optimization, and production deployment.
 
-**Epic 21: Tutorial & Help Systems**
-Port tutorial system, help guides, and new player onboarding mechanics to AO-compatible format.
-*Dependencies: Phase 2A completion (need mechanics to teach)*
+## Epic 1: Stateless AO Process Foundation & Architecture
 
-## Phase 4: Tracking & Analytics Systems (Epics 22-25)
+Establish foundational 26-process stateless AO architecture with async coordination framework, process specialization patterns, and comprehensive testing infrastructure for scalable decentralized game logic processing.
 
-**Epic 22: Pokédex & Collection Tracking**
-Implement comprehensive Pokédex system with species tracking, variants, forms, gender records, shiny tracking, and collection progress management.
-
-**Epic 23: Achievement & Ribbon Systems**
-Port achievement system with tiers and scoring, ribbon awards for monotype challenges, and special accomplishment tracking to AO processes.
-
-**Epic 24: Statistics & Analytics System**  
-Implement comprehensive gameplay statistics tracking including battles, captures, time played, records, and performance metrics.
-
-**Epic 25: Run Tracking & Session Management**
-Implement run completion tracking, run naming/metadata, historical run records, and player session identification leveraging AO's automatic state persistence.
-
-## Phase 5: Integration & Agent Systems (Epics 26-27)
-
-**Epic 26: AOConnect UI Bridge Integration**
-Integrate existing Phaser interface with AO backend through AOConnect, enabling current players to access AO benefits through familiar UI.
-
-**Epic 27: Autonomous Agent Framework**
-Implement agent discovery protocols, battle message APIs, mixed human-agent gameplay, and spectating systems for AI participation.
-
----
-
-## Epic 1: AO Process Foundation & Security
-
-### Epic Goal
-Establish the foundational AO process infrastructure and security framework that will support all game mechanics, ensuring secure message handling and proper authorization patterns for the entire PokéRogue migration.
-
-### Story 1.1: AO Process Architecture Setup
-As a **system architect**,
-I want **to establish the core AO process structure and handler framework**,
-so that **all game mechanics can be built on a solid, standardized foundation**.
+### Story 1.1: Core Process Architecture & Coordinator Setup
+As a **systems architect**,  
+I want **foundational coordinator process and core process infrastructure**,  
+so that **async message coordination and stateless process communication can be established**.
 
 #### Acceptance Criteria
-1. Single comprehensive AO process deployed and accessible via AO protocol
-2. Handler registration system implemented using AO's native `Handlers.add()` pattern
-3. Process Info handler implemented for AO documentation protocol compliance
-4. Handler discovery system allows querying all available game operations
-5. Process metadata includes version tracking and capability information
-6. Basic message routing system directs different game operations to appropriate handlers
-7. Error handling framework provides consistent error responses across all handlers
-8. Process initialization sequence establishes all required handlers and state
+1. Coordinator process initializes with operation state management and async message routing
+2. Core process communication patterns established with uniform "SaveState" response protocol
+3. Process topology framework supports 26 specialized stateless processes
+4. Message passing infrastructure handles async coordination without blocking
+5. Operation lifecycle management tracks pending → active → completed states
+6. Process discovery framework enables fixed process topology addressing
+7. Bundle size optimization maintains <500KB constraint for each process
+8. Basic health checks and coordinator validation ensure system reliability
 
-### Story 1.2: Game Logic Authorization & Anti-Cheating
-As a **game security engineer**,
-I want **to implement game-specific authorization patterns and cheat prevention**,
-so that **players can only perform valid game actions and cannot manipulate battle outcomes or progression**.
-
-#### Acceptance Criteria
-1. Player ownership validation ensures players can only modify their own game state
-2. Game action validation prevents invalid moves, impossible stats, or illegal items
-3. Battle result verification ensures damage calculations and outcomes follow game rules
-4. Progress validation prevents skipping content or gaining impossible experience/items
-5. State consistency checks detect and prevent corrupted or manipulated game data
-6. Resource validation ensures players cannot exceed item limits or currency caps
-7. Timing validation prevents impossible action sequences or accelerated progression
-8. Deterministic RNG validation ensures battle outcomes match expected probability distributions
-
-### Story 1.3: Development Environment & Testing Framework
-As a **AO game developer**,
-I want **to establish local development tools and testing infrastructure**,
-so that **I can efficiently develop and validate game handlers before deployment**.
+### Story 1.2: Data Process Specialization Framework
+As a **data architecture engineer**,  
+I want **specialized data processes for game reference data**,  
+so that **Pokemon, moves, items, and abilities data can be served with optimal performance**.
 
 #### Acceptance Criteria
-1. Local AO emulation environment for development and testing
-2. Handler testing framework validates individual game operations
-3. Message simulation tools test complex game scenarios
-4. State inspection utilities allow debugging game state issues
-5. Performance benchmarking tools measure handler execution times
-6. Parity testing framework compares TypeScript vs Lua game logic outcomes
-7. Automated test suite validates handler functionality
-8. Documentation generator creates handler API specifications
+1. Data process template provides pure reference data queries without GameState modification
+2. Pokemon species database process serves complete species data with <500KB constraint
+3. Moves database process provides move data with type effectiveness integration
+4. Items database process serves item data with effect descriptions and mechanics
+5. Abilities database process provides ability data with trigger conditions and effects
+6. External data referencing optimizes bundle size through Arweave transaction storage
+7. Data process response times achieve sub-100ms for reference queries
+8. Comprehensive testing validates data accuracy and query performance
 
-### Story 1.4: Game State Management Foundation
-As a **game system designer**,
-I want **to establish core game state structure and persistence patterns**,
-so that **player data is reliably stored and accessible across all game systems**.
+### Story 1.3: Logic Process Specialization Framework  
+As a **game logic engineer**,  
+I want **specialized logic processes for pure computation**,  
+so that **battle, evolution, capture, and status effect logic can process GameState transformations**.
 
 #### Acceptance Criteria
-1. Player state schema defines structure for all player-specific data
-2. Game session management tracks active player sessions and state
-3. State validation ensures game data integrity and consistency
-4. Atomic state updates prevent partial or corrupted game state
-5. State query system allows efficient retrieval of player data
-6. State migration framework supports future schema changes
-7. Backup and recovery patterns protect against data loss
-8. Cross-handler state sharing enables communication between different game systems
+1. Logic process template performs pure computation on received GameState
+2. Battle engine process handles damage calculation and turn resolution logic
+3. Evolution engine process manages Pokemon evolution and form change logic
+4. Capture engine process calculates capture probability and success determination
+5. Status effects engine process manages status conditions and environmental effects
+6. GameState flow maintains integrity through stateless process transformations
+7. Logic process performance achieves <5 second completion for coordinated operations
+8. Comprehensive testing validates 100% functional parity with TypeScript reference
 
-## Checklist Results Report
+### Story 1.4: Async Coordination & State Management
+As a **coordination engineer**,  
+I want **comprehensive async message coordination system**,  
+so that **complex multi-step workflows can be orchestrated across specialized processes**.
 
-### Executive Summary
+#### Acceptance Criteria
+1. Coordinator process manages 1000+ concurrent operations with proper state tracking
+2. Async message routing directs operations to appropriate specialized processes
+3. Operation timeout management handles process communication failures gracefully
+4. Message queuing ensures proper ordering and delivery of process requests
+5. Error handling provides robust failure recovery and client-side timeout mechanisms
+6. Process-to-process communication maintains <500ms average latency
+7. GameState persistence handled client-side eliminates process-local state storage
+8. Integration testing validates coordination under concurrent load scenarios
 
-**Overall PRD Completeness:** 92% - **READY FOR ARCHITECT**
+### Story 1.5: TypeScript Parity & Validation Framework
+As a **quality assurance engineer**,  
+I want **automated parity testing comparing TypeScript reference with stateless AO implementation**,  
+so that **100% functional equivalence is maintained throughout the migration**.
 
-**MVP Scope Appropriateness:** **Just Right** - Comprehensive coverage of all game systems with logical phased approach
+#### Acceptance Criteria
+1. TypeScript reference implementation preserved in `/typescript-reference/` directory
+2. Automated test framework executes identical scenarios on both implementations
+3. Parity validation covers all game mechanics with comprehensive test coverage
+4. aolite unit testing framework validates individual process logic
+5. aos-local integration testing validates complete process deployment
+6. Property-based testing ensures statistical consistency across scenarios
+7. Continuous integration enforces zero parity violations before deployment
+8. Performance benchmarking ensures stateless processes meet or exceed TypeScript performance
 
-**Readiness for Architecture Phase:** **READY** - All core requirements defined with clear technical direction
+### Story 1.6: Security & Anti-Cheat Foundation
+As a **security engineer**,  
+I want **comprehensive security validation and anti-cheat detection systems**,  
+so that **GameState integrity is maintained and cheating attempts are prevented**.
 
-**Most Critical Achievement:** Successfully identified and structured all 27 game systems with proper dependencies and security considerations
+#### Acceptance Criteria
+1. GameState validation ensures all modifications follow game rules at process boundaries
+2. Anti-cheat detection identifies impossible stat changes, invalid moves, and resource manipulation
+3. Input validation prevents malformed data from corrupting process logic
+4. AO message sender authentication ensures only authorized players can modify their data
+5. Rate limiting prevents abuse of process endpoints and resource consumption
+6. Audit logging tracks all GameState modifications with player attribution
+7. Process sandbox validation prevents deployment of oversized or incompatible code
+8. Integration with Arweave provides immutable audit trails for investigations
 
-### Category Analysis
+## Epic 2: TDD Testing Suite & Validation Framework
 
-| Category                         | Status  | Critical Issues |
-| -------------------------------- | ------- | --------------- |
-| 1. Problem Definition & Context  | **PASS**    | None - Clear migration strategy with agent integration vision |
-| 2. MVP Scope Definition          | **PASS**    | None - 5-phase approach with logical dependencies |
-| 3. User Experience Requirements  | **PASS**    | None - Covers UI transition and agent spectating |
-| 4. Functional Requirements       | **PASS**    | None - Comprehensive FR/NFR coverage |
-| 5. Non-Functional Requirements   | **PASS**    | None - Leverages AO's native capabilities appropriately |
-| 6. Epic & Story Structure        | **PASS**    | None - Epic 1 detailed, 27 epics logically sequenced |
-| 7. Technical Guidance            | **PASS**    | None - Clear monorepo, Lua/TypeScript separation |
-| 8. Cross-Functional Requirements | **PASS**    | None - Security, state management, testing covered |
-| 9. Clarity & Communication       | **PASS**    | None - Clear structure with business context |
+Establish comprehensive Test-Driven Development infrastructure using aolite for AO process testing, aos-local for deployment validation, and Lua testing frameworks to validate TypeScript→stateless process migration parity before implementation of any epic functionality.
 
-### Top Strengths
+### Story 2.1: aolite Unit Testing Framework for Stateless AO Processes
+As a **TDD engineer**,  
+I want **comprehensive aolite-based unit testing framework for stateless AO process handlers and coordination logic**,  
+so that **I can write failing tests for process logic first, then implement stateless process functionality to make tests pass**.
 
-**HIGH VALUE:**
-- **Comprehensive Game System Coverage** - All 27 core systems identified through systematic codebase analysis
-- **AO Protocol Optimization** - Leverages native persistence and authentication without redundant implementation
-- **Logical Development Sequencing** - 5-phase approach respects technical dependencies
-- **Security Integration** - Game-specific cheat prevention while using AO's cryptographic foundation
+#### Acceptance Criteria
+1. aolite testing environment configured with concurrent process emulation using coroutines for stateless process coordination
+2. Message passing test framework validates Lua AO handler responses against expected game action outcomes
+3. Handler unit testing covers all game action message types with comprehensive Lua test cases
+4. Process state inspection allows validation of GameState flow after process execution
+5. Mock external data sources (Arweave transactions) for isolated process unit testing
+6. Test fixtures provide consistent game state scenarios for reproducible process testing
+7. Automated test discovery and execution with clear pass/fail reporting for aolite tests
+8. TDD workflow documentation guides developers in stateless process test-first methodology
 
-**STRATEGIC:**
-- **Agent Innovation Focus** - Clear path to autonomous AI player integration
-- **Technical Feasibility** - Realistic TypeScript-to-Lua migration strategy
-- **User Continuity** - AOConnect bridge maintains existing player experience
+### Story 2.2: aos-local Deployment Testing Integration
+As a **deployment validation engineer**,  
+I want **aos-local integration for testing complete stateless process deployment and validation**,  
+so that **I can validate process deployment, bundling, and real AO environment compatibility**.
 
-### MVP Scope Assessment
+#### Acceptance Criteria
+1. aos-local environment configured for local AO process testing and validation
+2. Stateless process deployment testing validates bundle size, initialization, and functionality
+3. Process coordination testing ensures all 26 specialized processes deploy correctly
+4. End-to-end testing validates complete game scenarios from process deployment to gameplay
+5. Performance benchmarking validates response times and resource usage in AO environment
+6. External data fetching testing validates Arweave transaction access and caching
+7. Process restart and recovery testing ensures coordinator resilience and reliability
+8. Integration with CI/CD pipeline for automated deployment validation
 
-**Scope Appropriateness:** **Well-Balanced**
-- **Phase 1 (Epics 1-8):** Essential foundation with immediate value delivery
-- **Critical Path Identified:** Core battle system → Advanced mechanics → World systems → Analytics → Integration
-- **No Feature Bloat:** Each epic serves specific user/technical need
-- **Timeline Realistic:** 18-month timeline achievable with phased approach
+### Story 2.3: Lua Process Unit Testing with Custom Framework
+As a **Lua process developer**,  
+I want **comprehensive Lua testing framework for stateless process logic with TypeScript parity validation**,  
+so that **I can write failing Lua unit tests first, then implement process logic to pass tests**.
 
-### Technical Readiness
+#### Acceptance Criteria
+1. Custom Lua test framework configured for stateless process testing with aolite integration
+2. Property-based testing validates process logic across comprehensive input ranges using generated test data
+3. Unit tests cover all process functions with TDD test-first methodology
+4. Benchmark testing measures process performance against TypeScript reference implementation
+5. Mock input/output testing isolates process logic from coordinator integration concerns using test doubles
+6. Process isolation testing validates functionality across different AO environments
+7. Memory management testing ensures no memory leaks or state persistence in stateless processes
+8. Serialization testing validates data integrity between coordinator and process communication using JSON
 
-**Architecture Clarity:** **High**
-- AO process architecture clearly defined
-- Security patterns established
-- Development environment specified
-- Testing framework outlined
+### Story 2.4: TypeScript-Lua Process Parity Validation Suite
+As a **parity validation specialist**,  
+I want **comprehensive automated testing that validates 100% functional equivalence between TypeScript and Lua process implementations**,  
+so that **no behavioral differences exist between original and migrated code**.
 
-**Risk Mitigation:** **Strong**
-- Parity testing between TypeScript and Lua
-- Incremental value delivery
-- Separate codebase strategy prevents coupling
+#### Acceptance Criteria
+1. Golden master testing captures TypeScript outputs for identical inputs across all game mechanics
+2. Regression testing automatically detects any behavioral changes during Lua process migration
+3. Equivalence testing validates mathematical calculations produce identical results (damage, stats, etc.)
+4. Randomization testing ensures RNG produces identical sequences with same seeds
+5. Edge case testing validates handling of boundary conditions and error states
+6. Performance comparison testing ensures Lua process implementation meets or exceeds TypeScript speed
+7. State consistency testing validates GameState flow matches TypeScript game state
+8. Comprehensive test coverage analysis ensures all code paths are validated
 
-### Final Decision
+### Story 2.5: TDD Workflow Integration and Automation
+As a **development process engineer**,  
+I want **automated TDD workflow that enforces test-first development across all epics**,  
+so that **no functionality is implemented without corresponding failing tests first**.
 
-**✅ READY FOR ARCHITECT** 
+#### Acceptance Criteria
+1. Pre-commit hooks prevent code commits without corresponding passing tests
+2. CI/CD pipeline enforces TDD workflow with test-first validation gates
+3. Test coverage reporting ensures minimum coverage thresholds for all components
+4. Automated test generation creates skeleton tests for new functionality requirements
+5. Test documentation generation provides clear specifications from test cases
+6. Test result visualization shows TDD progress and identifies uncovered functionality
+7. Integration with issue tracking links failing tests to development tasks
+8. Developer tooling provides easy test running and debugging capabilities
 
-The PRD comprehensively defines all requirements with clear technical direction. The 27-epic structure ensures zero functionality loss during AO migration while enabling innovative autonomous agent gameplay. Architecture phase can proceed with confidence.
+### Story 2.6: Multi-Process Integration Testing Framework
+As a **integration testing engineer**,  
+I want **comprehensive testing that validates seamless communication between coordinator and specialized stateless processes**,  
+so that **all processes work together correctly with 100% parity to TypeScript reference**.
+
+#### Acceptance Criteria
+1. Integration tests validate message passing between coordinator and specialized stateless processes
+2. Process orchestration testing ensures proper coordination, registration, and communication of all 26 processes
+3. End-to-end game scenario testing validates complete workflows across coordinator and specialized processes
+4. State synchronization testing ensures GameState consistency across process boundaries
+5. Performance testing validates that multi-process architecture meets or exceeds TypeScript performance
+6. Error handling testing validates graceful degradation when processes fail or become unavailable
+7. Serialization testing validates data integrity across coordinator-process communication boundaries
+8. Parity testing ensures identical outcomes across all process specialization patterns
+
+### Story 2.7: Continuous Integration Testing Pipeline
+As a **CI/CD engineer**,  
+I want **comprehensive automated testing pipeline that validates all stateless processes (aolite/aos-local) and coordinator orchestration**,  
+so that **quality gates prevent deployment of non-functional or non-parity code in any process**.
+
+#### Acceptance Criteria
+1. Multi-stage pipeline validates aolite unit tests, aos-local deployment, coordinator orchestration, and integration testing
+2. Parallel testing execution for all 26 processes reduces pipeline runtime while maintaining coverage
+3. Quality gates prevent progression without passing tests in coordinator AND all specialized processes
+4. Test result aggregation provides comprehensive reporting across aolite, aos-local, coordinator, and integration frameworks
+5. Notification system alerts developers of test failures with process-specific debugging information
+6. Test artifact management stores results from all process testing and coordinator orchestration testing
+7. Environment management provides isolated testing environments for multi-process epic branches
+8. Integration with code review process requires passing tests in all process types before merge approval
+
+## Epic 3: Pokemon Data System & Species Management
+
+Migrate Pokemon species database, abilities, nature/IV systems, and individual Pokemon instance management to Rust WASM devices while maintaining complete data integrity and query performance parity with the TypeScript reference implementation.
+
+### Story 3.1: Pokemon Species Database Migration
+As a **data migration engineer**,  
+I want **complete Pokemon species database with stats, types, and evolution data migrated to Rust WASM device**,  
+so that **species queries maintain identical performance and data integrity as TypeScript implementation**.
+
+#### Acceptance Criteria
+1. Rust WASM device provides complete species database with identical data structure to TypeScript implementation
+2. Species query performance matches or exceeds TypeScript reference implementation benchmarks
+3. Type effectiveness calculations produce mathematically identical results across all type combinations
+4. Evolution chain data maintains complete accuracy including conditional evolution requirements
+5. Base stat calculations for all 1000+ Pokemon species produce identical results to TypeScript
+6. Move learning data maintains complete accuracy including level-up, TM, and breeding moves
+7. Bundle size optimization stores large species data externally via Arweave references
+8. Comprehensive unit testing validates 100% data parity against TypeScript species database
+
+### Story 3.2: Individual Pokemon Instance Management
+As a **Pokemon instance manager**,  
+I want **individual Pokemon creation, modification, and state tracking in Rust WASM device**,  
+so that **Pokemon instances maintain identical functionality and state consistency as TypeScript**.
+
+#### Acceptance Criteria
+1. Pokemon instance creation generates identical IVs, natures, and hidden attributes as TypeScript
+2. Pokemon state modifications (level, experience, stats) produce mathematically identical results
+3. Pokemon personality and genetic data maintains complete consistency with TypeScript algorithms
+4. Shiny determination and variant calculations produce identical probability distributions
+5. Pokemon instance serialization/deserialization maintains complete data integrity
+6. Memory management ensures no data corruption during Pokemon state transitions
+7. Performance testing validates Pokemon operations meet or exceed TypeScript benchmarks
+8. Comprehensive testing validates 100% behavioral parity for all Pokemon instance operations
+
+### Story 3.3: Abilities and Nature Systems Migration
+As a **game mechanics engineer**,  
+I want **Pokemon abilities and nature systems migrated to Rust WASM device**,  
+so that **ability effects and nature stat modifications maintain identical functionality**.
+
+#### Acceptance Criteria
+1. All Pokemon abilities implemented with identical triggers, effects, and interactions as TypeScript
+2. Nature stat modifications produce mathematically identical stat calculations
+3. Ability interaction chains (ability triggering other abilities) maintain identical behavior
+4. Hidden ability assignment and availability matches TypeScript implementation exactly
+5. Ability state tracking during battles maintains identical persistence and timing
+6. Nature personality generation produces identical probability distributions
+7. Complex ability interactions (weather, status, type changes) maintain complete parity
+8. Comprehensive testing validates 100% ability and nature behavioral parity
+
+### Story 3.4: IV/EV and Stat Calculation Migration
+As a **stat calculation engineer**,  
+I want **IV/EV systems and stat calculations migrated to Rust WASM device**,  
+so that **all stat computations produce mathematically identical results to TypeScript**.
+
+#### Acceptance Criteria
+1. IV generation algorithms produce identical probability distributions and value ranges
+2. EV training and distribution systems maintain identical mechanics and constraints
+3. Stat calculation formulas produce mathematically identical results for all combinations
+4. Level-up stat increases maintain identical calculation methodology and outcomes
+5. Temporary stat modifications (items, abilities, moves) calculate identically to TypeScript
+6. Stat stage modifications (-6 to +6) apply identical multipliers and rounding rules
+7. Critical hit and damage calculation dependencies maintain mathematical precision
+8. Comprehensive property-based testing validates statistical consistency across all scenarios
+
+## Epic 5: Core Battle System & Turn Resolution
+
+Migrate turn-based battle engine, damage calculation, battle state management, and victory/defeat conditions to battle devices while ensuring identical battle outcomes and mechanical behavior.
+
+### Story 5.1: Turn-Based Battle Engine Migration
+As a **battle system engineer**,  
+I want **core turn-based battle mechanics migrated to Rust WASM device**,  
+so that **battle flow and turn resolution produce identical outcomes to TypeScript implementation**.
+
+#### Acceptance Criteria
+1. Turn order calculation maintains identical priority rules and speed tie-breaking
+2. Action selection and validation ensures identical move availability and constraints
+3. Turn execution sequence maintains identical timing for abilities, items, and status effects
+4. Battle state transitions (turn start/end, phase changes) execute identically to TypeScript
+5. Multi-target move resolution maintains identical target selection and damage distribution
+6. Switch/substitution mechanics maintain identical timing and state transitions
+7. Battle flow control ensures identical handling of interrupts and priority changes
+8. Comprehensive testing validates 100% turn resolution parity across all battle scenarios
+
+### Story 5.2: Damage Calculation System Migration
+As a **damage calculation engineer**,  
+I want **complete damage calculation system migrated to Rust WASM device**,  
+so that **all damage computations produce mathematically identical results to TypeScript**.
+
+#### Acceptance Criteria
+1. Base damage formulas produce mathematically identical results for all move/Pokemon combinations
+2. Type effectiveness multipliers calculate identically including dual-type interactions
+3. Critical hit calculations maintain identical probability and damage multiplier behavior
+4. STAB (Same Type Attack Bonus) calculations produce identical results across all scenarios
+5. Weather and terrain damage modifications calculate identically to TypeScript
+6. Item and ability damage modifications maintain mathematical precision and interaction order
+7. Random damage ranges produce statistically identical distributions
+8. Comprehensive property-based testing validates mathematical consistency across millions of scenarios
+
+### Story 5.3: Battle State Management Migration
+As a **battle state engineer**,  
+I want **comprehensive battle state tracking migrated to Rust WASM device**,  
+so that **battle state consistency and persistence match TypeScript implementation exactly**.
+
+#### Acceptance Criteria
+1. Pokemon active state tracking maintains identical health, status, and temporary modifications
+2. Field condition tracking (weather, terrain, tricks) persists identically across turns
+3. Battle participant state (party, benched Pokemon) maintains complete consistency
+4. Move history and usage tracking maintains identical data structure and accessibility
+5. Battle event logging produces identical records for replay and analysis functionality
+6. State serialization/deserialization maintains complete data integrity during battle saves
+7. Memory management ensures no state corruption during complex battle sequences
+8. Comprehensive testing validates state consistency across extended battle scenarios
+
+### Story 5.4: Victory and Defeat Condition Migration
+As a **battle resolution engineer**,  
+I want **battle victory/defeat detection migrated to Rust WASM device**,  
+so that **battle outcomes and experience distribution match TypeScript implementation**.
+
+#### Acceptance Criteria
+1. Victory condition detection identifies identical battle end scenarios as TypeScript
+2. Experience point calculation and distribution produces mathematically identical results
+3. Money/prize distribution maintains identical calculation methodology
+4. Pokemon level-up processing maintains identical stat increases and move learning
+5. Battle outcome statistics tracking maintains identical data structure and accuracy
+6. Post-battle status effects and healing maintain identical application and timing
+7. Wild Pokemon capture opportunity detection maintains identical trigger conditions
+8. Comprehensive testing validates 100% battle resolution parity across all outcome scenarios
+
+## Epic 6: Status Effects & Environmental Systems
+
+Migrate Pokemon status conditions, weather systems, terrain effects, and environmental interactions to specialized devices while maintaining identical effect timing and interaction behavior.
+
+### Story 6.1: Pokemon Status Condition Migration
+As a **status effect engineer**,  
+I want **all Pokemon status conditions migrated to Rust WASM device**,  
+so that **status application, duration, and effects maintain identical behavior to TypeScript**.
+
+#### Acceptance Criteria
+1. All major status conditions (sleep, paralysis, burn, freeze, poison) apply identical effects
+2. Status condition duration tracking maintains identical turn counting and probability distributions
+3. Status effect damage calculations produce mathematically identical results
+4. Status condition removal and cure mechanics maintain identical trigger conditions
+5. Status condition interaction with abilities and items maintains identical priority and behavior
+6. Complex status interactions (multiple conditions, immunity) behave identically to TypeScript
+7. Status condition battle message generation maintains identical text and timing
+8. Comprehensive testing validates 100% status effect behavioral parity
+
+### Story 6.2: Weather System Migration
+As a **weather system engineer**,  
+I want **complete weather system migrated to Rust WASM device**,  
+so that **weather effects and interactions maintain identical behavior to TypeScript implementation**.
+
+#### Acceptance Criteria
+1. All weather conditions (sun, rain, sandstorm, hail, snow) apply identical effects
+2. Weather duration tracking maintains identical turn counting and extension mechanics
+3. Weather damage calculations produce mathematically identical results
+4. Weather interaction with Pokemon types and abilities maintains identical behavior
+5. Weather effect on move accuracy and power maintains mathematical precision
+6. Weather visualization and battle messaging maintains identical presentation
+7. Weather overwrite and priority mechanics behave identically to TypeScript
+8. Comprehensive testing validates 100% weather system behavioral parity
+
+### Story 6.3: Terrain Effect Migration
+As a **terrain effect engineer**,  
+I want **battlefield terrain effects migrated to Rust WASM device**,  
+so that **terrain mechanics and interactions maintain identical behavior to TypeScript**.
+
+#### Acceptance Criteria
+1. All terrain types (electric, grassy, misty, psychic) apply identical effects
+2. Terrain duration and overwrite mechanics maintain identical behavior
+3. Terrain interaction with move types and power maintains mathematical precision
+4. Terrain effect on status conditions maintains identical prevention and interaction rules
+5. Terrain interaction with abilities and items maintains identical priority behavior
+6. Terrain visualization and battle messaging maintains identical presentation
+7. Terrain removal and neutralization mechanics behave identically to TypeScript
+8. Comprehensive testing validates 100% terrain effect behavioral parity
+
+### Story 6.4: Environmental Interaction Migration
+As a **environmental systems engineer**,  
+I want **complex environmental interactions migrated to Rust WASM device**,  
+so that **multi-system interactions maintain identical complexity and behavior**.
+
+#### Acceptance Criteria
+1. Weather-terrain interactions maintain identical priority and effect resolution
+2. Status-weather-terrain combinations produce identical compound effects
+3. Environmental effect stacking maintains identical calculation order and results
+4. Environmental condition removal chains maintain identical trigger sequences
+5. Environmental effect persistence across Pokemon switches maintains identical behavior
+6. Environmental condition interaction with held items maintains identical functionality
+7. Complex environmental scenarios maintain identical battle flow and timing
+8. Comprehensive integration testing validates environmental system interaction parity
+
+## Epic 7: Arena Effects & Field Conditions
+
+Migrate entry hazards, field conditions, side-specific effects, and positional battle mechanics to environmental devices while maintaining identical activation timing and effect calculation.
+
+### Story 7.1: Entry Hazard Migration
+As a **entry hazard engineer**,  
+I want **all entry hazard effects migrated to Rust WASM device**,  
+so that **hazard placement, damage, and removal maintain identical behavior to TypeScript**.
+
+#### Acceptance Criteria
+1. All entry hazards (spikes, stealth rock, toxic spikes, sticky web) calculate identical damage
+2. Hazard layer stacking maintains identical damage progression and maximum limits
+3. Hazard activation triggers maintain identical timing relative to Pokemon switching
+4. Hazard removal mechanics (spin, defog, magic bounce) maintain identical effectiveness
+5. Hazard immunity and resistance maintains identical interaction with types and abilities
+6. Hazard damage calculation considers identical factors (type, HP, items, abilities)
+7. Hazard persistence across battle scenarios maintains identical state management
+8. Comprehensive testing validates 100% entry hazard behavioral parity
+
+### Story 7.2: Side-Specific Field Effect Migration
+As a **field effect engineer**,  
+I want **side-specific battlefield effects migrated to Rust WASM device**,  
+so that **team-based field effects maintain identical application and duration**.
+
+#### Acceptance Criteria
+1. All side effects (reflect, light screen, safeguard, mist) apply identical protection levels
+2. Side effect duration tracking maintains identical turn counting and extension mechanics
+3. Side effect damage reduction calculations produce mathematically identical results
+4. Side effect removal and bypass mechanics maintain identical trigger conditions
+5. Side effect interaction with abilities and moves maintains identical priority behavior
+6. Side effect stacking and overwrite rules behave identically to TypeScript
+7. Side effect persistence during Pokemon switches maintains identical behavior
+8. Comprehensive testing validates 100% side effect behavioral parity
+
+### Story 7.3: Field Condition Management Migration
+As a **field condition manager**,  
+I want **complex field condition interactions migrated to Rust WASM device**,  
+so that **multi-layer field effects maintain identical priority and resolution order**.
+
+#### Acceptance Criteria
+1. Field condition priority resolution maintains identical order and precedence rules
+2. Condition interaction chains maintain identical trigger sequences and timing
+3. Field condition removal chains maintain identical cascade effects
+4. Condition state persistence maintains identical data integrity across battle phases
+5. Field condition visualization maintains identical battle messaging and presentation
+6. Condition conflict resolution maintains identical override and replacement behavior
+7. Complex field scenarios maintain identical calculation order and final outcomes
+8. Comprehensive integration testing validates field condition interaction parity
+
+### Story 7.4: Positional Battle Mechanic Migration
+As a **positional mechanics engineer**,  
+I want **positional battle mechanics migrated to Rust WASM device**,  
+so that **battlefield positioning effects maintain identical spatial interaction behavior**.
+
+#### Acceptance Criteria
+1. Position-dependent move effects maintain identical targeting and range calculations
+2. Battlefield position tracking maintains identical state for all battle participants
+3. Position-based damage modifications calculate identically to TypeScript implementation
+4. Positional ability interactions maintain identical trigger conditions and effects
+5. Position change mechanics maintain identical movement rules and constraints
+6. Multi-target positional effects maintain identical selection and damage distribution
+7. Positional effect persistence maintains identical state across turn boundaries
+8. Comprehensive testing validates 100% positional mechanic behavioral parity
+
+## Epic 8: Player Progression & Experience Systems
+
+Migrate experience/leveling, evolution systems, friendship mechanics, and player character progression to progression devices while maintaining identical growth curves and unlock conditions.
+
+### Story 8.1: Experience and Leveling Migration
+As a **progression system engineer**,  
+I want **Pokemon experience and leveling systems migrated to Rust WASM device**,  
+so that **experience gain and level progression maintain identical mathematical behavior**.
+
+#### Acceptance Criteria
+1. Experience calculation formulas produce mathematically identical results for all battle scenarios
+2. Experience distribution among party members maintains identical allocation rules
+3. Level threshold calculations maintain identical experience requirements for all growth rates
+4. Stat increase calculations upon leveling maintain mathematical precision
+5. Experience gain modifiers (held items, trainer battles) calculate identically to TypeScript
+6. Level cap enforcement and experience overflow maintain identical behavior
+7. Experience point display and tracking maintains identical precision and accuracy
+8. Comprehensive testing validates 100% experience system mathematical parity
+
+### Story 8.2: Evolution System Migration
+As a **evolution system engineer**,  
+I want **Pokemon evolution mechanics migrated to Rust WASM device**,  
+so that **evolution triggers and transformations maintain identical behavior to TypeScript**.
+
+#### Acceptance Criteria
+1. All evolution trigger conditions (level, item, trade, friendship) evaluate identically
+2. Evolution stat recalculation maintains mathematical precision for HP and base stats
+3. Evolution move learning maintains identical move list updates and replacement rules
+4. Evolution ability changes maintain identical assignment and activation behavior
+5. Evolution form changes maintain identical sprite and data transformations
+6. Evolution prevention mechanics maintain identical trigger conditions and override behavior
+7. Complex evolution requirements (time, location, held items) evaluate identically
+8. Comprehensive testing validates 100% evolution system behavioral parity
+
+### Story 8.3: Friendship and Happiness Migration
+As a **friendship system engineer**,  
+I want **Pokemon friendship and happiness systems migrated to Rust WASM device**,  
+so that **friendship tracking and effects maintain identical calculation behavior**.
+
+#### Acceptance Criteria
+1. Friendship point calculation maintains identical gain/loss formulas for all actions
+2. Friendship-dependent evolution thresholds maintain identical trigger conditions
+3. Friendship-based move effects maintain identical power and accuracy calculations
+4. Friendship display and tracking maintains identical precision and value ranges
+5. Friendship modifier effects (held items, location) calculate identically to TypeScript
+6. Friendship cap enforcement and boundary conditions maintain identical behavior
+7. Friendship-based ability interactions maintain identical trigger conditions
+8. Comprehensive testing validates 100% friendship system mathematical parity
+
+### Story 8.4: Player Character Progression Migration
+As a **player progression engineer**,  
+I want **player character advancement systems migrated to Rust WASM device**,  
+so that **player stats and unlocks maintain identical progression mechanics**.
+
+#### Acceptance Criteria
+1. Player level progression maintains identical experience requirements and benefits
+2. Unlock condition evaluation maintains identical trigger logic for all features
+3. Achievement tracking maintains identical progress calculation and completion detection
+4. Player statistics accumulation maintains identical data integrity and precision
+5. Progression reward distribution maintains identical calculation and allocation rules
+6. Player progression persistence maintains identical save/load functionality
+7. Multi-character progression tracking maintains identical data separation and integrity
+8. Comprehensive testing validates 100% player progression system parity
+
+## Epic 9: Item & Modifier Systems
+
+Migrate item database, held item effects, berry systems, and shop/economic functionality to item management devices while maintaining identical item interaction behavior and economic balance.
+
+### Story 9.1: Item Database and Effects Migration
+As a **item system engineer**,  
+I want **complete item database and effect systems migrated to Rust WASM device**,  
+so that **item interactions and effects maintain identical behavior to TypeScript implementation**.
+
+#### Acceptance Criteria
+1. Complete item database with identical stats, descriptions, and effect data as TypeScript
+2. Held item effect calculations produce mathematically identical results in all scenarios
+3. Item usage restrictions and timing maintain identical constraint validation
+4. Item effect stacking and interaction rules behave identically to TypeScript
+5. Item consumption mechanics maintain identical trigger conditions and item removal
+6. Item effect priority and resolution order maintains identical interaction sequences
+7. Complex item interactions with abilities and moves maintain identical behavior
+8. Comprehensive testing validates 100% item effect behavioral parity
+
+### Story 9.2: Berry System Migration
+As a **berry system engineer**,  
+I want **berry mechanics and interactions migrated to Rust WASM device**,  
+so that **berry consumption and effects maintain identical trigger behavior**.
+
+#### Acceptance Criteria
+1. All berry trigger conditions evaluate identically to TypeScript implementation
+2. Berry effect calculations produce mathematically identical healing and stat modifications
+3. Berry consumption timing maintains identical activation relative to other battle events
+4. Berry interaction with abilities maintains identical priority and effect resolution
+5. Berry restoration and regeneration mechanics maintain identical trigger conditions
+6. Complex berry effects (stat boosts, type resistance) calculate identically
+7. Berry inventory management maintains identical storage and consumption tracking
+8. Comprehensive testing validates 100% berry system behavioral parity
+
+### Story 9.3: Shop and Economic System Migration
+As a **economic system engineer**,  
+I want **shop mechanics and economic systems migrated to Rust WASM device**,  
+so that **item purchasing and economic balance maintain identical functionality**.
+
+#### Acceptance Criteria
+1. Item pricing and availability calculations maintain identical economic balance
+2. Shop inventory management maintains identical stock tracking and refresh mechanics
+3. Purchase validation maintains identical currency checking and transaction processing
+4. Item rarity and drop rate calculations produce statistically identical distributions
+5. Economic event handling maintains identical reward calculation and distribution
+6. Currency conversion and exchange rates maintain mathematical precision
+7. Economic progression unlocks maintain identical threshold evaluation and rewards
+8. Comprehensive testing validates economic system mathematical and behavioral parity
+
+### Story 9.4: Item Interaction and Modifier Migration
+As a **item interaction engineer**,  
+I want **complex item interactions and modifier systems migrated to Rust WASM device**,  
+so that **multi-item effects and modifier stacking maintain identical behavior**.
+
+#### Acceptance Criteria
+1. Multi-item effect combinations maintain identical calculation order and final results
+2. Item modifier stacking rules maintain identical precedence and limit enforcement
+3. Item interaction with status effects maintains identical timing and resolution
+4. Item effect cancellation and override mechanics behave identically to TypeScript
+5. Temporary item effects maintain identical duration tracking and removal
+6. Item effect persistence across battle events maintains identical state management
+7. Complex item scenarios maintain identical interaction resolution and outcomes
+8. Comprehensive integration testing validates item interaction system parity
+
+## Epic 10: Pokemon Fusion System
+
+Migrate fusion creation, battle mechanics, evolution/form changes, and separation management to fusion-specific devices while maintaining identical fusion calculation algorithms and battle behavior.
+
+### Story 10.1: Fusion Creation and Calculation Migration
+As a **fusion system engineer**,  
+I want **Pokemon fusion creation algorithms migrated to Rust WASM device**,  
+so that **fusion stat calculation and form generation maintain identical mathematical behavior**.
+
+#### Acceptance Criteria
+1. Fusion stat calculation formulas produce mathematically identical results for all Pokemon combinations
+2. Fusion type determination maintains identical priority rules and combination logic
+3. Fusion ability selection maintains identical probability distributions and selection criteria
+4. Fusion appearance generation maintains identical sprite combination and visual algorithms
+5. Fusion move pool generation maintains identical move inheritance and learning rules
+6. Fusion name generation maintains identical text combination and formatting rules
+7. Fusion creation validation maintains identical constraint checking and error handling
+8. Comprehensive testing validates 100% fusion creation mathematical and behavioral parity
+
+### Story 10.2: Fusion Battle Mechanics Migration
+As a **fusion battle engineer**,  
+I want **fusion-specific battle mechanics migrated to Rust WASM device**,  
+so that **fusion Pokemon behavior in battles maintains identical functionality to TypeScript**.
+
+#### Acceptance Criteria
+1. Fusion Pokemon battle stat calculations maintain mathematical precision in all scenarios
+2. Fusion-specific move interactions maintain identical behavior and effect calculations
+3. Fusion type interaction calculations produce identical effectiveness and damage results
+4. Fusion ability activation maintains identical trigger conditions and effect resolution
+5. Fusion Pokemon AI behavior maintains identical decision-making and strategy patterns
+6. Fusion status effect interactions maintain identical application and resistance behavior
+7. Fusion battle event handling maintains identical timing and sequence management
+8. Comprehensive testing validates 100% fusion battle system behavioral parity
+
+### Story 10.3: Fusion Evolution and Form Change Migration
+As a **fusion evolution engineer**,  
+I want **fusion evolution and form change systems migrated to Rust WASM device**,  
+so that **fusion transformations maintain identical trigger conditions and calculation behavior**.
+
+#### Acceptance Criteria
+1. Fusion evolution trigger evaluation maintains identical condition checking and threshold logic
+2. Fusion evolution stat recalculation maintains mathematical precision for compound evolutions
+3. Fusion form change mechanics maintain identical transformation rules and visual updates
+4. Fusion evolution move learning maintains identical move list updates and inheritance rules
+5. Fusion evolution ability changes maintain identical selection and activation behavior
+6. Complex fusion evolution chains maintain identical progression logic and state tracking
+7. Fusion evolution prevention mechanics maintain identical override and constraint behavior
+8. Comprehensive testing validates 100% fusion evolution system behavioral parity
+
+### Story 10.4: Fusion Separation and Management Migration
+As a **fusion management engineer**,  
+I want **fusion separation and lifecycle management migrated to Rust WASM device**,  
+so that **fusion Pokemon management maintains identical state tracking and separation behavior**.
+
+#### Acceptance Criteria
+1. Fusion separation algorithms maintain identical stat distribution and component restoration
+2. Fusion state persistence maintains identical data integrity across save/load operations
+3. Fusion inventory management maintains identical storage and organization functionality
+4. Fusion separation validation maintains identical constraint checking and error handling
+5. Fusion component tracking maintains identical lineage and history preservation
+6. Fusion lifecycle events maintain identical trigger conditions and callback execution
+7. Complex fusion management scenarios maintain identical behavior and state consistency
+8. Comprehensive testing validates 100% fusion management system behavioral parity
+
+## Epic 11: Dynamic Form Change System
+
+Migrate conditional form changes, move-based transformations, temporary vs permanent changes, and form-specific stats/abilities while maintaining identical transformation logic and battle behavior.
+
+### Story 11.1: Conditional Form Change Migration
+As a **form change engineer**,  
+I want **conditional Pokemon form change systems migrated to Rust WASM device**,  
+so that **form transformation triggers and conditions maintain identical evaluation behavior**.
+
+#### Acceptance Criteria
+1. All form change trigger conditions evaluate identically to TypeScript implementation
+2. Form change stat recalculation maintains mathematical precision for all transformations
+3. Form change ability updates maintain identical assignment and activation behavior
+4. Form change move pool updates maintain identical move list modifications and restrictions
+5. Form change visual representation maintains identical sprite and animation updates
+6. Form change persistence maintains identical state tracking across battle and storage
+7. Complex form change chains maintain identical sequence logic and state transitions
+8. Comprehensive testing validates 100% conditional form change behavioral parity
+
+### Story 11.2: Move-Based Transformation Migration
+As a **move transformation engineer**,  
+I want **move-triggered form changes migrated to Rust WASM device**,  
+so that **move-based transformations maintain identical trigger timing and effect behavior**.
+
+#### Acceptance Criteria
+1. Move-triggered transformation timing maintains identical activation relative to move execution
+2. Transformation stat modifications maintain mathematical precision during move calculation
+3. Move transformation duration tracking maintains identical turn counting and expiration logic
+4. Transform move interaction with abilities maintains identical priority and effect resolution
+5. Multi-turn transformation effects maintain identical persistence and state management
+6. Transform move accuracy and success rate calculations maintain identical probability behavior
+7. Complex transformation scenarios maintain identical interaction resolution and outcomes
+8. Comprehensive testing validates 100% move-based transformation behavioral parity
+
+### Story 11.3: Temporary vs Permanent Form Migration
+As a **form persistence engineer**,  
+I want **temporary and permanent form change systems migrated to Rust WASM device**,  
+so that **form change duration and persistence maintain identical state management behavior**.
+
+#### Acceptance Criteria
+1. Temporary form change duration tracking maintains identical expiration logic and timing
+2. Permanent form change persistence maintains identical state across all game scenarios
+3. Form change reversion conditions evaluate identically to TypeScript implementation
+4. Form change state persistence maintains identical data integrity during save/load operations
+5. Form change interaction with other systems maintains identical priority and resolution order
+6. Form change cancellation mechanics maintain identical trigger conditions and override behavior
+7. Complex form change scenarios maintain identical state transition and management logic
+8. Comprehensive testing validates 100% form persistence system behavioral parity
+
+### Story 11.4: Form-Specific Stats and Abilities Migration
+As a **form-specific systems engineer**,  
+I want **form-dependent stats and abilities migrated to Rust WASM device**,  
+so that **form-based attribute changes maintain identical calculation and interaction behavior**.
+
+#### Acceptance Criteria
+1. Form-specific stat calculations maintain mathematical precision for all transformation scenarios
+2. Form-specific ability activation maintains identical trigger conditions and effect behavior
+3. Form-based type changes maintain identical effectiveness calculations and interaction behavior
+4. Form-specific move availability maintains identical restriction and access logic
+5. Form attribute interaction with held items maintains identical modification and stacking behavior
+6. Form-based resistance and immunity maintains identical calculation and application behavior
+7. Complex form attribute scenarios maintain identical interaction resolution and calculation order
+8. Comprehensive testing validates 100% form-specific attribute system behavioral parity
+
+## Epic 12: Terastalization System
+
+Migrate Tera type mechanics, Stellar Tera implementation, Tera Crystal resources, and terastalization battle integration while maintaining identical transformation mechanics and battle calculations.
+
+### Story 12.1: Tera Type Mechanics Migration
+As a **terastalization engineer**,  
+I want **core Tera type mechanics migrated to Rust WASM device**,  
+so that **Tera type transformations and calculations maintain identical behavior to TypeScript**.
+
+#### Acceptance Criteria
+1. Tera type assignment and selection maintains identical probability distributions and constraints
+2. Tera type damage calculation produces mathematically identical type effectiveness results
+3. Tera type STAB calculation maintains identical bonus application and stacking behavior
+4. Tera type duration tracking maintains identical turn counting and expiration logic
+5. Tera type interaction with abilities maintains identical priority and effect resolution
+6. Tera type visual representation maintains identical battle presentation and messaging
+7. Tera type restriction enforcement maintains identical constraint validation and error handling
+8. Comprehensive testing validates 100% Tera type mechanic behavioral parity
+
+### Story 12.2: Stellar Tera Implementation Migration
+As a **stellar tera engineer**,  
+I want **Stellar Tera special mechanics migrated to Rust WASM device**,  
+so that **Stellar Tera unique behaviors maintain identical functionality to TypeScript**.
+
+#### Acceptance Criteria
+1. Stellar Tera activation conditions evaluate identically to TypeScript implementation
+2. Stellar Tera move boost calculations produce mathematically identical damage modifications
+3. Stellar Tera type interaction maintains identical effectiveness against all types
+4. Stellar Tera duration and usage limits maintain identical constraint enforcement
+5. Stellar Tera interaction with other Tera types maintains identical priority behavior
+6. Stellar Tera visual effects maintain identical battle presentation and animation
+7. Complex Stellar Tera scenarios maintain identical calculation order and interaction resolution
+8. Comprehensive testing validates 100% Stellar Tera system behavioral parity
+
+### Story 12.3: Tera Crystal Resource Migration
+As a **tera resource engineer**,  
+I want **Tera Crystal resource management migrated to Rust WASM device**,  
+so that **Tera Crystal collection and usage maintain identical economic and gameplay balance**.
+
+#### Acceptance Criteria
+1. Tera Crystal generation algorithms produce statistically identical reward distributions
+2. Tera Crystal consumption mechanics maintain identical usage tracking and depletion behavior
+3. Tera Crystal rarity and drop rate calculations maintain identical probability distributions
+4. Tera Crystal inventory management maintains identical storage and organization functionality
+5. Tera Crystal exchange and conversion maintains identical rate calculation and transaction processing
+6. Tera Crystal restoration mechanisms maintain identical trigger conditions and replenishment rates
+7. Tera Crystal progression unlocks maintain identical threshold evaluation and reward distribution
+8. Comprehensive testing validates Tera Crystal resource system mathematical and behavioral parity
+
+### Story 12.4: Terastalization Battle Integration Migration
+As a **tera battle integration engineer**,  
+I want **complete terastalization battle integration migrated to Rust WASM device**,  
+so that **Tera type battle mechanics maintain identical interaction with all battle systems**.
+
+#### Acceptance Criteria
+1. Terastalization timing within battle flow maintains identical activation and resolution order
+2. Tera type interaction with status effects maintains identical application and resistance behavior
+3. Terastalization interaction with weather and terrain maintains identical priority and effect calculation
+4. Tera type battle AI decision-making maintains identical strategy and selection logic
+5. Terastalization effect stacking maintains identical calculation order and final result determination
+6. Tera type battle event handling maintains identical timing and sequence management
+7. Complex terastalization scenarios maintain identical interaction resolution and outcome calculation
+8. Comprehensive integration testing validates terastalization battle system interaction parity
+
+## Epic 13: Capture & Collection Mechanics
+
+Migrate wild Pokemon encounters, Pokeball/capture mechanics, PC storage/party management, and collection tracking while maintaining identical probability calculations and collection behavior.
+
+### Story 13.1: Wild Pokemon Encounter Migration
+As a **encounter system engineer**,  
+I want **wild Pokemon encounter mechanics migrated to Rust WASM device**,  
+so that **encounter generation and probability maintain identical behavior to TypeScript implementation**.
+
+#### Acceptance Criteria
+1. Wild Pokemon generation algorithms produce statistically identical species and level distributions
+2. Encounter rate calculations maintain identical probability for all areas and conditions
+3. Wild Pokemon stat generation maintains identical IV and nature probability distributions
+4. Shiny Pokemon encounter rates maintain identical probability calculations and determination logic
+5. Special encounter conditions maintain identical trigger evaluation and activation behavior
+6. Wild Pokemon AI behavior maintains identical battle decision-making and move selection patterns
+7. Encounter area restrictions maintain identical constraint validation and availability logic
+8. Comprehensive testing validates 100% wild encounter system probability and behavioral parity
+
+### Story 13.2: Pokeball and Capture Mechanics Migration
+As a **capture system engineer**,  
+I want **Pokeball mechanics and capture calculations migrated to Rust WASM device**,  
+so that **capture probability and mechanics maintain identical mathematical behavior**.
+
+#### Acceptance Criteria
+1. Capture rate formulas produce mathematically identical success probabilities for all scenarios
+2. Pokeball type effectiveness maintains identical modifier application and calculation behavior
+3. Pokemon health and status effect capture modifiers calculate identically to TypeScript
+4. Capture critical captures maintain identical probability calculation and success determination
+5. Capture animation and shake count calculations maintain identical probability distributions
+6. Failed capture mechanics maintain identical Pokemon behavior and item consumption logic
+7. Capture interaction with abilities and items maintains identical modification and stacking behavior
+8. Comprehensive testing validates 100% capture system mathematical and behavioral parity
+
+### Story 13.3: PC Storage and Party Management Migration
+As a **storage management engineer**,  
+I want **PC storage and party management systems migrated to Rust WASM device**,  
+so that **Pokemon organization and access maintain identical functionality to TypeScript**.
+
+#### Acceptance Criteria
+1. PC storage capacity and organization maintains identical box structure and Pokemon placement
+2. Party management operations maintain identical switching, ordering, and constraint validation
+3. Pokemon storage state persistence maintains identical data integrity across save/load operations
+4. Storage search and filtering maintains identical query functionality and result ordering
+5. Pokemon release and transfer mechanics maintain identical confirmation and data removal behavior
+6. Storage synchronization maintains identical data consistency across multiple access points
+7. Mass storage operations maintain identical batch processing and error handling behavior
+8. Comprehensive testing validates 100% storage management system functionality parity
+
+### Story 13.4: Collection Tracking and Progress Migration
+As a **collection tracking engineer**,  
+I want **collection progress and achievement systems migrated to Rust WASM device**,  
+so that **collection statistics and milestones maintain identical tracking behavior**.
+
+#### Acceptance Criteria
+1. Collection progress calculation maintains identical completion percentage and milestone detection
+2. Collection achievement triggers maintain identical threshold evaluation and reward distribution
+3. Collection statistics tracking maintains identical data accumulation and accuracy
+4. Collection goal setting maintains identical target validation and progress monitoring
+5. Collection sharing and export maintains identical data formatting and accessibility
+6. Collection history tracking maintains identical event logging and timeline preservation
+7. Collection analytics maintains identical statistical calculation and insight generation
+8. Comprehensive testing validates 100% collection tracking system behavioral and statistical parity
+
+## Epic 14: Egg System & Breeding Mechanics
+
+Migrate breeding compatibility, genetic inheritance, egg moves, and hatching/incubation systems while maintaining identical genetic algorithms and breeding probability calculations.
+
+### Story 14.1: Breeding Compatibility Migration
+As a **breeding system engineer**,  
+I want **Pokemon breeding compatibility systems migrated to Rust WASM device**,  
+so that **breeding pair validation and success rates maintain identical behavior to TypeScript**.
+
+#### Acceptance Criteria
+1. Breeding compatibility algorithms evaluate identically for all Pokemon species combinations
+2. Egg group validation maintains identical constraint checking and compatibility determination
+3. Breeding success rate calculations produce mathematically identical probabilities
+4. Gender ratio considerations maintain identical breeding pair selection and success logic
+5. Special breeding conditions maintain identical trigger evaluation and requirement validation
+6. Breeding time calculations maintain identical duration and completion timing
+7. Breeding restriction enforcement maintains identical constraint validation and error handling
+8. Comprehensive testing validates 100% breeding compatibility system behavioral parity
+
+### Story 14.2: Genetic Inheritance Migration
+As a **genetic inheritance engineer**,  
+I want **Pokemon genetic inheritance systems migrated to Rust WASM device**,  
+so that **genetic trait passing and probability maintain identical mathematical behavior**.
+
+#### Acceptance Criteria
+1. IV inheritance algorithms produce statistically identical distribution patterns
+2. Nature inheritance probability maintains identical parent selection and outcome determination
+3. Ability inheritance calculations maintain identical probability distributions and selection logic
+4. Hidden ability passing rates maintain identical probability calculation and inheritance behavior
+5. Genetic trait combination maintains identical interaction resolution and final outcome calculation
+6. Breeding item effects maintain identical modifier application and genetic influence behavior
+7. Complex genetic scenarios maintain identical inheritance calculation and probability resolution
+8. Comprehensive testing validates 100% genetic inheritance system mathematical and probability parity
+
+### Story 14.3: Egg Move and Learning Migration
+As a **egg move engineer**,  
+I want **egg move inheritance and learning systems migrated to Rust WASM device**,  
+so that **move passing and learning maintain identical behavior to TypeScript implementation**.
+
+#### Acceptance Criteria
+1. Egg move inheritance algorithms maintain identical move passing logic and constraint validation
+2. Move pool generation maintains identical availability checking and compatibility determination
+3. Move learning validation maintains identical constraint checking and requirement evaluation
+4. Move priority and selection maintains identical ordering and conflict resolution behavior
+5. Special move inheritance conditions maintain identical trigger evaluation and activation logic
+6. Move slot management maintains identical space allocation and replacement behavior
+7. Complex move inheritance scenarios maintain identical resolution order and final outcome determination
+8. Comprehensive testing validates 100% egg move system behavioral and logical parity
+
+### Story 14.4: Hatching and Incubation Migration
+As a **hatching system engineer**,  
+I want **egg hatching and incubation systems migrated to Rust WASM device**,  
+so that **hatching mechanics and timing maintain identical functionality to TypeScript**.
+
+#### Acceptance Criteria
+1. Egg step counter algorithms maintain identical progression tracking and completion detection
+2. Hatching probability calculations maintain identical success rate determination and timing
+3. Incubation effect modifiers maintain identical acceleration and enhancement behavior
+4. Hatched Pokemon generation maintains identical stat calculation and trait assignment
+5. Hatching animation and presentation maintains identical timing and visual behavior
+6. Egg inventory management maintains identical storage and organization functionality
+7. Mass hatching operations maintain identical batch processing and completion handling
+8. Comprehensive testing validates 100% hatching system mechanical and timing parity
+
+## Epic 15: Passive Abilities & Unlockables
+
+Migrate passive ability systems, unlockable content, achievement-based progression, and special ability unlock conditions while maintaining identical progression logic and reward calculations.
+
+### Story 15.1: Passive Ability System Migration
+As a **passive ability engineer**,  
+I want **passive ability mechanics and effects migrated to Rust WASM device**,  
+so that **passive ability activation and effects maintain identical behavior to TypeScript**.
+
+#### Acceptance Criteria
+1. Passive ability trigger conditions evaluate identically to TypeScript implementation
+2. Passive ability effect calculations produce mathematically identical modifier applications
+3. Passive ability stacking rules maintain identical interaction resolution and limit enforcement
+4. Passive ability persistence maintains identical state tracking across all game scenarios
+5. Passive ability interaction with active abilities maintains identical priority and resolution behavior
+6. Passive ability upgrade mechanics maintain identical progression logic and enhancement calculation
+7. Complex passive ability scenarios maintain identical effect calculation and interaction resolution
+8. Comprehensive testing validates 100% passive ability system behavioral and mathematical parity
+
+### Story 15.2: Unlockable Content Migration
+As a **unlockable content engineer**,  
+I want **unlockable content systems migrated to Rust WASM device**,  
+so that **content unlocking and availability maintain identical trigger conditions and access behavior**.
+
+#### Acceptance Criteria
+1. Content unlock condition evaluation maintains identical trigger logic and threshold determination
+2. Unlock progression tracking maintains identical milestone detection and completion logging
+3. Content availability validation maintains identical access control and restriction enforcement
+4. Unlock reward distribution maintains identical calculation and allocation behavior
+5. Content unlock persistence maintains identical state tracking across save/load operations
+6. Unlock notification systems maintain identical messaging and presentation behavior
+7. Complex unlock dependency chains maintain identical sequence logic and completion validation
+8. Comprehensive testing validates 100% unlockable content system behavioral and logical parity
+
+### Story 15.3: Achievement-Based Progression Migration
+As a **achievement system engineer**,  
+I want **achievement-based progression systems migrated to Rust WASM device**,  
+so that **achievement tracking and rewards maintain identical calculation and distribution behavior**.
+
+#### Acceptance Criteria
+1. Achievement progress tracking maintains identical data accumulation and milestone detection
+2. Achievement completion detection maintains identical trigger condition evaluation and validation
+3. Achievement reward calculation maintains identical point distribution and bonus allocation
+4. Achievement category organization maintains identical grouping and progression logic
+5. Achievement sharing and export maintains identical data formatting and accessibility
+6. Achievement reset and progression maintains identical state management and preservation behavior
+7. Complex achievement scenarios maintain identical progress calculation and completion determination
+8. Comprehensive testing validates 100% achievement system tracking and reward parity
+
+### Story 15.4: Special Ability Unlock Migration
+As a **special unlock engineer**,  
+I want **special ability unlock conditions migrated to Rust WASM device**,  
+so that **rare ability unlocking maintains identical trigger evaluation and reward behavior**.
+
+#### Acceptance Criteria
+1. Special unlock condition evaluation maintains identical complexity validation and requirement checking
+2. Rare ability distribution maintains identical probability calculation and selection logic
+3. Special unlock timing maintains identical activation sequence and completion behavior
+4. Unlock validation systems maintain identical verification and confirmation behavior
+5. Special ability activation maintains identical enablement logic and effect application
+6. Unlock progression persistence maintains identical state tracking and save functionality
+7. Complex special unlock scenarios maintain identical evaluation order and completion determination
+8. Comprehensive testing validates 100% special unlock system behavioral and probability parity
+
+## Epic 16: World Progression & Biome System
+
+Migrate biome progression, trainer encounters, gym leader/Elite Four systems, and environmental cycles while maintaining identical world state management and progression logic.
+
+### Story 16.1: Biome Progression Migration
+As a **biome system engineer**,  
+I want **biome progression and unlocking systems migrated to Rust WASM device**,  
+so that **world area advancement maintains identical progression logic and availability behavior**.
+
+#### Acceptance Criteria
+1. Biome unlock condition evaluation maintains identical progression trigger logic and requirement validation
+2. Biome progression tracking maintains identical milestone detection and advancement calculation
+3. Biome availability validation maintains identical access control and restriction enforcement
+4. Biome environmental effects maintain identical modifier application and interaction behavior
+5. Biome transition mechanics maintain identical zone change logic and state persistence
+6. Biome progression rewards maintain identical calculation and distribution behavior
+7. Complex biome dependency chains maintain identical sequence logic and completion validation
+8. Comprehensive testing validates 100% biome progression system behavioral and logical parity
+
+### Story 16.2: Trainer Encounter Migration
+As a **trainer encounter engineer**,  
+I want **trainer encounter and battle systems migrated to Rust WASM device**,  
+so that **trainer generation and battle mechanics maintain identical behavior to TypeScript**.
+
+#### Acceptance Criteria
+1. Trainer generation algorithms produce statistically identical team composition and level distributions
+2. Trainer AI behavior maintains identical battle decision-making and strategy patterns
+3. Trainer encounter probability maintains identical spawn rate calculation and area distribution
+4. Trainer reward calculation maintains identical experience and prize distribution behavior
+5. Trainer progression tracking maintains identical defeat recording and achievement recognition
+6. Trainer dialogue and interaction maintains identical text presentation and choice handling
+7. Complex trainer scenarios maintain identical battle flow and interaction resolution
+8. Comprehensive testing validates 100% trainer encounter system behavioral and probability parity
+
+### Story 16.3: Gym Leader and Elite Four Migration
+As a **elite trainer engineer**,  
+I want **gym leader and Elite Four systems migrated to Rust WASM device**,  
+so that **elite trainer battles maintain identical challenge scaling and reward behavior**.
+
+#### Acceptance Criteria
+1. Gym leader team generation maintains identical Pokemon selection and stat scaling algorithms
+2. Elite Four progression maintains identical unlock sequence and difficulty scaling behavior
+3. Elite trainer AI maintains identical advanced strategy and decision-making patterns
+4. Championship validation maintains identical victory condition evaluation and recognition logic
+5. Elite trainer reward calculation maintains identical prize distribution and advancement behavior
+6. Elite trainer progression tracking maintains identical completion recording and achievement unlocking
+7. Complex elite trainer scenarios maintain identical battle flow and victory validation
+8. Comprehensive testing validates 100% elite trainer system behavioral and challenge parity
+
+### Story 16.4: Environmental Cycle Migration
+As a **environmental cycle engineer**,  
+I want **environmental cycle and world state systems migrated to Rust WASM device**,  
+so that **world environmental changes maintain identical timing and effect behavior**.
+
+#### Acceptance Criteria
+1. Environmental cycle timing maintains identical progression calculation and transition logic
+2. Cycle effect application maintains identical modifier calculation and interaction behavior
+3. Environmental state persistence maintains identical world state tracking across all scenarios
+4. Cycle interaction with weather maintains identical priority and effect resolution behavior
+5. Environmental cycle progression maintains identical advancement logic and milestone detection
+6. Cycle visualization and presentation maintains identical world state representation behavior
+7. Complex environmental scenarios maintain identical cycle calculation and effect interaction
+8. Comprehensive testing validates 100% environmental cycle system behavioral and timing parity
+
+## Epic 17: Trainer & AI Systems
+
+Migrate AI battle decision making, trainer personalities, dynamic party generation, and NPC interaction systems while maintaining identical behavioral patterns and decision-making algorithms.
+
+### Story 17.1: AI Battle Decision Making Migration
+As a **AI battle engineer**,  
+I want **AI battle decision-making algorithms migrated to Rust WASM device**,  
+so that **AI move selection and strategy maintain identical behavioral patterns to TypeScript**.
+
+#### Acceptance Criteria
+1. AI move selection algorithms maintain identical decision logic and priority weighting
+2. AI switch decision calculations maintain identical evaluation criteria and timing behavior
+3. AI item usage logic maintains identical trigger conditions and selection behavior
+4. AI strategy adaptation maintains identical learning patterns and adjustment behavior
+5. AI difficulty scaling maintains identical challenge progression and intelligence modification
+6. AI battle flow management maintains identical turn planning and sequence optimization
+7. Complex AI scenarios maintain identical decision resolution and strategy implementation
+8. Comprehensive testing validates 100% AI battle system behavioral and strategic parity
+
+### Story 17.2: Trainer Personality Migration
+As a **trainer personality engineer**,  
+I want **trainer personality and behavior systems migrated to Rust WASM device**,  
+so that **trainer characterization and interaction maintain identical personality expression**.
+
+#### Acceptance Criteria
+1. Personality trait algorithms maintain identical behavior modification and expression patterns
+2. Trainer dialogue generation maintains identical personality-based text selection and presentation
+3. Personality influence on battle tactics maintains identical strategy modification and decision weighting
+4. Trainer interaction patterns maintain identical social behavior and response logic
+5. Personality development maintains identical growth patterns and trait evolution behavior
+6. Personality compatibility calculations maintain identical relationship and interaction assessment
+7. Complex personality scenarios maintain identical behavioral expression and interaction resolution
+8. Comprehensive testing validates 100% trainer personality system behavioral and expression parity
+
+### Story 17.3: Dynamic Party Generation Migration
+As a **party generation engineer**,  
+I want **dynamic trainer party generation systems migrated to Rust WASM device**,  
+so that **trainer team composition maintains identical generation algorithms and balance**.
+
+#### Acceptance Criteria
+1. Party composition algorithms produce statistically identical team structure and Pokemon selection
+2. Level scaling calculations maintain identical difficulty progression and stat distribution
+3. Type coverage optimization maintains identical team balance and strategic composition logic
+4. Party generation constraints maintain identical validation and restriction enforcement
+5. Dynamic team adaptation maintains identical adjustment logic and rebalancing behavior
+6. Party generation performance maintains identical generation speed and computational efficiency
+7. Complex party scenarios maintain identical composition resolution and balance optimization
+8. Comprehensive testing validates 100% party generation system algorithmic and balance parity
+
+### Story 17.4: NPC Interaction Migration
+As a **NPC interaction engineer**,  
+I want **NPC interaction and dialogue systems migrated to Rust WASM device**,  
+so that **NPC behavior and conversation maintain identical interaction patterns and functionality**.
+
+#### Acceptance Criteria
+1. NPC dialogue trees maintain identical conversation flow and choice consequence logic
+2. NPC behavior state tracking maintains identical personality persistence and interaction memory
+3. NPC quest and task systems maintain identical objective tracking and completion validation
+4. NPC reaction algorithms maintain identical response calculation and emotion expression behavior
+5. NPC interaction persistence maintains identical relationship tracking and history preservation
+6. NPC group dynamics maintain identical social interaction and collective behavior patterns
+7. Complex NPC scenarios maintain identical interaction resolution and relationship development
+8. Comprehensive testing validates 100% NPC interaction system behavioral and social parity
+
+## Epic 18: Challenge & Game Mode Systems
+
+Migrate daily runs, challenge frameworks, alternative game modes, and difficulty scaling systems while maintaining identical challenge generation and progression mechanics.
+
+### Story 18.1: Daily Run Migration
+As a **daily challenge engineer**,  
+I want **daily run generation and mechanics migrated to Rust WASM device**,  
+so that **daily challenges maintain identical generation algorithms and difficulty progression**.
+
+#### Acceptance Criteria
+1. Daily challenge generation algorithms produce statistically identical difficulty and objective distributions
+2. Daily run seed generation maintains identical randomization and reproducibility behavior
+3. Daily challenge progression tracking maintains identical milestone detection and completion validation
+4. Daily run leaderboard calculations maintain identical scoring and ranking behavior
+5. Daily challenge reward distribution maintains identical calculation and allocation logic
+6. Daily run time constraints maintain identical duration tracking and completion validation
+7. Complex daily challenge scenarios maintain identical objective resolution and scoring calculation
+8. Comprehensive testing validates 100% daily run system generation and progression parity
+
+### Story 18.2: Challenge Framework Migration
+As a **challenge framework engineer**,  
+I want **challenge creation and management systems migrated to Rust WASM device**,  
+so that **challenge mechanics maintain identical framework functionality and validation behavior**.
+
+#### Acceptance Criteria
+1. Challenge creation algorithms maintain identical objective generation and constraint validation
+2. Challenge difficulty scaling maintains identical progression calculation and adjustment behavior
+3. Challenge completion detection maintains identical validation logic and achievement recognition
+4. Challenge reward system maintains identical calculation and distribution behavior
+5. Challenge persistence maintains identical state tracking and save functionality
+6. Challenge sharing mechanisms maintain identical export and import functionality
+7. Complex challenge scenarios maintain identical completion validation and reward calculation
+8. Comprehensive testing validates 100% challenge framework system functionality and validation parity
+
+### Story 18.3: Alternative Game Mode Migration
+As a **game mode engineer**,  
+I want **alternative game mode systems migrated to Rust WASM device**,  
+so that **game mode variations maintain identical rule implementation and gameplay behavior**.
+
+#### Acceptance Criteria
+1. Game mode rule enforcement maintains identical constraint validation and gameplay modification
+2. Mode-specific mechanics maintain identical implementation and interaction behavior
+3. Game mode progression tracking maintains identical advancement logic and milestone detection
+4. Mode transition systems maintain identical state management and conversion behavior
+5. Game mode customization maintains identical parameter adjustment and validation logic
+6. Mode-specific rewards maintain identical calculation and distribution behavior
+7. Complex game mode scenarios maintain identical rule interaction and gameplay resolution
+8. Comprehensive testing validates 100% alternative game mode system rule and gameplay parity
+
+### Story 18.4: Difficulty Scaling Migration
+As a **difficulty scaling engineer**,  
+I want **difficulty scaling and adaptation systems migrated to Rust WASM device**,  
+so that **difficulty progression maintains identical scaling algorithms and challenge balance**.
+
+#### Acceptance Criteria
+1. Difficulty scaling algorithms maintain identical progression calculation and challenge modification
+2. Dynamic difficulty adjustment maintains identical adaptation logic and performance evaluation
+3. Difficulty curve optimization maintains identical balance calculation and smooth progression
+4. Player skill assessment maintains identical evaluation criteria and difficulty recommendation
+5. Difficulty persistence maintains identical setting tracking and preference preservation
+6. Scaling validation systems maintain identical balance verification and constraint checking
+7. Complex difficulty scenarios maintain identical scaling resolution and balance optimization
+8. Comprehensive testing validates 100% difficulty scaling system algorithmic and balance parity
+
+## Epic 19: Mystery Encounter System
+
+Migrate mystery encounter framework, dialogue/narrative systems, special events, and encounter rewards/consequences while maintaining identical narrative flow and event probability calculations.
+
+### Story 19.1: Mystery Encounter Framework Migration
+As a **mystery encounter engineer**,  
+I want **mystery encounter generation and management systems migrated to Rust WASM device**,  
+so that **encounter creation and triggering maintain identical probability and behavior patterns**.
+
+#### Acceptance Criteria
+1. Mystery encounter generation algorithms produce statistically identical event type and frequency distributions
+2. Encounter trigger condition evaluation maintains identical probability calculation and activation logic
+3. Encounter selection algorithms maintain identical weighting and randomization behavior
+4. Encounter state management maintains identical progress tracking and persistence functionality
+5. Encounter availability validation maintains identical constraint checking and access control
+6. Encounter completion detection maintains identical validation logic and outcome determination
+7. Complex encounter scenarios maintain identical trigger resolution and event chain management
+8. Comprehensive testing validates 100% mystery encounter framework probability and behavioral parity
+
+### Story 19.2: Dialogue and Narrative Migration
+As a **narrative system engineer**,  
+I want **dialogue trees and narrative systems migrated to Rust WASM device**,  
+so that **story presentation and choice consequences maintain identical narrative flow behavior**.
+
+#### Acceptance Criteria
+1. Dialogue tree navigation maintains identical flow logic and choice consequence calculation
+2. Narrative branching algorithms maintain identical story path selection and outcome determination
+3. Character dialogue generation maintains identical personality expression and context awareness
+4. Story state tracking maintains identical narrative progress monitoring and flag management
+5. Dialogue choice validation maintains identical option availability and constraint checking
+6. Narrative persistence maintains identical story state preservation and continuity tracking
+7. Complex narrative scenarios maintain identical branching resolution and story development
+8. Comprehensive testing validates 100% dialogue and narrative system flow and consequence parity
+
+### Story 19.3: Special Event Migration
+As a **special event engineer**,  
+I want **special event mechanics and systems migrated to Rust WASM device**,  
+so that **event activation and management maintain identical trigger behavior and functionality**.
+
+#### Acceptance Criteria
+1. Special event trigger algorithms maintain identical activation condition evaluation and timing logic
+2. Event duration tracking maintains identical time management and expiration behavior
+3. Event effect application maintains identical modifier calculation and interaction behavior
+4. Event participation validation maintains identical eligibility checking and access control
+5. Event progression tracking maintains identical milestone detection and completion validation
+6. Event reward distribution maintains identical calculation and allocation behavior
+7. Complex event scenarios maintain identical activation resolution and effect interaction
+8. Comprehensive testing validates 100% special event system trigger and management parity
+
+### Story 19.4: Encounter Rewards and Consequences Migration
+As a **encounter reward engineer**,  
+I want **encounter reward and consequence systems migrated to Rust WASM device**,  
+so that **outcome calculation and distribution maintain identical behavior to TypeScript implementation**.
+
+#### Acceptance Criteria
+1. Reward calculation algorithms maintain identical distribution logic and value determination
+2. Consequence application maintains identical penalty calculation and effect implementation
+3. Outcome probability distributions maintain identical statistical behavior and fairness calculation
+4. Reward rarity and value scaling maintains identical progression and balance behavior
+5. Consequence mitigation maintains identical reduction calculation and avoidance logic
+6. Outcome persistence maintains identical state tracking and save functionality
+7. Complex outcome scenarios maintain identical calculation resolution and effect application
+8. Comprehensive testing validates 100% encounter reward system calculation and distribution parity
+
+## Epic 20: Timed Events System
+
+Migrate seasonal events, dynamic content modification, special event species, and community event integration while maintaining identical timing mechanics and event synchronization behavior.
+
+### Story 20.1: Seasonal Event Migration
+As a **seasonal event engineer**,  
+I want **seasonal event timing and mechanics migrated to Rust WASM device**,  
+so that **seasonal activation and content maintain identical scheduling and availability behavior**.
+
+#### Acceptance Criteria
+1. Seasonal timing algorithms maintain identical calendar calculation and activation logic
+2. Seasonal content modification maintains identical availability adjustment and feature enabling
+3. Seasonal event duration tracking maintains identical time management and expiration behavior
+4. Seasonal progression tracking maintains identical milestone detection and completion validation
+5. Seasonal reward distribution maintains identical calculation and allocation behavior
+6. Seasonal availability validation maintains identical constraint checking and access control
+7. Complex seasonal scenarios maintain identical timing resolution and content activation
+8. Comprehensive testing validates 100% seasonal event system timing and content parity
+
+### Story 20.2: Dynamic Content Modification Migration
+As a **dynamic content engineer**,  
+I want **dynamic content modification systems migrated to Rust WASM device**,  
+so that **content updates and changes maintain identical modification behavior and validation**.
+
+#### Acceptance Criteria
+1. Content modification algorithms maintain identical update logic and validation behavior
+2. Dynamic content loading maintains identical performance and availability management
+3. Content version control maintains identical tracking and rollback functionality
+4. Content modification validation maintains identical constraint checking and error handling
+5. Content synchronization maintains identical update distribution and consistency management
+6. Content modification persistence maintains identical state tracking and save functionality
+7. Complex content scenarios maintain identical modification resolution and validation logic
+8. Comprehensive testing validates 100% dynamic content system modification and validation parity
+
+### Story 20.3: Special Event Species Migration
+As a **event species engineer**,  
+I want **special event species mechanics migrated to Rust WASM device**,  
+so that **event-exclusive Pokemon maintain identical availability and behavior patterns**.
+
+#### Acceptance Criteria
+1. Event species generation algorithms maintain identical spawn probability and distribution logic
+2. Event species availability validation maintains identical constraint checking and access control
+3. Event species stat generation maintains identical calculation and distribution behavior
+4. Event species interaction maintains identical battle behavior and ability functionality
+5. Event species collection tracking maintains identical progress monitoring and achievement recognition
+6. Event species persistence maintains identical state tracking and save functionality
+7. Complex event species scenarios maintain identical availability resolution and interaction behavior
+8. Comprehensive testing validates 100% event species system generation and behavior parity
+
+### Story 20.4: Community Event Integration Migration
+As a **community event engineer**,  
+I want **community event coordination systems migrated to Rust WASM device**,  
+so that **community participation and coordination maintain identical collaboration behavior**.
+
+#### Acceptance Criteria
+1. Community event participation tracking maintains identical contribution calculation and recognition logic
+2. Community goal progression maintains identical collective progress monitoring and milestone detection
+3. Community event synchronization maintains identical coordination and timing behavior
+4. Community reward distribution maintains identical allocation calculation and fairness logic
+5. Community event validation maintains identical participation verification and eligibility checking
+6. Community event persistence maintains identical state tracking and historical preservation
+7. Complex community scenarios maintain identical coordination resolution and goal achievement
+8. Comprehensive testing validates 100% community event system participation and coordination parity
+
+## Epic 21: Gacha & Voucher Systems
+
+Migrate gacha mechanics, voucher economy, egg tier rewards, and gacha integration/balance systems while maintaining identical probability calculations and economic balance behavior.
+
+### Story 21.1: Gacha Mechanics Migration
+As a **gacha system engineer**,  
+I want **gacha draw mechanics and probability systems migrated to Rust WASM device**,  
+so that **gacha pulls maintain identical probability distributions and reward behavior**.
+
+#### Acceptance Criteria
+1. Gacha probability algorithms maintain identical distribution calculation and rarity weighting
+2. Gacha pity system maintains identical counter tracking and guaranteed reward logic
+3. Gacha pull validation maintains identical cost verification and transaction processing
+4. Gacha reward generation maintains identical item selection and distribution behavior
+5. Gacha pull history maintains identical tracking and statistical analysis functionality
+6. Gacha rate modification maintains identical bonus calculation and temporary rate adjustment
+7. Complex gacha scenarios maintain identical probability resolution and reward determination
+8. Comprehensive testing validates 100% gacha mechanics probability and reward parity
+
+### Story 21.2: Voucher Economy Migration
+As a **voucher economy engineer**,  
+I want **voucher generation and redemption systems migrated to Rust WASM device**,  
+so that **voucher economics maintain identical value calculation and exchange behavior**.
+
+#### Acceptance Criteria
+1. Voucher generation algorithms maintain identical distribution logic and availability calculation
+2. Voucher redemption validation maintains identical verification and exchange processing
+3. Voucher value calculation maintains identical worth assessment and pricing behavior
+4. Voucher expiration tracking maintains identical time management and validity checking
+5. Voucher economy balance maintains identical inflation control and value stability
+6. Voucher exchange rate calculation maintains identical conversion logic and fee assessment
+7. Complex voucher scenarios maintain identical economy resolution and value calculation
+8. Comprehensive testing validates 100% voucher economy system value and exchange parity
+
+### Story 21.3: Egg Tier Reward Migration
+As a **egg tier engineer**,  
+I want **egg tier reward systems migrated to Rust WASM device**,  
+so that **tier-based rewards maintain identical progression and distribution behavior**.
+
+#### Acceptance Criteria
+1. Egg tier calculation algorithms maintain identical progression logic and tier determination
+2. Tier reward distribution maintains identical allocation calculation and rarity weighting
+3. Tier progression tracking maintains identical advancement monitoring and milestone detection
+4. Tier reward validation maintains identical eligibility checking and access control
+5. Tier bonus calculation maintains identical modifier application and enhancement behavior
+6. Tier reset mechanics maintain identical cycle timing and progression preservation
+7. Complex tier scenarios maintain identical calculation resolution and reward determination
+8. Comprehensive testing validates 100% egg tier reward system progression and distribution parity
+
+### Story 21.4: Gacha Integration and Balance Migration
+As a **gacha balance engineer**,  
+I want **gacha balance and integration systems migrated to Rust WASM device**,  
+so that **gacha economics maintain identical balance calculation and fairness behavior**.
+
+#### Acceptance Criteria
+1. Gacha balance algorithms maintain identical fairness calculation and outcome distribution
+2. Gacha integration with progression maintains identical reward balance and advancement logic
+3. Gacha economy impact maintains identical value calculation and inflation control
+4. Gacha balance validation maintains identical fairness verification and adjustment behavior
+5. Gacha integration persistence maintains identical state tracking and save functionality
+6. Gacha balance monitoring maintains identical statistical analysis and fairness assessment
+7. Complex gacha balance scenarios maintain identical calculation resolution and fairness optimization
+8. Comprehensive testing validates 100% gacha integration system balance and fairness parity
+
+## Epic 22: Tutorial & Help Systems
+
+Migrate interactive tutorials, contextual help, advanced mechanic explanations, and player onboarding systems while maintaining identical instructional flow and learning progression behavior.
+
+### Story 22.1: Interactive Tutorial Migration
+As a **tutorial system engineer**,  
+I want **interactive tutorial mechanics migrated to Rust WASM device**,  
+so that **tutorial progression and interaction maintain identical learning flow and validation behavior**.
+
+#### Acceptance Criteria
+1. Tutorial step progression maintains identical advancement logic and completion validation
+2. Interactive tutorial elements maintain identical user interaction and response behavior
+3. Tutorial completion tracking maintains identical progress monitoring and achievement recognition
+4. Tutorial branching logic maintains identical path selection and adaptive learning behavior
+5. Tutorial validation systems maintain identical skill assessment and progression checking
+6. Tutorial persistence maintains identical state tracking and resume functionality
+7. Complex tutorial scenarios maintain identical flow resolution and learning path optimization
+8. Comprehensive testing validates 100% interactive tutorial system progression and interaction parity
+
+### Story 22.2: Contextual Help Migration
+As a **contextual help engineer**,  
+I want **contextual help and guidance systems migrated to Rust WASM device**,  
+so that **help presentation and context awareness maintain identical assistance behavior**.
+
+#### Acceptance Criteria
+1. Contextual help detection maintains identical context analysis and relevance calculation
+2. Help content selection maintains identical appropriateness filtering and priority ranking
+3. Help presentation timing maintains identical interruption management and user flow preservation
+4. Help content validation maintains identical accuracy verification and currency checking
+5. Help usage tracking maintains identical analytics collection and effectiveness assessment
+6. Help personalization maintains identical customization and user preference adaptation
+7. Complex help scenarios maintain identical context resolution and assistance optimization
+8. Comprehensive testing validates 100% contextual help system detection and presentation parity
+
+### Story 22.3: Advanced Mechanic Explanation Migration
+As a **mechanic explanation engineer**,  
+I want **advanced mechanic explanation systems migrated to Rust WASM device**,  
+so that **complex concept education maintains identical explanation quality and comprehension behavior**.
+
+#### Acceptance Criteria
+1. Mechanic explanation generation maintains identical complexity analysis and explanation depth
+2. Explanation comprehension tracking maintains identical understanding assessment and learning validation
+3. Explanation adaptation maintains identical difficulty adjustment and personalization behavior
+4. Explanation content validation maintains identical accuracy verification and example correctness
+5. Explanation progression tracking maintains identical learning path monitoring and advancement validation
+6. Explanation effectiveness assessment maintains identical comprehension measurement and improvement identification
+7. Complex explanation scenarios maintain identical educational resolution and learning optimization
+8. Comprehensive testing validates 100% advanced explanation system education and comprehension parity
+
+### Story 22.4: Player Onboarding Migration
+As a **onboarding system engineer**,  
+I want **player onboarding and introduction systems migrated to Rust WASM device**,  
+so that **new player experience maintains identical guidance flow and learning progression**.
+
+#### Acceptance Criteria
+1. Onboarding flow management maintains identical progression logic and milestone achievement
+2. New player skill assessment maintains identical evaluation criteria and recommendation logic
+3. Onboarding customization maintains identical personalization and learning path adaptation
+4. Onboarding completion tracking maintains identical progress monitoring and achievement recognition
+5. Onboarding effectiveness measurement maintains identical success assessment and improvement identification
+6. Onboarding persistence maintains identical state tracking and resume functionality
+7. Complex onboarding scenarios maintain identical flow resolution and learning optimization
+8. Comprehensive testing validates 100% player onboarding system guidance and progression parity
+
+## Epic 23: Pokedex & Collection Tracking
+
+Migrate species discovery/registration, collection progress/statistics, advanced Pokedex features, and community sharing while maintaining identical data accuracy and tracking behavior.
+
+### Story 23.1: Species Discovery and Registration Migration
+As a **pokedex registration engineer**,  
+I want **species discovery and registration systems migrated to Rust WASM device**,  
+so that **Pokemon discovery tracking maintains identical registration logic and data accuracy**.
+
+#### Acceptance Criteria
+1. Species discovery detection maintains identical trigger conditions and registration validation
+2. Registration data accuracy maintains identical information capture and verification behavior
+3. Discovery progress tracking maintains identical completion calculation and milestone detection
+4. Registration persistence maintains identical state tracking and save functionality
+5. Discovery validation systems maintain identical authenticity verification and error prevention
+6. Registration analytics maintain identical statistical analysis and discovery pattern recognition
+7. Complex discovery scenarios maintain identical registration resolution and data integrity preservation
+8. Comprehensive testing validates 100% species discovery system registration and accuracy parity
+
+### Story 23.2: Collection Progress and Statistics Migration
+As a **collection statistics engineer**,  
+I want **collection progress and statistical analysis migrated to Rust WASM device**,  
+so that **collection tracking maintains identical calculation accuracy and analytical behavior**.
+
+#### Acceptance Criteria
+1. Collection progress calculation maintains identical completion percentage and milestone detection
+2. Statistical analysis algorithms maintain identical calculation methodology and result accuracy
+3. Progress visualization maintains identical data presentation and chart generation behavior
+4. Collection analytics maintain identical trend analysis and insight generation functionality
+5. Progress comparison maintains identical ranking calculation and relative performance assessment
+6. Statistics persistence maintains identical historical data tracking and preservation functionality
+7. Complex statistics scenarios maintain identical calculation resolution and analytical accuracy
+8. Comprehensive testing validates 100% collection statistics system calculation and analysis parity
+
+### Story 23.3: Advanced Pokedex Features Migration
+As a **advanced pokedex engineer**,  
+I want **advanced Pokedex functionality migrated to Rust WASM device**,  
+so that **enhanced features maintain identical search capability and data presentation behavior**.
+
+#### Acceptance Criteria
+1. Advanced search algorithms maintain identical query processing and result filtering behavior
+2. Data visualization features maintain identical chart generation and information presentation
+3. Advanced filtering maintains identical constraint application and result refinement behavior
+4. Data export functionality maintains identical format generation and content accuracy
+5. Advanced analytics maintain identical statistical calculation and insight generation functionality
+6. Feature customization maintains identical personalization and preference adaptation behavior
+7. Complex feature scenarios maintain identical functionality resolution and performance optimization
+8. Comprehensive testing validates 100% advanced Pokedex system feature and presentation parity
+
+### Story 23.4: Community Sharing Migration
+As a **community sharing engineer**,  
+I want **community sharing and collaboration systems migrated to Rust WASM device**,  
+so that **sharing functionality maintains identical data exchange and community interaction behavior**.
+
+#### Acceptance Criteria
+1. Sharing mechanism algorithms maintain identical data formatting and transmission behavior
+2. Community interaction tracking maintains identical engagement monitoring and participation recognition
+3. Shared content validation maintains identical authenticity verification and quality control
+4. Community analytics maintain identical activity analysis and trend identification functionality
+5. Sharing privacy controls maintain identical access management and permission enforcement
+6. Community moderation maintains identical content review and quality assurance behavior
+7. Complex sharing scenarios maintain identical interaction resolution and community management
+8. Comprehensive testing validates 100% community sharing system interaction and collaboration parity
+
+## Epic 24: Achievement & Ribbon Systems
+
+Migrate achievement framework, ribbon awards, scoring/rankings, and special recognition systems while maintaining identical recognition logic and progression tracking behavior.
+
+### Story 24.1: Achievement Framework Migration
+As a **achievement framework engineer**,  
+I want **achievement tracking and validation systems migrated to Rust WASM device**,  
+so that **achievement recognition maintains identical trigger detection and reward behavior**.
+
+#### Acceptance Criteria
+1. Achievement trigger detection maintains identical condition evaluation and activation logic
+2. Achievement progress tracking maintains identical advancement calculation and milestone monitoring
+3. Achievement completion validation maintains identical verification logic and reward distribution
+4. Achievement persistence maintains identical state tracking and historical preservation functionality
+5. Achievement analytics maintain identical statistical analysis and completion pattern recognition
+6. Achievement customization maintains identical personalization and display preference adaptation
+7. Complex achievement scenarios maintain identical trigger resolution and completion validation
+8. Comprehensive testing validates 100% achievement framework system recognition and tracking parity
+
+### Story 24.2: Ribbon Award Migration
+As a **ribbon award engineer**,  
+I want **ribbon award systems and criteria migrated to Rust WASM device**,  
+so that **ribbon recognition maintains identical evaluation standards and award behavior**.
+
+#### Acceptance Criteria
+1. Ribbon criteria evaluation maintains identical standard assessment and qualification logic
+2. Ribbon award calculation maintains identical merit evaluation and recognition determination
+3. Ribbon display management maintains identical presentation and organization behavior
+4. Ribbon progression tracking maintains identical advancement monitoring and tier calculation
+5. Ribbon validation systems maintain identical authenticity verification and award integrity
+6. Ribbon analytics maintain identical distribution analysis and rarity assessment functionality
+7. Complex ribbon scenarios maintain identical evaluation resolution and award determination
+8. Comprehensive testing validates 100% ribbon award system evaluation and recognition parity
+
+### Story 24.3: Scoring and Ranking Migration
+As a **scoring and ranking engineer**,  
+I want **scoring algorithms and ranking systems migrated to Rust WASM device**,  
+so that **competitive scoring maintains identical calculation methodology and fairness behavior**.
+
+#### Acceptance Criteria
+1. Scoring algorithms maintain identical calculation methodology and point distribution logic
+2. Ranking calculation maintains identical position determination and tie-breaking behavior
+3. Score validation maintains identical authenticity verification and cheating prevention
+4. Ranking persistence maintains identical historical tracking and position preservation functionality
+5. Score analytics maintain identical performance analysis and statistical insight generation
+6. Ranking comparison maintains identical relative performance assessment and benchmarking behavior
+7. Complex scoring scenarios maintain identical calculation resolution and ranking determination
+8. Comprehensive testing validates 100% scoring and ranking system calculation and fairness parity
+
+### Story 24.4: Special Recognition Migration
+As a **special recognition engineer**,  
+I want **special recognition and honor systems migrated to Rust WASM device**,  
+so that **elite recognition maintains identical criteria evaluation and prestige behavior**.
+
+#### Acceptance Criteria
+1. Special recognition criteria maintain identical evaluation standards and qualification assessment
+2. Recognition tier calculation maintains identical prestige level determination and advancement logic
+3. Recognition display systems maintain identical presentation and visibility behavior
+4. Recognition persistence maintains identical honor tracking and historical preservation functionality
+5. Recognition analytics maintain identical distribution analysis and exclusivity assessment
+6. Recognition validation maintains identical authenticity verification and integrity protection
+7. Complex recognition scenarios maintain identical evaluation resolution and honor determination
+8. Comprehensive testing validates 100% special recognition system criteria and prestige parity
+
+## Epic 25: Statistics & Analytics System
+
+Migrate battle statistics, collection analytics, economic statistics, and advanced insights systems while maintaining identical data accuracy and analytical calculation behavior.
+
+### Story 25.1: Battle Statistics Migration
+As a **battle statistics engineer**,  
+I want **battle performance statistics migrated to Rust WASM device**,  
+so that **battle analytics maintain identical calculation accuracy and insight generation behavior**.
+
+#### Acceptance Criteria
+1. Battle performance calculation maintains identical statistical methodology and metric accuracy
+2. Battle trend analysis maintains identical pattern recognition and insight generation functionality
+3. Battle comparison analytics maintain identical relative performance assessment and benchmarking behavior
+4. Battle statistics persistence maintains identical historical data tracking and preservation functionality
+5. Battle analytics visualization maintains identical chart generation and data presentation behavior
+6. Battle statistics validation maintains identical data integrity verification and accuracy assurance
+7. Complex battle analytics scenarios maintain identical calculation resolution and insight accuracy
+8. Comprehensive testing validates 100% battle statistics system calculation and analysis parity
+
+### Story 25.2: Collection Analytics Migration
+As a **collection analytics engineer**,  
+I want **collection analysis and insights migrated to Rust WASM device**,  
+so that **collection analytics maintain identical statistical calculation and trend analysis behavior**.
+
+#### Acceptance Criteria
+1. Collection analysis algorithms maintain identical statistical calculation and pattern detection methodology
+2. Collection trend identification maintains identical progression analysis and insight generation functionality
+3. Collection comparison analytics maintain identical relative assessment and benchmarking behavior
+4. Collection analytics persistence maintains identical historical analysis tracking and preservation functionality
+5. Collection insights visualization maintains identical presentation and chart generation behavior
+6. Collection analytics validation maintains identical data accuracy verification and calculation integrity
+7. Complex collection scenarios maintain identical analysis resolution and insight accuracy
+8. Comprehensive testing validates 100% collection analytics system calculation and insight parity
+
+### Story 25.3: Economic Statistics Migration
+As a **economic statistics engineer**,  
+I want **economic analysis and market insights migrated to Rust WASM device**,  
+so that **economic analytics maintain identical calculation methodology and market analysis behavior**.
+
+#### Acceptance Criteria
+1. Economic analysis algorithms maintain identical statistical calculation and market assessment methodology
+2. Economic trend analysis maintains identical pattern recognition and economic insight generation functionality
+3. Market analytics maintain identical value assessment and economic behavior analysis
+4. Economic statistics persistence maintains identical historical economic data tracking and preservation
+5. Economic visualization maintains identical market chart generation and economic data presentation
+6. Economic validation maintains identical data integrity verification and calculation accuracy assurance
+7. Complex economic scenarios maintain identical analysis resolution and market insight accuracy
+8. Comprehensive testing validates 100% economic statistics system calculation and market analysis parity
+
+### Story 25.4: Advanced Insights Migration
+As a **advanced insights engineer**,  
+I want **advanced analytical insights and intelligence migrated to Rust WASM device**,  
+so that **insight generation maintains identical intelligence calculation and analytical behavior**.
+
+#### Acceptance Criteria
+1. Advanced insight algorithms maintain identical intelligence calculation and pattern analysis methodology
+2. Predictive analytics maintain identical forecasting calculation and trend projection functionality
+3. Advanced comparison analytics maintain identical sophisticated assessment and intelligence generation
+4. Insight analytics persistence maintains identical advanced analysis tracking and preservation functionality
+5. Advanced visualization maintains identical sophisticated chart generation and intelligence presentation
+6. Insight validation maintains identical advanced data verification and analytical accuracy assurance
+7. Complex insight scenarios maintain identical intelligence resolution and analytical sophistication
+8. Comprehensive testing validates 100% advanced insights system intelligence and analytical parity
+
+## Epic 26: Run Tracking & Session Management
+
+Migrate run lifecycle management, naming/customization, historical records, and session identity/continuity while maintaining identical session tracking and data persistence behavior.
+
+### Story 26.1: Run Lifecycle Management Migration
+As a **run lifecycle engineer**,  
+I want **run lifecycle tracking and management migrated to Rust WASM device**,  
+so that **run session management maintains identical state tracking and lifecycle behavior**.
+
+#### Acceptance Criteria
+1. Run lifecycle tracking maintains identical state management and transition logic throughout session progression
+2. Run session validation maintains identical integrity checking and error prevention during lifecycle events
+3. Run completion detection maintains identical termination condition evaluation and finalization behavior
+4. Run lifecycle persistence maintains identical state preservation and recovery functionality across interruptions
+5. Run analytics maintain identical performance tracking and lifecycle analysis throughout session duration
+6. Run lifecycle visualization maintains identical progress presentation and status display behavior
+7. Complex lifecycle scenarios maintain identical state resolution and transition management across edge cases
+8. Comprehensive testing validates 100% run lifecycle system state management and transition parity
+
+### Story 26.2: Run Naming and Customization Migration
+As a **run customization engineer**,  
+I want **run naming and customization systems migrated to Rust WASM device**,  
+so that **run personalization maintains identical customization capability and validation behavior**.
+
+#### Acceptance Criteria
+1. Run naming algorithms maintain identical validation logic and constraint enforcement for custom names
+2. Run customization options maintain identical personalization capability and preference application behavior
+3. Run identity management maintains identical unique identification and naming conflict resolution
+4. Run customization persistence maintains identical preference tracking and personalization preservation functionality
+5. Run customization validation maintains identical option verification and constraint checking behavior
+6. Run personalization analytics maintain identical customization pattern analysis and preference insight generation
+7. Complex customization scenarios maintain identical personalization resolution and preference management
+8. Comprehensive testing validates 100% run customization system personalization and validation parity
+
+### Story 26.3: Historical Record Migration
+As a **historical record engineer**,  
+I want **run history and record systems migrated to Rust WASM device**,  
+so that **historical tracking maintains identical record accuracy and preservation behavior**.
+
+#### Acceptance Criteria
+1. Historical record tracking maintains identical data capture and preservation methodology for all run events
+2. Record retrieval systems maintain identical search capability and historical data access functionality
+3. Historical analytics maintain identical trend analysis and record comparison calculation behavior
+4. Record persistence maintains identical long-term storage and data integrity preservation functionality
+5. Historical visualization maintains identical timeline presentation and record display behavior
+6. Record validation maintains identical data accuracy verification and historical integrity assurance
+7. Complex historical scenarios maintain identical record resolution and data preservation across complex cases
+8. Comprehensive testing validates 100% historical record system tracking and preservation parity
+
+### Story 26.4: Session Identity and Continuity Migration
+As a **session continuity engineer**,  
+I want **session identity and continuity systems migrated to Rust WASM device**,  
+so that **session management maintains identical identity tracking and continuity behavior**.
+
+#### Acceptance Criteria
+1. Session identity management maintains identical unique identification and session tracking throughout gameplay
+2. Session continuity preservation maintains identical state recovery and resumption functionality after interruptions
+3. Session validation maintains identical authenticity verification and identity integrity protection
+4. Session analytics maintain identical continuity analysis and session pattern recognition functionality
+5. Session persistence maintains identical identity tracking and continuity data preservation across sessions
+6. Session synchronization maintains identical multi-device continuity and identity consistency behavior
+7. Complex session scenarios maintain identical identity resolution and continuity management across edge cases
+8. Comprehensive testing validates 100% session identity system tracking and continuity parity
+
+## Epic 27: Integration & Deployment
+
+Complete AO process integration with comprehensive orchestration, performance optimization, and production deployment while ensuring system reliability and deployment success.
+
+### Story 27.1: AO Process Integration Completion
+As a **integration engineer**,  
+I want **complete AO platform integration finalized**,  
+so that **all processes deploy successfully and communicate reliably within AO ecosystem**.
+
+#### Acceptance Criteria
+1. All 26 processes deploy successfully to AO platform with complete bundle optimization under 500KB constraints
+2. Inter-process communication maintains reliable message passing and coordination across all process interactions
+3. AO platform integration maintains seamless deployment and runtime compatibility with platform requirements
+4. Process orchestration maintains reliable coordination and workflow management across all 26 specialized processes
+5. Integration testing validates complete end-to-end functionality across all game systems and process interactions
+6. Error handling maintains robust failure recovery and system resilience during process communication failures
+7. Platform compatibility maintains consistent behavior across different AO network configurations and deployment environments
+8. Comprehensive integration testing validates 100% platform integration success and communication reliability
+
+### Story 27.2: Device Orchestration Optimization
+As a **device orchestration engineer**,  
+I want **comprehensive device orchestration and performance optimization completed**,  
+so that **device coordination achieves optimal performance and resource utilization**.
+
+#### Acceptance Criteria
+1. Device orchestration algorithms maintain optimal performance coordination and resource allocation across all devices
+2. Performance optimization maintains system responsiveness and efficiency under all load conditions and usage patterns
+3. Resource management maintains optimal utilization and allocation across all devices and process interactions
+4. Device coordination maintains reliable communication and synchronization across all orchestrated devices
+5. Performance monitoring maintains comprehensive tracking and optimization feedback for continuous improvement
+6. Orchestration resilience maintains system stability and recovery during device failures or performance degradation
+7. Complex orchestration scenarios maintain optimal performance and coordination across sophisticated interaction patterns
+8. Comprehensive performance testing validates orchestration optimization success and resource efficiency achievement
+
+### Story 27.3: Production Deployment Preparation
+As a **deployment engineer**,  
+I want **production deployment infrastructure and processes completed**,  
+so that **system deployment achieves reliable production readiness and operational success**.
+
+#### Acceptance Criteria
+1. Production deployment processes maintain reliable and repeatable deployment success across all environments
+2. Deployment validation maintains comprehensive verification and quality assurance for production readiness
+3. Production monitoring maintains complete system health tracking and performance oversight in live environments
+4. Deployment rollback maintains reliable recovery and system restoration capabilities for deployment failures
+5. Production security maintains comprehensive protection and access control for production system integrity
+6. Deployment automation maintains efficient and reliable deployment pipeline execution for continuous delivery
+7. Complex deployment scenarios maintain reliable deployment success across sophisticated production configurations
+8. Comprehensive deployment testing validates production readiness and operational reliability achievement
+
+### Story 27.4: System Reliability and Maintenance
+As a **reliability engineer**,  
+I want **comprehensive system reliability and maintenance frameworks completed**,  
+so that **production system maintains optimal reliability and operational excellence**.
+
+#### Acceptance Criteria
+1. System reliability monitoring maintains comprehensive health tracking and proactive issue detection across all components
+2. Maintenance automation maintains efficient system upkeep and optimization without service disruption
+3. Reliability analytics maintain detailed performance analysis and predictive maintenance capability for system optimization
+4. System resilience maintains robust failure recovery and fault tolerance across all operational scenarios
+5. Maintenance procedures maintain efficient system care and optimization processes for long-term operational success
+6. Reliability validation maintains continuous verification and quality assurance for sustained system excellence
+7. Complex reliability scenarios maintain system stability and performance across sophisticated operational challenges
+8. Comprehensive reliability testing validates system dependability and operational excellence achievement
 
 ## Next Steps
 
-### UX Expert Prompt
-"Create comprehensive UI/UX specifications for PokéRogue's AO migration based on this PRD, focusing on AOConnect integration patterns that maintain existing player experience while enabling agent spectating and cross-device continuity."
-
-### Architect Prompt  
-"Design the technical architecture for migrating PokéRogue to AO protocol using this PRD, starting with Epic 1's AO process foundation and security patterns, ensuring all 27 game systems can be implemented with zero functionality loss and full autonomous agent support."
-
----
-
-## Epic 2: Pokémon Data System & Species Management
-
-### Epic Goal
-Migrate all Pokémon species data, forms, abilities, movesets, stats, nature system, and individual Pokémon instance management to AO handlers, establishing the foundational data layer for all battle and collection mechanics.
-
-### Story 2.1: Species Database Migration
-As a **game data architect**,
-I want **to migrate the complete Pokémon species database to AO handlers**,
-so that **all Pokémon data is accessible via AO messages and forms the foundation for battles and collection**.
-
-#### Acceptance Criteria
-1. All Pokémon species data (800+ species) migrated to AO process storage
-2. Species forms and variants properly structured and queryable
-3. Base stats (HP, Attack, Defense, Sp. Attack, Sp. Defense, Speed) accurately stored
-4. Type effectiveness data accessible for battle calculations
-5. Species evolution chains and conditions preserved
-6. Breeding compatibility data maintained for egg mechanics
-7. Species rarity and encounter data available for spawn systems
-8. Query handlers enable efficient species lookup by ID, name, or type
-
-### Story 2.2: Pokémon Ability System
-As a **battle system developer**,
-I want **to implement the complete ability system with all 300+ abilities**,
-so that **Pokémon abilities function identically to the current game during battles**.
-
-#### Acceptance Criteria
-1. All abilities migrated with proper effect definitions
-2. Ability triggers (on switch-in, on attack, on damage, etc.) implemented
-3. Hidden abilities and regular abilities properly distinguished
-4. Ability inheritance rules for breeding maintained
-5. Ability changing items and moves supported
-6. Multi-target ability effects handled correctly
-7. Ability interactions with other abilities resolved properly
-8. Passive abilities separated from battle abilities for unlockable system
-
-### Story 2.3: Nature & Individual Value System
-As a **Pokémon mechanics specialist**,
-I want **to implement nature effects and IV/stat calculation systems**,
-so that **each Pokémon has unique stats and personality traits affecting battle performance**.
-
-#### Acceptance Criteria
-1. All 25 natures implemented with proper stat modifications (+10%/-10%)
-2. Individual Values (IVs) system maintains 0-31 range for all stats
-3. Stat calculation formulas match current game exactly
-4. Nature-based stat changes apply correctly in battle
-5. IV inheritance rules for breeding preserved
-6. Shiny determination based on IVs maintained
-7. Hidden Power type calculation (if used) remains accurate
-8. Stat stage modifications interact properly with base stats
-
-### Story 2.4: Individual Pokémon Instance Management
-As a **player data manager**,
-I want **to create and manage individual Pokémon instances with unique properties**,
-so that **each captured Pokémon maintains its identity, stats, and battle history**.
-
-#### Acceptance Criteria
-1. Unique Pokémon ID generation for each captured/hatched Pokémon
-2. Individual stat tracking (level, experience, friendship, etc.)
-3. Move learning and forgetting system maintains move history
-4. Pokémon nickname system preserves player customization
-5. Gender determination and display handled correctly
-6. Shiny status and variant tracking maintained
-7. Battle participation tracking (for experience and friendship)
-8. Pokémon ownership validation prevents unauthorized access
-
----
-
-## Epic 3: Move System & Battle Actions
-
-### Epic Goal
-Migrate complete move database, move learning, TM/TR systems, move categories, accuracy calculations, and special move effects to AO handlers, providing the foundation for all battle interactions.
-
-### Story 3.1: Move Database & Mechanics Migration
-As a **battle mechanics developer**,
-I want **to migrate all 900+ moves with their complete effect definitions to AO handlers**,
-so that **every move functions identically to the current game with proper damage, accuracy, and effect calculations**.
-
-#### Acceptance Criteria
-1. All moves migrated with accurate power, accuracy, PP, and type data
-2. Move categories (Physical, Special, Status) properly classified
-3. Move targets (Single, All, Allies, etc.) correctly implemented
-4. Move flags (Contact, Sound, Bullet, etc.) preserved for ability interactions
-5. Move effects (damage, status infliction, stat changes) function correctly
-6. Multi-hit moves handle hit count variation properly
-7. Priority moves execute in correct speed order
-8. Critical hit calculations match current game formulas
-
-### Story 3.2: Move Learning & TM/TR Systems
-As a **Pokémon progression specialist**,
-I want **to implement move learning through leveling and TM/TR systems**,
-so that **Pokémon can learn new moves and expand their battle capabilities**.
-
-#### Acceptance Criteria
-1. Level-up move learning follows species-specific movesets
-2. TM (Technical Machine) and TR (Technical Record) compatibility preserved
-3. Move relearning system maintains previously known moves
-4. Egg moves inherited properly through breeding
-5. Move tutoring system (if present) functions correctly
-6. Move deletion and relearning maintains move history
-7. Move learning notifications trigger appropriately
-8. Incompatible move learning attempts properly rejected
-
-### Story 3.3: Move Effect System Architecture
-As a **game engine architect**,
-I want **to create a flexible move effect system supporting all special move behaviors**,
-so that **complex moves like Metronome, Transform, and weather moves function correctly**.
-
-#### Acceptance Criteria
-1. Status effect application (sleep, poison, paralysis, etc.) works correctly
-2. Stat stage changes (+1/-1 Attack, Defense, etc.) apply properly
-3. Weather-changing moves modify battlefield conditions
-4. Terrain-setting moves affect battle environment
-5. Healing moves restore HP according to formulas
-6. Recoil moves damage user appropriately after dealing damage
-7. Multi-turn moves (Fly, Dig, etc.) handle charging and execution phases
-8. Random effect moves (Metronome, Sleep Talk) select effects properly
-
-### Story 3.4: Move Interaction & Combo System
-As a **advanced battle mechanic developer**,
-I want **to implement move interactions and combination effects**,
-so that **complex battle scenarios involving move combinations work identically to current game**.
-
-#### Acceptance Criteria
-1. Move-ability interactions function correctly (Lightning Rod, Water Absorb, etc.)
-2. Type immunity interactions properly cancel moves when appropriate
-3. Move-item interactions (Assault Vest, Choice items) apply restrictions correctly
-4. Move protection effects (Protect, Detect) block appropriate moves
-5. Move reflection effects (Magic Coat, Magic Bounce) redirect properly
-6. Move copying effects (Mirror Move, Copycat) select correct moves
-7. Move prevention effects (Taunt, Torment) restrict move usage appropriately
-8. Substitute interactions block or allow moves according to rules
-
----
-
-## Epic 4: Core Battle System & Turn Resolution
-
-### Epic Goal
-Implement turn-based battle mechanics including damage calculation, type effectiveness, status effects, move execution, and battle state management, creating the core combat engine for all battle interactions.
-
-### Story 4.1: Turn-Based Battle Engine
-As a **core battle system developer**,
-I want **to implement the fundamental turn-based battle engine with proper turn order and action resolution**,
-so that **battles execute identically to current game with correct speed calculations and priority handling**.
-
-#### Acceptance Criteria
-1. Turn order determined by Pokémon speed stats with priority move handling
-2. Speed tie resolution uses deterministic random number generation
-3. Turn phases execute in correct order (command selection → action execution → end-of-turn effects)
-4. Battle state transitions handled properly (active Pokémon, fainted Pokémon, etc.)
-5. Multi-turn actions (charging moves, sleep, etc.) track duration correctly
-6. Battle interruptions (fainting, switching) handled at appropriate times
-7. Battle end conditions (all Pokémon fainted, forfeit) detected properly
-8. Battle message generation matches current game output
-
-### Story 4.2: Damage Calculation System
-As a **battle mechanics specialist**,
-I want **to implement precise damage calculation formulas matching current game exactly**,
-so that **all battle outcomes are identical to TypeScript implementation**.
-
-#### Acceptance Criteria
-1. Base damage formula accounts for level, attack/defense stats, and move power
-2. Type effectiveness multipliers (0x, 0.25x, 0.5x, 1x, 2x, 4x) applied correctly
-3. STAB (Same Type Attack Bonus) provides 1.5x damage for matching types
-4. Critical hit calculations use proper critical hit ratios and damage multipliers
-5. Random damage variance (85%-100%) applied consistently
-6. Stat stage modifications affect damage calculations correctly
-7. Weather effects modify damage for appropriate move types
-8. Ability and item effects modify damage calculations properly
-
-### Story 4.3: Battle State & Switching System
-As a **battle flow developer**,
-I want **to manage active Pokémon, switching, and battle state transitions**,
-so that **players can switch Pokémon and battle state remains consistent**.
-
-#### Acceptance Criteria
-1. Active Pokémon tracking maintains current battlers for each side
-2. Pokémon switching validates available party members and prevents illegal switches
-3. Forced switches (fainting, moves like Roar) execute automatically
-4. Switch-in effects (abilities, entry hazards) trigger in correct order
-5. Battle participation tracking records which Pokémon participated for experience
-6. Double battle mechanics support multiple active Pokémon per side
-7. Pokémon status persistence maintained across switches and turns
-8. Battle memory tracks move usage, damage taken, and other battle events
-
-### Story 4.4: Battle Victory & Defeat Conditions
-As a **battle conclusion specialist**,
-I want **to properly detect and handle battle end conditions with appropriate rewards**,
-so that **battles conclude correctly with proper experience, money, and item rewards**.
-
-#### Acceptance Criteria
-1. Victory conditions detected when opponent has no usable Pokémon remaining
-2. Defeat conditions handled when player has no usable Pokémon remaining
-3. Experience point distribution calculated correctly for participating Pokémon
-4. Money rewards calculated based on trainer type and Pokémon levels
-5. Item drops and rewards distributed according to battle outcome
-6. Battle statistics updated for participating Pokémon and player records
-7. Forfeit/escape attempts processed with appropriate success rates
-8. Battle cleanup resets temporary battle state and restores persistent state
-
----
-
-## Epic 5: Status Effects & Environmental Systems
-
-### Epic Goal
-Migrate status conditions, terrain effects, weather systems, and all environmental battle modifiers to AO handlers, enabling complex battlefield conditions that affect battle outcomes.
-
-### Story 5.1: Pokémon Status Conditions
-As a **status effect specialist**,
-I want **to implement all status conditions (sleep, poison, paralysis, burn, freeze) with proper mechanics**,
-so that **status effects function identically to current game with correct damage, duration, and interaction rules**.
-
-#### Acceptance Criteria
-1. Sleep status prevents move usage with proper wake-up chance calculations
-2. Poison status deals 1/8 max HP damage each turn with badly poisoned escalation
-3. Paralysis status causes 25% move failure and 50% speed reduction
-4. Burn status deals 1/16 max HP damage and reduces physical attack by 50%
-5. Freeze status prevents moves with 20% thaw chance (higher with fire moves)
-6. Status condition interactions (can't sleep while poisoned, etc.) enforced
-7. Status condition curing through moves, abilities, and items works correctly
-8. Status condition immunities based on type and ability function properly
-
-### Story 5.2: Weather System Implementation
-As a **environmental effects developer**,
-I want **to implement all weather conditions with proper battle effects**,
-so that **weather changes battlefield conditions and affects move power, accuracy, and Pokémon abilities**.
-
-#### Acceptance Criteria
-1. Sun weather boosts fire move power by 50% and reduces water move power by 50%
-2. Rain weather boosts water move power by 50% and reduces fire move power by 50%
-3. Sandstorm weather damages non-Rock/Ground/Steel types for 1/16 max HP per turn
-4. Hail weather damages non-Ice types for 1/16 max HP per turn
-5. Weather duration tracking with proper turn countdown and renewal
-6. Weather-related ability activations (Solar Power, Rain Dish, etc.) work correctly
-7. Weather-dependent moves (Thunder, Solar Beam) have modified accuracy/power
-8. Weather interactions with terrain and other field effects handled properly
-
-### Story 5.3: Terrain Effects System  
-As a **battlefield mechanics developer**,
-I want **to implement terrain effects that modify the battlefield environment**,
-so that **terrain-setting moves create persistent field effects that influence battle outcomes**.
-
-#### Acceptance Criteria
-1. Electric Terrain boosts Electric-type move power by 30% for grounded Pokémon
-2. Grassy Terrain boosts Grass-type moves and provides 1/16 HP healing per turn
-3. Misty Terrain reduces Dragon-type move damage and prevents status conditions
-4. Psychic Terrain boosts Psychic moves and prevents priority move usage
-5. Terrain duration tracking with 5-turn default duration
-6. Terrain interactions with abilities (Surge Surfer, etc.) function correctly
-7. Terrain effects only apply to grounded Pokémon (not Flying types or Levitate)
-8. Multiple terrain effects conflict resolution (newest terrain replaces previous)
-
-### Story 5.4: Complex Environmental Interactions
-As a **advanced mechanics engineer**,
-I want **to handle complex interactions between weather, terrain, status effects, and abilities**,
-so that **battlefield conditions create strategic depth with proper interaction precedence**.
-
-#### Acceptance Criteria
-1. Weather and terrain effect stacking follows proper priority rules
-2. Ability-weather interactions (Cloud Nine, Air Lock) suppress weather correctly
-3. Move-environment interactions (Hurricane in rain, Solar Beam in sun) work properly
-4. Status-environment healing (Rain Dish, Ice Body) activates at correct times
-5. Environmental damage (sandstorm, hail) calculated after other end-of-turn effects
-6. Field effect removal moves (Defog) clear appropriate conditions
-7. Environmental effect notifications display at correct timing
-8. Multiple environmental effects resolve in proper game-accurate sequence
-
----
-
-## Epic 6: Arena Tag & Field Effects System
-
-### Epic Goal
-Implement battlefield-wide effects including entry hazards (spikes, stealth rocks), field conditions (trick room), side-specific effects, and positional battlefield mechanics that persist across multiple turns.
-
-### Story 6.1: Entry Hazard System
-As a **battlefield hazard specialist**,
-I want **to implement entry hazards that damage or affect Pokémon when they enter battle**,
-so that **strategic field control mechanics like Stealth Rock and Spikes function identically to current game**.
-
-#### Acceptance Criteria
-1. Stealth Rock deals damage based on Rock-type effectiveness when Pokémon switches in
-2. Spikes deals 1/8, 1/6, or 1/4 max HP damage based on layer count (1-3 layers)
-3. Toxic Spikes inflicts poison or badly poisoned status on grounded switch-ins
-4. Entry hazard stacking allows multiple layers where applicable
-5. Entry hazard removal through moves (Rapid Spin, Defog) clears appropriate hazards
-6. Flying-type and Levitate ability Pokémon avoid ground-based hazards
-7. Hazard immunity abilities (Magic Guard) prevent hazard damage
-8. Side-specific hazard placement affects only the targeted team
-
-### Story 6.2: Field Condition Effects
-As a **field mechanics developer**,
-I want **to implement field-wide conditions that alter battle mechanics globally**,
-so that **moves like Trick Room and Wonder Room create strategic battlefield modifications**.
-
-#### Acceptance Criteria
-1. Trick Room reverses speed priority so slower Pokémon move first
-2. Wonder Room swaps Defense and Special Defense stats for all active Pokémon
-3. Magic Room prevents held items from having any effect during battle
-4. Field condition duration tracking with 5-turn default length
-5. Field condition interactions with abilities and moves handled properly
-6. Multiple field conditions can coexist when effects don't conflict
-7. Field condition removal moves end appropriate effects immediately
-8. Field condition notifications display at battle start and end
-
-### Story 6.3: Side-Specific Arena Effects
-As a **team effect specialist**,
-I want **to implement effects that apply to entire teams or battle sides**,
-so that **moves like Light Screen and Reflect provide team-wide defensive bonuses**.
-
-#### Acceptance Criteria
-1. Light Screen reduces Special damage by 50% (33% in doubles) for 5 turns
-2. Reflect reduces Physical damage by 50% (33% in doubles) for 5 turns
-3. Aurora Veil provides both Light Screen and Reflect effects during hail
-4. Safeguard prevents status conditions for team for 5 turns
-5. Mist prevents stat reductions for team for 5 turns
-6. Side effect duration tracking counts down properly each turn
-7. Side effect interactions with screen-breaking moves work correctly
-8. Side effects apply to all team members including those not currently active
-
-### Story 6.4: Positional Battle Mechanics
-As a **positional mechanics engineer**,
-I want **to implement position-dependent effects and targeting systems**,
-so that **double battle positioning and area-of-effect moves function correctly**.
-
-#### Acceptance Criteria
-1. Double battle position tracking maintains left/right battlefield positions
-2. Move targeting system distinguishes between single-target and multi-target moves
-3. Position-dependent moves (like some doubles-specific moves) target correct positions
-4. Ally targeting moves can only target teammate in doubles battles
-5. Spread moves affect multiple targets with appropriate damage reduction
-6. Position swapping moves (Ally Switch) exchange battlefield positions correctly
-7. Positional abilities (Plus/Minus) activate based on adjacent ally abilities
-8. Positional tag effects track duration and application correctly per position
-
----
-
-## Epic 7: Player Progression & Experience Systems
-
-### Epic Goal
-Port player character data, Pokémon leveling, evolution mechanics, experience gain, friendship systems, and level cap functionality to AO processes, enabling character and Pokémon growth.
-
-### Story 7.1: Experience & Leveling System
-As a **progression mechanics developer**,
-I want **to implement experience point calculation and Pokémon leveling with proper curve handling**,
-so that **Pokémon gain experience and level up identically to current game with correct stat growth**.
-
-#### Acceptance Criteria
-1. Experience point calculation based on defeated Pokémon's level and base experience
-2. Experience sharing among party members follows current distribution rules
-3. Level progression follows species-specific growth curves (Fast, Medium Fast, etc.)
-4. Stat calculation upon level up uses proper base stats + IV + EV formulas
-5. Experience gain modifiers (Lucky Egg, traded Pokémon bonus) apply correctly
-6. Level cap enforcement prevents over-leveling based on game progression
-7. Experience notification and level-up messages display appropriately
-8. Evolution level requirements check correctly during level progression
-
-### Story 7.2: Pokémon Evolution System
-As a **evolution specialist**,
-I want **to implement all evolution methods and conditions with proper triggering**,
-so that **Pokémon evolve using identical conditions and timing to current game**.
-
-#### Acceptance Criteria
-1. Level-based evolution triggers at correct levels during level-up process
-2. Stone-based evolution validates item usage and species compatibility
-3. Trade-based evolution handles evolution conditions properly
-4. Friendship-based evolution checks friendship thresholds and timing conditions
-5. Time-based evolution considers day/night cycles and time restrictions
-6. Location-based evolution validates current biome/area requirements
-7. Move-based evolution checks known moves during evolution trigger
-8. Evolution cancellation (pressing B) prevents unwanted evolution properly
-
-### Story 7.3: Friendship & Affection System
-As a **relationship mechanics developer**,
-I want **to implement the friendship system affecting evolution and battle bonuses**,
-so that **Pokémon-trainer bonds develop through interaction and affect gameplay**.
-
-#### Acceptance Criteria
-1. Friendship increases through battle participation, leveling, and item usage
-2. Friendship decreases through fainting and certain items (revival herbs)
-3. Friendship levels affect evolution for friendship-dependent Pokémon
-4. High friendship provides battle bonuses (critical hits, status cure, etc.)
-5. Friendship checking moves and NPCs display correct friendship ranges
-6. Friendship gain/loss rates match current game calculations
-7. Maximum friendship caps at 255 with proper overflow handling
-8. Friendship persistence maintains values across battles and sessions
-
-### Story 7.4: Player Character Progression
-As a **player progression specialist**,
-I want **to track player statistics, achievements, and game completion status**,
-so that **player progress through the game is recorded and persistent**.
-
-#### Acceptance Criteria
-1. Player character data tracks name, gender, and appearance settings
-2. Game progression tracking records gym badges, Elite Four, and Champion status
-3. Pokédex completion tracking maintains seen/caught status for all species
-4. Battle statistics record wins, losses, and battle participation
-5. Money tracking maintains current balance with proper transaction logging
-6. Play time tracking accumulates session time accurately
-7. Player inventory management maintains items, TMs, and key items
-8. Save data validation ensures player progress integrity and prevents corruption
-
----
-
-## Epic 8: Item & Modifier Systems
-
-### Epic Goal
-Port inventory management, item effects, shop systems, held items, berries, consumables, and all modifier systems to AO processes, enabling the complete item ecosystem that enhances gameplay.
-
-### Story 8.1: Core Item Database & Effects
-As a **item system developer**,
-I want **to migrate all items with their complete effect definitions and usage rules**,
-so that **every item functions identically to current game with proper activation conditions**.
-
-#### Acceptance Criteria
-1. All items (500+ including Poké Balls, healing items, berries, etc.) migrated accurately
-2. Item effect definitions handle immediate use, battle use, and passive effects
-3. Consumable items remove from inventory after use with proper validation
-4. Item usage restrictions (battle-only, out-of-battle only) enforced correctly
-5. Item stacking rules maintain proper quantity limits and grouping
-6. Rare items (Master Ball, etc.) maintain scarcity and special properties
-7. Item effectiveness calculations match current game formulas exactly
-8. Key items maintain special status and usage restrictions
-
-### Story 8.2: Held Item System
-As a **held item specialist**,
-I want **to implement held items that modify Pokémon stats and battle behavior**,
-so that **held items provide strategic depth and function identically to current game**.
-
-#### Acceptance Criteria
-1. Held item assignment validates one item per Pokémon with swap functionality
-2. Stat-boosting items (Life Orb, Choice items) modify stats correctly
-3. Type-boosting items increase move power by appropriate percentages
-4. Status-related items (Leftovers, Flame Orb) trigger at correct battle timing
-5. Battle-restricting items (Choice Band) prevent move selection as intended
-6. Consumable held items (berries) activate under proper conditions and disappear
-7. Held item interactions with abilities (Unburden, etc.) function correctly
-8. Item theft moves (Thief, Switcheroo) transfer held items properly
-
-### Story 8.3: Berry System & Effects
-As a **berry mechanics developer**,
-I want **to implement the complete berry system with proper activation conditions**,
-so that **berries provide automatic healing and status curing with correct triggering**.
-
-#### Acceptance Criteria
-1. HP-restoring berries activate at 25% or 50% HP thresholds appropriately
-2. Status-curing berries activate immediately upon receiving corresponding status
-3. Stat-boosting berries activate when corresponding stat is lowered
-4. Damage-reducing berries halve super-effective damage once per battle
-5. Berry consumption removes berry from held item slot after activation
-6. Pinch berries (Petaya, Salac, etc.) activate at 25% HP with correct stat boost
-7. Type-resist berries (Occa, Shuca, etc.) reduce damage by 50% once per battle
-8. Berry recycling through moves and abilities functions correctly
-
-### Story 8.4: Shop & Economic System
-As a **economic system developer**,
-I want **to implement item purchasing, selling, and economic balance**,
-so that **players can acquire items through shops with proper pricing and availability**.
-
-#### Acceptance Criteria
-1. Shop inventory maintains item availability with proper restocking mechanics
-2. Item pricing follows current game economy with buy/sell price ratios
-3. Money validation prevents purchases exceeding available funds
-4. Item selling generates correct money amounts based on purchase price ratios
-5. Shop inventory expansion unlocks based on game progression milestones
-6. Rare item availability controlled through progression gates and special conditions
-7. Bulk purchasing handles quantity selection and inventory limits properly
-8. Transaction logging maintains purchase/sale history for economic tracking
-
----
-
-# Phase 2: Advanced Pokémon Mechanics (Epics 9-14)
-
-## Epic 9: Pokémon Fusion System
-
-### Epic Goal
-Implement Pokemon fusion mechanics including fusion creation, hybrid stats calculation, fusion sprites, fusion evolution, and fusion-specific battle interactions, enabling PokéRogue's signature fusion gameplay.
-
-### Story 9.1: Fusion Creation & Validation
-As a **fusion system architect**,
-I want **to implement the core fusion mechanics that combine two Pokémon into a hybrid**,
-so that **players can create fusion Pokémon with combined stats, types, and abilities identically to current game**.
-
-#### Acceptance Criteria
-1. Fusion process validates compatibility between base and fusion Pokémon species
-2. Fusion creation combines base stats using proper weighted averaging formulas
-3. Type combination follows fusion rules (primary from base, secondary from fusion partner)
-4. Ability selection chooses from both parents' ability pools according to fusion rules
-5. Fusion Pokémon maintains unique fusion ID for identification and tracking
-6. Fusion validation prevents invalid combinations and enforces fusion restrictions
-7. Fusion process preserves level, experience, and individual values appropriately
-8. Fusion cost calculation (if applicable) validates required resources
-
-### Story 9.2: Fusion Battle Mechanics
-As a **fusion battle specialist**,
-I want **to implement fusion-specific battle behaviors and interactions**,
-so that **fusion Pokémon battle identically to current game with proper move access and type interactions**.
-
-#### Acceptance Criteria
-1. Fusion movesets combine moves from both parent species according to fusion rules
-2. Fusion type effectiveness calculations account for dual typing properly
-3. Fusion abilities function correctly with proper activation conditions
-4. Fusion-specific moves and interactions work identically to current implementation
-5. Fusion status effect interactions handle dual-type considerations properly
-6. Fusion switching mechanics validate fusion state during battle transitions
-7. Fusion damage calculations use combined stats with proper formulas
-8. Fusion critical hit and accuracy calculations use fusion-specific values
-
-### Story 9.3: Fusion Evolution & Form Changes
-As a **fusion evolution developer**,
-I want **to implement evolution mechanics for fusion Pokémon with proper condition checking**,
-so that **fusion Pokémon can evolve maintaining fusion properties with correct triggers**.
-
-#### Acceptance Criteria
-1. Fusion evolution validates evolution conditions for both component species
-2. Fusion evolution maintains fusion properties while evolving component parts
-3. Fusion evolution stone compatibility checks both parent species requirements
-4. Fusion evolution level requirements consider both species' evolution levels
-5. Fusion evolution preserves fusion stat combinations after evolution
-6. Fusion evolution updates movesets according to new evolved forms
-7. Fusion evolution handles cases where only one parent can evolve
-8. Fusion evolution maintains fusion ID continuity through evolution process
-
-### Story 9.4: Fusion Separation & Management
-As a **fusion management specialist**,
-I want **to implement fusion separation and fusion Pokémon management systems**,
-so that **players can separate fusions and manage fusion Pokémon in their collection**.
-
-#### Acceptance Criteria
-1. Fusion separation process restores original component Pokémon properly
-2. Fusion separation maintains individual stats and properties of original Pokémon
-3. Fusion separation validates that separated Pokémon return to correct party/PC slots
-4. Fusion management tracks fusion history and component relationships
-5. Fusion collection display shows fusion status and component species information
-6. Fusion search and filtering enables finding specific fusion combinations
-7. Fusion separation prevents duplication exploits and maintains game balance
-8. Fusion storage system handles fusion Pokémon in PC and party management
-
----
-
-## Epic 10: Dynamic Form Change System
-
-### Epic Goal
-Migrate complex Pokemon transformation system with weather-based, item-triggered, ability-based, move-learned, post-move, and timed form changes, enabling sophisticated Pokémon form mechanics.
-
-### Story 10.1: Conditional Form Change System
-As a **form change architect**,
-I want **to implement form changes triggered by specific conditions and triggers**,
-so that **Pokémon transform based on weather, items, abilities, and other factors identically to current game**.
-
-#### Acceptance Criteria
-1. Weather-based form changes activate when appropriate weather conditions are active
-2. Item-triggered form changes validate item possession and usage requirements
-3. Ability-based form changes activate when specific abilities are present or triggered
-4. Time-based form changes consider day/night cycles and time-of-day requirements
-5. Location-based form changes validate current biome or area conditions
-6. Form change validation ensures only valid transformations are permitted
-7. Form change triggers check multiple conditions simultaneously when required
-8. Form change activation preserves Pokémon identity and core stats appropriately
-
-### Story 10.2: Move-Based Form Changes
-As a **move interaction specialist**,
-I want **to implement form changes that occur based on moves learned or used**,
-so that **Pokémon transform in response to movesets and move usage as in current game**.
-
-#### Acceptance Criteria
-1. Move-learned form changes trigger when specific moves are added to moveset
-2. Post-move form changes activate after using specific moves in battle
-3. Pre-move form changes occur before move execution when conditions are met
-4. Form change move interactions maintain proper timing and execution order
-5. Move-based form changes validate move compatibility and usage requirements
-6. Form change interruption handles cases where moves fail or are prevented
-7. Move-dependent forms revert appropriately when moves are forgotten or unavailable
-8. Form change move effects integrate properly with battle flow and timing
-
-### Story 10.3: Temporary vs Permanent Form Changes
-As a **form state manager**,
-I want **to distinguish between temporary and permanent form transformations**,
-so that **form changes persist correctly and revert when appropriate conditions end**.
-
-#### Acceptance Criteria
-1. Temporary form changes revert when triggering conditions end (weather ends, etc.)
-2. Permanent form changes maintain new form until different conditions trigger change
-3. Form change duration tracking counts down properly for time-limited transformations
-4. Battle-only form changes revert to base form when battle ends
-5. Form change priority resolves conflicts when multiple triggers are active
-6. Form reversion validates that Pokémon can safely return to previous form
-7. Form change stacking handles cases where multiple form changes could apply
-8. Form change persistence maintains form state across battles and game sessions
-
-### Story 10.4: Form-Specific Stats & Abilities
-As a **form variant specialist**,
-I want **to implement form-specific stat changes, abilities, and type modifications**,
-so that **each form provides unique battle characteristics and strategic options**.
-
-#### Acceptance Criteria
-1. Form-specific base stats override default species stats when form is active
-2. Form-specific abilities replace or modify base abilities according to form rules
-3. Form-specific typing changes affect type effectiveness and STAB calculations
-4. Form-specific movesets add or restrict available moves based on current form
-5. Form-specific sprite and appearance changes reflect current transformation
-6. Form stat modifications integrate properly with battle calculations
-7. Form ability changes trigger appropriate activation and deactivation effects
-8. Form-specific weaknesses and resistances apply correctly in battle situations
-
----
-
-## Epic 11: Terastalization System
-
-### Epic Goal
-Implement terastalization mechanics including tera type changes, tera crystals, stellar tera type, and terastalization-triggered form changes, enabling modern Pokémon battle mechanics.
-
-### Story 11.1: Tera Type System & Mechanics
-As a **terastalization specialist**,
-I want **to implement the core terastalization mechanics with proper type changing**,
-so that **Pokémon can terastalize to change their type and gain battle advantages identically to current game**.
-
-#### Acceptance Criteria
-1. Terastalization changes Pokémon's type to their designated Tera Type
-2. Tera Type assignment validates against available tera types for each species
-3. Terastalization provides 1.5x damage boost to moves matching the Tera Type (STAB)
-4. Terastalization visual effects and indicators display properly during battle
-5. Tera Type effectiveness calculations override normal type effectiveness
-6. Terastalization duration lasts for entire battle once activated
-7. Terastalization can only be used once per battle per team
-8. Tera Type preservation maintains assigned type across battles and storage
-
-### Story 11.2: Stellar Tera Type Implementation
-As a **stellar tera developer**,
-I want **to implement the special Stellar Tera Type with unique mechanics**,
-so that **Stellar terastalization provides boosted damage to all move types once per type**.
-
-#### Acceptance Criteria
-1. Stellar Tera Type provides 2x damage boost to moves of each type once per battle
-2. Stellar damage boost tracking maintains which types have been boosted
-3. Stellar Tera Type does not change the Pokémon's defensive typing
-4. Stellar boost applies to moves of any type the Pokémon can learn
-5. Stellar boost consumption prevents further boosts for each type after first use
-6. Stellar Tera Type interactions with abilities function correctly
-7. Stellar visual effects distinguish from regular tera types
-8. Stellar Tera Type rarity and acquisition follow proper game balance
-
-### Story 11.3: Tera Crystal & Resource System
-As a **tera resource manager**,
-I want **to implement tera crystal collection and usage mechanics**,
-so that **players can charge their tera orb and terastalize at strategic moments**.
-
-#### Acceptance Criteria
-1. Tera Orb charging system tracks charge level and readiness status
-2. Tera crystal collection through battles and exploration charges the Tera Orb
-3. Tera Orb usage validation ensures orb is charged before allowing terastalization
-4. Tera Orb recharging mechanics reset charge status after use appropriately
-5. Tera crystal drop rates and locations match current game distribution
-6. Tera Orb charge display shows current charge status to player
-7. Tera Orb mechanics prevent exploitation and maintain strategic timing
-8. Tera crystal inventory management handles collection and usage properly
-
-### Story 11.4: Terastalization Battle Integration
-As a **tera battle system developer**,
-I want **to integrate terastalization with existing battle mechanics**,
-so that **terastalization interactions with abilities, moves, and effects work correctly**.
-
-#### Acceptance Criteria
-1. Terastalization timing allows activation during battle command selection
-2. Tera Type interactions with type-based abilities function properly
-3. Terastalization effects combine correctly with other stat boosts and modifications
-4. Tera-specific moves and interactions work identically to current implementation
-5. Terastalization form changes (if applicable) trigger at correct timing
-6. Tera Type weakness and resistance calculations override base typing
-7. Terastalization animation and battle flow integration maintains proper pacing
-8. Tera battle data logging tracks terastalization usage and effectiveness
-
----
-
-## Epic 12: Capture & Collection Mechanics
-
-### Epic Goal
-Implement wild Pokémon encounters, capture mechanics, Pokéball systems, PC storage, party management, and Pokémon collection tracking, enabling the core collection gameplay loop.
-
-### Story 12.1: Wild Pokémon Encounter System
-As a **encounter system developer**,
-I want **to implement wild Pokémon spawning and encounter mechanics**,
-so that **players encounter wild Pokémon with proper rarity, level, and species distribution**.
-
-#### Acceptance Criteria
-1. Wild encounter rates follow biome-specific spawn tables and probabilities
-2. Wild Pokémon level ranges match current game distribution for each area
-3. Shiny Pokémon encounters use proper base shiny rates with modifiers
-4. Wild Pokémon stat generation creates proper IV ranges and nature distribution
-5. Encounter triggering validates player location and movement requirements
-6. Special encounter conditions (time of day, weather) affect spawn tables properly
-7. Rare encounter mechanics handle legendary and special Pokémon spawns
-8. Encounter prevention items and abilities function correctly when active
-
-### Story 12.2: Pokéball & Capture Mechanics
-As a **capture system specialist**,
-I want **to implement Pokéball throwing and capture rate calculations**,
-so that **Pokémon capture success rates match current game formulas exactly**.
-
-#### Acceptance Criteria
-1. Capture rate calculations account for Pokémon HP, status effects, and ball type
-2. Different Pokéball types provide appropriate capture rate modifiers
-3. Status effect bonuses (sleep = 2x, paralysis/etc = 1.5x) apply correctly
-4. Critical captures occur at proper rates with appropriate visual indication
-5. Capture shake mechanics simulate proper number of shakes before success/failure
-6. Master Ball guarantees capture of any wild Pokémon (except special cases)
-7. Capture failure handles Pokémon breaking free with appropriate messaging
-8. Ball consumption removes used Pokéballs from inventory after throw
-
-### Story 12.3: PC Storage & Party Management
-As a **storage system architect**,
-I want **to implement PC storage and party management with proper organization**,
-so that **players can store and organize their Pokémon collection efficiently**.
-
-#### Acceptance Criteria
-1. PC storage provides unlimited Pokémon storage with proper organization
-2. Party management maintains 6-Pokémon active party with switching mechanics
-3. Pokémon deposit/withdrawal validates party requirements and storage limits
-4. PC box organization allows naming, sorting, and categorizing Pokémon
-5. Storage search and filtering enables finding specific Pokémon quickly
-6. Pokémon release mechanics confirm deletion and prevent accidental loss
-7. Storage backup and recovery prevents data loss during transfers
-8. Cross-device storage access maintains consistent collection state
-
-### Story 12.4: Collection Tracking & Progress
-As a **collection progress specialist**,
-I want **to track capture progress and collection milestones**,
-so that **players can monitor their completion status and achievements**.
-
-#### Acceptance Criteria
-1. Species capture tracking records first-time captures and total caught
-2. Form variant tracking maintains records of different forms and variants
-3. Shiny collection tracking records shiny encounters and captures
-4. Collection statistics calculate completion percentages and milestones
-5. Capture location and date logging provides detailed collection history
-6. Collection achievements trigger when reaching specific milestones
-7. Collection sharing enables displaying achievements to other players
-8. Collection progress synchronization maintains accurate cross-session data
-
----
-
-## Epic 13: Egg System & Breeding Mechanics
-
-### Epic Goal
-Implement egg generation, hatching mechanics, breeding compatibility, egg moves, and Pokémon reproduction systems, enabling breeding-based gameplay and egg collection.
-
-### Story 13.1: Breeding Compatibility & Egg Generation
-As a **breeding system developer**,
-I want **to implement breeding compatibility and egg generation mechanics**,
-so that **compatible Pokémon can produce eggs with proper inheritance rules**.
-
-#### Acceptance Criteria
-1. Breeding compatibility validates egg groups and species compatibility
-2. Egg generation probability calculations match current breeding success rates
-3. Gender requirements enforce proper male/female or Ditto breeding combinations
-4. Breeding rejection handles incompatible pairs with appropriate messaging
-5. Egg production timing follows proper breeding cycles and intervals
-6. Special breeding cases (Ditto, genderless Pokémon) function correctly
-7. Breeding environment requirements (Day Care, breeding centers) validated properly
-8. Egg species determination follows proper inheritance rules from parents
-
-### Story 13.2: Genetic Inheritance System
-As a **genetics specialist**,
-I want **to implement IV inheritance, nature passing, and ability inheritance**,
-so that **bred Pokémon inherit traits from parents with proper probability distributions**.
-
-#### Acceptance Criteria
-1. IV inheritance passes 3 random IVs from parents to offspring
-2. Nature inheritance uses proper probability with Everstone item effects
-3. Ability inheritance follows species-specific ability passing rules
-4. Hidden ability inheritance occurs at appropriate rates when parents have hidden abilities
-5. Shiny inheritance follows proper shiny breeding mechanics and rates
-6. Ball inheritance passes appropriate Pokéball types from female parent
-7. Form inheritance maintains proper form passing for species with multiple forms
-8. Breeding item effects (Destiny Knot, Power items) modify inheritance correctly
-
-### Story 13.3: Egg Move System
-As a **egg move specialist**,
-I want **to implement egg moves that offspring can learn from parents**,
-so that **bred Pokémon can know moves they couldn't learn normally through unique combinations**.
-
-#### Acceptance Criteria
-1. Egg move compatibility validates which moves can be passed to offspring
-2. Egg move learning requires appropriate parent to know the move
-3. Egg move combinations allow learning multiple egg moves from different parents
-4. Egg move priority determines which moves are learned when moveset is full
-5. Egg move inheritance works with both parents contributing potential moves
-6. Special egg move cases (chain breeding, move tutors) function properly
-7. Egg move validation prevents impossible or illegal move combinations
-8. Egg move display shows inherited moves clearly in offspring moveset
-
-### Story 13.4: Egg Hatching & Incubation
-As a **hatching system developer**,
-I want **to implement egg hatching mechanics with proper step counting and care**,
-so that **eggs hatch after appropriate incubation periods with proper timing**.
-
-#### Acceptance Criteria
-1. Egg step counting tracks distance/steps required for hatching accurately
-2. Egg hatching cycles vary by species with appropriate time requirements
-3. Egg care mechanics (keeping in party) affect hatching speed appropriately
-4. Hatching process reveals offspring with proper stats and characteristics
-5. Egg hatching notifications alert players when eggs are ready to hatch
-6. Multiple egg management handles several eggs incubating simultaneously
-7. Egg abandonment or release prevents indefinite egg accumulation
-8. Hatched Pokémon initialization sets up proper stats, moves, and characteristics
-
----
-
-## Epic 14: Passive Abilities & Unlockables
-
-### Epic Goal
-Migrate passive ability system, unlockable content progression, and special ability unlock conditions to AO handlers, enabling character progression beyond basic gameplay.
-
-### Story 14.1: Passive Ability System
-As a **passive ability developer**,
-I want **to implement unlockable passive abilities that enhance gameplay**,
-so that **players can unlock permanent bonuses and abilities through progression**.
-
-#### Acceptance Criteria
-1. Passive ability unlocking validates achievement conditions and requirements
-2. Passive ability effects modify gameplay mechanics persistently across sessions
-3. Passive ability stacking handles multiple passive bonuses appropriately
-4. Passive ability categories organize different types of bonuses logically
-5. Passive ability prerequisites ensure proper unlock progression chains
-6. Passive ability activation applies bonuses immediately upon unlock
-7. Passive ability display shows current active abilities and their effects
-8. Passive ability persistence maintains unlocked status across game sessions
-
-### Story 14.2: Unlockable Content System
-As a **content unlock specialist**,
-I want **to implement unlockable game modes, features, and content**,
-so that **player progression unlocks new gameplay options and experiences**.
-
-#### Acceptance Criteria
-1. Endless Mode unlocks after completing appropriate story milestones
-2. Mini Black Hole unlocks through specific achievement or progression requirements
-3. Spliced Endless Mode unlocks with advanced progression conditions
-4. Special items (Eviolite, etc.) unlock based on collection or battle achievements
-5. Unlock conditions validate proper completion of requirements before granting access
-6. Unlocked content appears in appropriate menus and interfaces immediately
-7. Unlock notifications inform players when new content becomes available
-8. Unlock persistence maintains access to unlocked content across sessions
-
-### Story 14.3: Achievement-Based Progression
-As a **achievement system architect**,
-I want **to tie unlockable content to specific achievements and milestones**,
-so that **meaningful player accomplishments reward new gameplay opportunities**.
-
-#### Acceptance Criteria
-1. Achievement tracking monitors specific conditions for unlockable content
-2. Progressive unlocks provide incremental rewards for continued achievement
-3. Hidden achievements reveal special unlockable content for dedicated players
-4. Achievement difficulty scaling provides appropriate challenge for rewards
-5. Achievement validation prevents exploitation and maintains earned progression
-6. Achievement completion triggers unlock availability immediately
-7. Achievement progress display shows advancement toward unlock conditions
-8. Achievement reset or reversal handling maintains integrity of unlock system
-
-### Story 14.4: Special Ability Unlock Conditions
-As a **special ability coordinator**,
-I want **to implement complex unlock conditions for rare and powerful abilities**,
-so that **exceptional player performance grants access to unique gameplay enhancements**.
-
-#### Acceptance Criteria
-1. Challenge-based unlocks require completion of specific battle or gameplay challenges
-2. Collection-based unlocks require achieving specific Pokédex or item milestones
-3. Performance-based unlocks reward exceptional battle records or achievements
-4. Time-based unlocks may require sustained play or long-term commitment
-5. Combination unlocks require meeting multiple different conditions simultaneously
-6. Special unlock conditions validate proper completion without exploitation
-7. Rare ability effects provide meaningful but balanced gameplay enhancements
-8. Special ability unlock notifications celebrate significant player achievements
-
----
-
-# Phase 3: World & Progression Systems (Epics 15-21)
-
-## Epic 15: World Progression & Biome System
-
-### Epic Goal
-Implement biome progression, wave mechanics, trainer encounters, gym leaders, Elite Four, Champion battles, victory conditions, and time-of-day cycles affecting spawns and events.
-
-### Story 15.1: Biome Progression & Wave System
-As a **world progression developer**,
-I want **to implement biome advancement and wave-based progression mechanics**,
-so that **players advance through different areas with escalating difficulty and appropriate pacing**.
-
-#### Acceptance Criteria
-1. Wave progression advances players through biome sequences with proper difficulty scaling
-2. Biome unlock conditions validate completion requirements for accessing new areas
-3. Wave difficulty scaling increases Pokémon levels and trainer strength appropriately
-4. Biome-specific encounter tables provide unique Pokémon spawns for each area
-5. Wave completion rewards provide appropriate experience, money, and item gains
-6. Biome transition mechanics handle movement between areas with proper validation
-7. Wave reset mechanics allow restarting from appropriate checkpoints
-8. Progress tracking maintains current wave and biome status across sessions
-
-### Story 15.2: Trainer Encounter System
-As a **trainer battle specialist**,
-I want **to implement trainer encounters with proper AI and party composition**,
-so that **trainer battles provide strategic challenges with varied team compositions**.
-
-#### Acceptance Criteria
-1. Trainer encounter triggering validates player progression and area requirements
-2. Trainer party composition follows biome-appropriate species and level distributions
-3. Trainer AI behavior provides challenging but fair battle decision-making
-4. Trainer types (Youngster, Ace Trainer, etc.) have distinct party themes and strategies
-5. Trainer reward calculations provide appropriate money and experience based on difficulty
-6. Trainer dialogue and personality traits create engaging encounter variety
-7. Trainer rematch mechanics enable repeated battles with scaled difficulty
-8. Special trainer encounters (rivals, bosses) provide unique challenges and rewards
-
-### Story 15.3: Gym Leader & Elite Four System
-As a **boss battle architect**,
-I want **to implement gym leaders, Elite Four, and Champion battles with unique mechanics**,
-so that **major battles provide memorable challenges with type specializations and strategies**.
-
-#### Acceptance Criteria
-1. Gym Leader battles feature type-specialized teams with appropriate movesets and strategies
-2. Elite Four battles provide high-level challenges with diverse team compositions
-3. Champion battle represents ultimate challenge with perfectly optimized team
-4. Boss battle mechanics include unique abilities, held items, and battle strategies
-5. Gym badge rewards unlock new areas, abilities, or game features appropriately
-6. Elite Four progression requires defeating all members before Champion access
-7. Victory conditions validate proper completion of battle objectives
-8. Boss battle scaling adjusts difficulty based on player progression and party strength
-
-### Story 15.4: Time-of-Day & Environmental Cycles
-As a **environmental systems developer**,
-I want **to implement day/night cycles and environmental changes affecting gameplay**,
-so that **time-based mechanics create dynamic encounters and strategic timing considerations**.
-
-#### Acceptance Criteria
-1. Day/night cycle progression follows realistic time progression or accelerated game time
-2. Time-based encounter modifications affect spawn rates and species availability
-3. Time-dependent evolution requirements validate correct time periods for triggers
-4. Environmental cycle effects influence weather patterns and terrain conditions
-5. Time-sensitive events and encounters provide limited-time opportunities
-6. Circadian rhythm mechanics affect Pokémon behavior and battle performance
-7. Time display and tracking inform players of current time and upcoming changes
-8. Time-based save validation prevents exploitation of time-dependent mechanics
-
----
-
-## Epic 16: Trainer & AI Systems
-
-### Epic Goal
-Port trainer data, AI battle logic, enemy party generation, trainer types, and NPC battle mechanics to AO processes, creating intelligent and challenging computer opponents.
-
-### Story 16.1: AI Battle Decision Making
-As a **AI systems architect**,
-I want **to implement intelligent battle decision-making for computer-controlled trainers**,
-so that **AI opponents provide strategic challenges with realistic battle choices**.
-
-#### Acceptance Criteria
-1. Move selection AI evaluates damage potential, type effectiveness, and strategic value
-2. Switch decision AI recognizes disadvantageous matchups and makes appropriate substitutions  
-3. Item usage AI uses healing items, stat boosters, and Pokéballs at strategic moments
-4. Priority targeting AI focuses on threats and weak opponents appropriately
-5. Status condition AI leverages status effects for strategic advantage
-6. Defensive AI recognizes when to protect, heal, or stall for tactical benefit
-7. Risk assessment AI balances aggressive plays with conservative strategies
-8. Learning AI adapts to repeated player strategies within battle encounters
-
-### Story 16.2: Trainer Personality & Behavior Systems
-As a **trainer behavior specialist**,
-I want **to implement distinct AI personalities and behavioral patterns for different trainer types**,
-so that **each trainer class provides unique strategic challenges and memorable encounters**.
-
-#### Acceptance Criteria
-1. Aggressive trainers favor high-damage moves and risky offensive strategies
-2. Defensive trainers prioritize status effects, healing, and protective strategies
-3. Balanced trainers use mixed strategies adapting to battle flow and circumstances
-4. Specialist trainers demonstrate expertise in specific types or battle styles
-5. Novice trainers make suboptimal decisions reflecting their inexperience level
-6. Expert trainers execute advanced strategies with optimal move timing and switching
-7. Personality consistency maintains trainer behavior patterns throughout encounters
-8. Difficulty scaling adjusts AI sophistication based on player progression
-
-### Story 16.3: Dynamic Party Generation
-As a **enemy team architect**,
-I want **to generate trainer parties with appropriate composition and scaling**,
-so that **battles remain challenging and varied throughout player progression**.
-
-#### Acceptance Criteria
-1. Level scaling adjusts trainer Pokémon levels based on player party strength
-2. Type diversity ensures trainer parties have varied type coverage and strategies  
-3. Move selection provides trainers with appropriate movesets for their Pokémon and level
-4. Item distribution gives trainers held items and battle items matching their strategy
-5. Ability assignment ensures trainers have appropriate abilities for their battle role
-6. Team synergy creates trainer parties with complementary Pokémon and strategies
-7. Progression scaling increases party size, quality, and strategic complexity over time
-8. Special encounters feature unique or legendary Pokémon for memorable battles
-
-### Story 16.4: NPC Interaction & Dialogue Systems
-As a **NPC interaction developer**,
-I want **to implement trainer dialogue, reactions, and post-battle interactions**,
-so that **trainer encounters feel engaging with personality and story context**.
-
-#### Acceptance Criteria
-1. Pre-battle dialogue establishes trainer personality and battle motivation
-2. During-battle reactions respond to significant battle events and player actions
-3. Post-battle dialogue reflects battle outcome with appropriate winner/loser responses
-4. Trainer recognition system remembers previous encounters and player reputation
-5. Contextual dialogue varies based on location, time, and player progression
-6. Emotional responses reflect battle intensity and personal trainer investment
-7. Information sharing provides hints about local Pokémon, areas, or strategies
-8. Relationship building creates ongoing connections with recurring trainer characters
-
----
-
-## Epic 17: Challenge & Game Mode Systems
-
-### Epic Goal
-Migrate daily runs, challenges, difficulty modifiers, special battle formats, alternative game modes, and unlockables (endless mode, mini black hole, spliced endless) to AO handlers.
-
-### Story 17.1: Daily Run System
-As a **daily challenge coordinator**,
-I want **to implement daily run challenges with seeded content and leaderboards**,
-so that **players have consistent daily challenges with community competition**.
-
-#### Acceptance Criteria
-1. Daily seed generation creates consistent experiences for all players on the same day
-2. Daily starter selection provides predetermined Pokémon choices based on daily seed
-3. Daily modifier application adds special rules or bonuses specific to each day's challenge
-4. Daily progress tracking records individual performance and completion status
-5. Daily leaderboard integration ranks player performance against community
-6. Daily reward distribution provides unique items or currencies for participation
-7. Daily run isolation prevents save state manipulation or progress carryover
-8. Daily challenge variety ensures different gameplay experiences across consecutive days
-
-### Story 17.2: Challenge Mode Framework
-As a **challenge system architect**,
-I want **to implement various challenge modes with specific restrictions and objectives**,
-so that **experienced players can test their skills with modified gameplay rules**.
-
-#### Acceptance Criteria
-1. Monotype challenges restrict party composition to single types with victory conditions
-2. Nuzlocke challenges enforce permadeath rules with appropriate game state tracking
-3. Level cap challenges prevent overleveling with automatic enforcement mechanisms
-4. Item restriction challenges limit available items, healing, or shop access
-5. Species clause challenges prevent duplicate species usage across runs
-6. Randomizer challenges modify encounters, movesets, or abilities for variety
-7. Challenge combination system allows multiple restrictions simultaneously
-8. Challenge verification prevents cheating and maintains challenge integrity
-
-### Story 17.3: Alternative Game Modes
-As a **game mode specialist**,
-I want **to implement endless mode, mini black hole, and spliced endless variants**,
-so that **players have diverse gameplay experiences beyond standard progression**.
-
-#### Acceptance Criteria
-1. Endless Mode provides infinite wave progression with escalating difficulty
-2. Mini Black Hole mode offers compressed intense gameplay with modified mechanics
-3. Spliced Endless combines fusion mechanics with endless progression
-4. Mode-specific progression tracking maintains separate advancement for each variant
-5. Mode unlock conditions validate appropriate player readiness for advanced challenges
-6. Mode-specific rewards provide unique incentives for different gameplay styles
-7. Mode balancing ensures fair but challenging experiences across all variants
-8. Mode transition handling allows switching between modes with appropriate restrictions
-
-### Story 17.4: Difficulty Scaling & Modifiers
-As a **difficulty systems developer**,
-I want **to implement dynamic difficulty adjustment and modifier systems**,
-so that **gameplay remains challenging and engaging across different player skill levels**.
-
-#### Acceptance Criteria
-1. Adaptive difficulty monitors player performance and adjusts challenge appropriately
-2. Manual difficulty selection allows players to choose their preferred challenge level
-3. Modifier stacking combines multiple difficulty adjustments with balanced interactions
-4. Performance tracking analyzes win rates, battle duration, and strategic effectiveness
-5. Difficulty feedback provides clear indication of current challenge settings
-6. Accessibility options ensure players of all skill levels can enjoy the game
-7. Expert mode options provide additional challenges for highly skilled players
-8. Difficulty progression suggests appropriate next steps for player improvement
-
----
-
-## Epic 18: Mystery Encounter System
-
-### Epic Goal
-Port the complete mystery encounter framework, encounter types, dialogue systems, and special event mechanics, creating dynamic narrative events that break up standard gameplay.
-
-### Story 18.1: Mystery Encounter Framework
-As a **mystery encounter architect**,
-I want **to implement the core mystery encounter system with proper triggering and resolution**,
-so that **players experience unique narrative events with meaningful choices and consequences**.
-
-#### Acceptance Criteria
-1. Mystery encounter triggering validates probability rates and encounter conditions
-2. Encounter type selection chooses appropriate encounters based on player progression and context
-3. Choice presentation displays available options with clear consequences and requirements
-4. Outcome resolution applies effects, rewards, and penalties based on player selections
-5. Encounter state tracking prevents repeated encounters where inappropriate
-6. Encounter variety ensures diverse experiences across different gameplay sessions
-7. Encounter integration maintains proper game flow without disrupting core progression
-8. Encounter data persistence maintains choice consequences across game sessions
-
-### Story 18.2: Dialogue & Narrative Systems
-As a **narrative systems developer**,
-I want **to implement rich dialogue trees and story elements for mystery encounters**,
-so that **encounters provide engaging narrative experiences with character development**.
-
-#### Acceptance Criteria
-1. Dialogue tree navigation allows branching conversations with multiple paths
-2. Character development reveals personality traits and motivations through interactions
-3. Story context integration connects encounters to broader game world and lore
-4. Player choice reflection acknowledges previous decisions in subsequent encounters
-5. Emotional resonance creates memorable moments through well-crafted narrative
-6. Cultural sensitivity ensures inclusive and respectful representation across encounters
-7. Replay value provides different experiences when encounters are repeated
-8. Narrative consistency maintains character voice and world building across encounters
-
-### Story 18.3: Special Event Mechanics
-As a **special event coordinator**,
-I want **to implement unique mechanics and interactions specific to mystery encounters**,
-so that **encounters offer gameplay variety beyond standard battle and capture mechanics**.
-
-#### Acceptance Criteria
-1. Puzzle mechanics challenge players with logic problems and strategic thinking
-2. Risk/reward scenarios offer high-stakes decisions with significant consequences
-3. Mini-game integration provides skill-based challenges within encounters
-4. Resource management decisions affect party resources, items, or Pokémon health
-5. Moral choice dilemmas present ethically complex decisions with no clear "right" answer
-6. Team interaction scenarios involve multiple party Pokémon in encounter resolution
-7. Knowledge challenges test player understanding of Pokémon mechanics and lore
-8. Creativity challenges encourage player imagination and personal expression
-
-### Story 18.4: Encounter Rewards & Consequences
-As a **encounter outcome specialist**,
-I want **to implement meaningful rewards and consequences for mystery encounter choices**,
-so that **player decisions have lasting impact on gameplay progression and story**.
-
-#### Acceptance Criteria
-1. Positive outcomes provide valuable rewards including rare items, Pokémon, or abilities
-2. Negative consequences create meaningful penalties including item loss or status effects
-3. Long-term impacts affect future encounter availability or story development
-4. Balanced risk ensures no single choice becomes obviously superior to all others
-5. Consequence transparency helps players understand the stakes of their decisions
-6. Recovery opportunities provide paths to overcome negative outcomes when appropriate
-7. Achievement integration recognizes significant encounter accomplishments
-8. Progress tracking maintains history of encounter choices for future reference
-
----
-
-## Epic 19: Timed Events System
-
-### Epic Goal
-Implement seasonal/special events including modified encounter rates, shiny rate changes, mystery encounter tier modifications, music replacements, wave rewards, and challenge modifications.
-
-### Story 19.1: Seasonal Event Framework
-As a **seasonal event coordinator**,
-I want **to implement time-based seasonal events that modify gameplay globally**,
-so that **players experience special content during holidays and seasonal periods**.
-
-#### Acceptance Criteria
-1. Event calendar system tracks current active events and upcoming seasonal content
-2. Event activation automatically triggers changes when event periods begin
-3. Event deactivation safely removes temporary modifications when events end
-4. Event overlap handling manages multiple simultaneous events appropriately
-5. Event persistence maintains event effects consistently across game sessions
-6. Event notification alerts players to new seasonal content and special opportunities
-7. Event rollback ensures clean removal of temporary content without breaking save data
-8. Event data validation prevents conflicts between different seasonal modifications
-
-### Story 19.2: Dynamic Content Modification
-As a **dynamic content developer**,
-I want **to implement real-time modifications to game content during special events**,
-so that **events create unique gameplay experiences through temporary content changes**.
-
-#### Acceptance Criteria
-1. Encounter rate modification adjusts spawn probabilities for event-specific species
-2. Shiny rate enhancement increases shiny encounter chances during special periods
-3. Mystery encounter tier changes affect encounter quality and reward distribution
-4. Music replacement swaps background tracks for seasonal or thematic alternatives
-5. Wave reward bonuses provide enhanced rewards during event periods
-6. Challenge modification adjusts difficulty or adds special restrictions during events
-7. Content restoration returns to baseline settings when events conclude
-8. Modification stacking handles multiple overlapping content changes gracefully
-
-### Story 19.3: Special Event Species & Content
-As a **special content curator**,
-I want **to introduce limited-time species, items, and experiences during events**,
-so that **events provide exclusive content that rewards active participation**.
-
-#### Acceptance Criteria
-1. Event-exclusive species appear only during specific event periods with appropriate rarity
-2. Limited-time items become available through special encounters or rewards
-3. Unique cosmetics or accessories unlock during seasonal events
-4. Special encounter types provide event-themed experiences and challenges
-5. Event-specific dialogue and interactions create immersive seasonal atmosphere
-6. Collectible event items maintain value and commemorate participation
-7. Event legacy content preserves obtained items/species after events end
-8. Event documentation records player participation and exclusive content obtained
-
-### Story 19.4: Community Event Integration
-As a **community engagement specialist**,
-I want **to implement community-wide events that bring players together**,
-so that **events create shared experiences and collective goals across the player base**.
-
-#### Acceptance Criteria
-1. Global challenges set community-wide objectives with collective progress tracking
-2. Leaderboard competitions rank player performance during special event periods
-3. Collaborative goals require community cooperation to unlock shared rewards
-4. Event participation tracking recognizes individual and community contributions
-5. Social sharing features allow players to celebrate event achievements
-6. Community feedback collection gathers player input on event experiences
-7. Event impact measurement analyzes community engagement and satisfaction
-8. Event evolution incorporates community feedback into future event design
-
----
-
-## Epic 20: Gacha & Voucher Systems
-
-### Epic Goal
-Implement egg gacha mechanics, voucher types (regular, plus, premium, golden), gacha pull logic, and reward distribution systems, creating monetization and progression mechanics.
-
-### Story 20.1: Gacha Pull Mechanics
-As a **gacha system developer**,
-I want **to implement gacha pull mechanics with proper probability distributions**,
-so that **players can spend vouchers to obtain eggs with fair and transparent rates**.
-
-#### Acceptance Criteria
-1. Pull probability calculations ensure fair distribution according to published rates
-2. Pity system prevents extremely unlucky streaks with guaranteed rare pulls
-3. Voucher consumption validates available voucher balance before allowing pulls
-4. Pull animation and reveal system creates engaging experience during gacha draws
-5. Multi-pull options allow bulk purchases with appropriate cost savings
-6. Pull history tracking maintains records of all gacha draws and rewards
-7. Rate display transparency shows exact probabilities for all possible outcomes
-8. Random number generation uses cryptographically secure methods for fairness
-
-### Story 20.2: Voucher Economy & Types
-As a **voucher economy specialist**,
-I want **to implement different voucher types with distinct values and acquisition methods**,
-so that **players have multiple paths to gacha participation with varied reward tiers**.
-
-#### Acceptance Criteria
-1. Regular vouchers provide basic access to standard gacha pools
-2. Plus vouchers offer improved rates or access to enhanced reward pools
-3. Premium vouchers unlock exclusive items or increased legendary chances
-4. Golden vouchers guarantee high-tier rewards with special animation effects
-5. Voucher acquisition balances free earning with optional purchase opportunities
-6. Voucher exchange rates maintain balanced economy across different voucher types
-7. Voucher expiration handling prevents indefinite accumulation when appropriate
-8. Voucher gifting system allows sharing vouchers between community members
-
-### Story 20.3: Egg Tier & Reward Systems
-As a **reward distribution architect**,
-I want **to implement tiered egg rewards with appropriate rarity and value distributions**,
-so that **gacha pulls provide meaningful progression rewards across all player levels**.
-
-#### Acceptance Criteria
-1. Common eggs provide useful basic rewards accessible to all players
-2. Rare eggs offer valuable items or Pokémon with moderate acquisition difficulty
-3. Epic eggs contain high-value rewards worth significant voucher investment
-4. Legendary eggs provide game-changing rewards with extreme rarity
-5. Reward pool balance ensures all tiers remain relevant throughout progression
-6. Seasonal reward rotation keeps gacha pools fresh with limited-time exclusives
-7. Duplicate protection prevents unwanted repeated rewards where appropriate
-8. Reward preview system allows players to see potential outcomes before pulling
-
-### Story 20.4: Gacha Integration & Balance
-As a **game economy balancer**,
-I want **to integrate gacha systems with overall game progression and balance**,
-so that **gacha rewards enhance gameplay without disrupting core progression mechanics**.
-
-#### Acceptance Criteria
-1. Gacha reward integration supplements rather than replaces core gameplay progression
-2. Power level balance ensures gacha rewards don't trivialize non-gacha content
-3. Economy impact analysis monitors gacha effects on overall game balance
-4. Player spending tracking identifies unhealthy spending patterns for intervention
-5. Free-to-play viability maintains competitive gameplay without gacha participation
-6. Gacha accessibility features accommodate players with different economic situations
-7. Regulatory compliance adheres to applicable gambling and consumer protection laws
-8. Ethical design principles prioritize player well-being over revenue maximization
-
----
-
-## Epic 21: Tutorial & Help Systems
-
-### Epic Goal
-Port tutorial system, help guides, and new player onboarding mechanics to AO-compatible format, ensuring smooth player introduction to game mechanics.
-
-### Story 21.1: Interactive Tutorial System
-As a **tutorial system designer**,
-I want **to implement step-by-step interactive tutorials for core game mechanics**,
-so that **new players learn essential gameplay elements through guided practice**.
-
-#### Acceptance Criteria
-1. Battle tutorial teaches turn-based combat with controlled practice scenarios
-2. Capture tutorial demonstrates Pokémon catching with guaranteed success examples
-3. Team management tutorial covers party organization and PC storage systems
-4. Evolution tutorial explains evolution triggers and processes with clear examples
-5. Item usage tutorial demonstrates healing items, Pokéballs, and held items
-6. Tutorial progression tracks completion and unlocks advanced tutorial content
-7. Tutorial skip options allow experienced players to bypass introductory content
-8. Tutorial reset capability lets players replay tutorials when needed
-
-### Story 21.2: Contextual Help & Guidance
-As a **player assistance coordinator**,
-I want **to implement contextual help that appears when players encounter new mechanics**,
-so that **players receive just-in-time guidance without overwhelming information dumps**.
-
-#### Acceptance Criteria
-1. Context-sensitive tips appear when players first encounter new game elements
-2. Help overlay system highlights important UI elements with explanatory text
-3. Progressive disclosure reveals advanced features as players demonstrate readiness
-4. Hint system provides optional guidance when players appear stuck or confused
-5. Help search functionality allows players to find specific information quickly
-6. Glossary integration explains game terms and mechanics with clear definitions
-7. Help customization lets players adjust guidance frequency and detail level
-8. Help analytics track which topics cause confusion for continuous improvement
-
-### Story 21.3: Advanced Mechanic Explanation
-As a **advanced systems educator**,
-I want **to provide comprehensive explanations for complex game mechanics**,
-so that **players understand sophisticated systems like fusion, terastalization, and breeding**.
-
-#### Acceptance Criteria
-1. Fusion system explanation covers creation, benefits, and strategic considerations
-2. Terastalization guide demonstrates type changing and battle advantages
-3. Breeding tutorial explains compatibility, inheritance, and egg mechanics
-4. Status effect reference details all conditions with clear effect descriptions
-5. Type effectiveness chart provides comprehensive damage calculation reference
-6. Ability database explains all abilities with practical usage examples
-7. Advanced strategy guides offer tactical advice for experienced players
-8. Mechanic interaction explanations clarify how complex systems work together
-
-### Story 21.4: Player Onboarding & Retention
-As a **player experience specialist**,
-I want **to create smooth onboarding flow that retains new players**,
-so that **newcomers become engaged long-term players through positive early experiences**.
-
-#### Acceptance Criteria
-1. Onboarding flow gradually introduces mechanics without overwhelming players
-2. Early achievement system provides quick wins and positive reinforcement
-3. Starter selection process creates meaningful choice with clear explanations
-4. New player protection prevents early frustrating experiences
-5. Progress celebration acknowledges milestones with appropriate fanfare
-6. Social integration introduces community features at appropriate timing
-7. Retention analytics track new player drop-off points for optimization
-8. Feedback collection gathers new player experiences for onboarding improvement
-
----
-
-# Phase 4: Tracking & Analytics Systems (Epics 22-25)
-
-## Epic 22: Pokédex & Collection Tracking
-
-### Epic Goal
-Implement comprehensive Pokédex system with species tracking, variants, forms, gender records, shiny tracking, and collection progress management, creating the definitive collection experience.
-
-### Story 22.1: Species Discovery & Registration
-As a **Pokédex system developer**,
-I want **to implement species discovery and automatic registration mechanics**,
-so that **encountered and captured Pokémon are properly recorded with complete data**.
-
-#### Acceptance Criteria
-1. Species registration triggers automatically when Pokémon are first encountered in battle
-2. Capture registration records additional data including location, date, and circumstances
-3. Form variant tracking maintains separate records for different Pokémon forms
-4. Gender registration distinguishes between male, female, and genderless encounters
-5. Shiny status tracking creates special records for shiny Pokémon encounters
-6. Evolution chain tracking shows relationships between evolved forms
-7. Regional variant tracking maintains separate entries for different regional forms
-8. Discovery validation prevents duplicate entries while allowing form variations
-
-### Story 22.2: Collection Progress & Statistics
-As a **collection tracking specialist**,
-I want **to provide detailed collection statistics and progress indicators**,
-so that **players can monitor their completion status and set collection goals**.
-
-#### Acceptance Criteria
-1. Completion percentage calculation shows overall Pokédex completion rates
-2. Category progress tracking breaks down completion by type, generation, or region
-3. Rarity statistics highlight progress on rare, legendary, and mythical species
-4. Collection milestones recognize significant completion achievements
-5. Missing species identification shows which Pokémon still need to be found
-6. Collection trends analyze capture patterns and progress over time
-7. Comparative statistics allow progress comparison with community averages
-8. Goal setting features let players establish personal collection objectives
-
-### Story 22.3: Advanced Pokédex Features
-As a **advanced Pokédex architect**,
-I want **to implement sophisticated search, filtering, and organization features**,
-so that **players can efficiently navigate and utilize their collection data**.
-
-#### Acceptance Criteria
-1. Advanced search functionality finds Pokémon by multiple criteria simultaneously
-2. Filter options organize entries by status, type, location, or custom categories
-3. Sorting capabilities arrange entries by various attributes (alphabetical, number, etc.)
-4. Favorites system allows players to mark important or preferred entries
-5. Custom tags enable player-created organization systems and categories
-6. Export functionality allows sharing collection data with external tools
-7. Backup system preserves collection data against accidental loss
-8. Synchronization maintains consistent collection data across devices
-
-### Story 22.4: Collection Sharing & Community
-As a **social collection coordinator**,
-I want **to enable collection sharing and community features**,
-so that **players can showcase achievements and collaborate on collection goals**.
-
-#### Acceptance Criteria
-1. Collection showcase displays allow sharing impressive collections publicly
-2. Achievement galleries highlight rare finds and completion milestones
-3. Community challenges encourage collaborative collection efforts
-4. Trading facilitation helps players complete collections through exchanges
-5. Collection comparison tools show progress relative to friends or community
-6. Rarity notifications alert community when extremely rare Pokémon are found
-7. Collection mentorship connects experienced collectors with newcomers
-8. Community events focus on specific collection goals or species themes
-
----
-
-## Epic 23: Achievement & Ribbon Systems
-
-### Epic Goal
-Port achievement system with tiers and scoring, ribbon awards for monotype challenges, and special accomplishment tracking to AO processes, creating comprehensive player recognition.
-
-### Story 23.1: Achievement Framework & Tracking
-As a **achievement system architect**,
-I want **to implement comprehensive achievement tracking with proper trigger detection**,
-so that **player accomplishments are automatically recognized and recorded**.
-
-#### Acceptance Criteria
-1. Achievement trigger detection monitors gameplay events and conditions accurately
-2. Achievement progress tracking maintains incremental progress toward completion
-3. Achievement unlock notification alerts players immediately when achievements are earned
-4. Achievement categorization organizes accomplishments by type (battle, collection, etc.)
-5. Achievement difficulty tiers provide varying levels of challenge and recognition
-6. Achievement point system assigns appropriate values based on accomplishment difficulty
-7. Achievement prerequisites ensure proper unlock sequences for advanced achievements
-8. Achievement data persistence maintains earned status across all game sessions
-
-### Story 23.2: Ribbon Award System
-As a **ribbon specialist**,
-I want **to implement ribbon awards for specific challenges and accomplishments**,
-so that **dedicated players receive permanent recognition for exceptional achievements**.
-
-#### Acceptance Criteria
-1. Monotype challenge ribbons award successful completion of single-type runs
-2. Difficulty challenge ribbons recognize completion under special restrictions
-3. Collection ribbons celebrate significant Pokédex milestones and rare finds
-4. Battle performance ribbons acknowledge exceptional combat accomplishments
-5. Speed run ribbons reward fast completion times and efficient gameplay
-6. Perfectionist ribbons recognize flawless execution and optimal performance
-7. Ribbon rarity tiers distinguish between common and exceptional accomplishments
-8. Ribbon display system showcases earned ribbons prominently in player profiles
-
-### Story 23.3: Achievement Scoring & Rankings
-As a **competitive achievement coordinator**,
-I want **to implement achievement scoring and ranking systems**,
-so that **players can compare accomplishments and compete for recognition**.
-
-#### Acceptance Criteria
-1. Achievement point calculation weighs different accomplishments appropriately
-2. Leaderboard ranking displays top achievers across various categories
-3. Seasonal rankings reset periodically to maintain competitive freshness
-4. Personal achievement history tracks player improvement over time
-5. Achievement rarity scoring provides higher points for uncommon accomplishments
-6. Comparative rankings show player standing relative to friends and community
-7. Achievement streaks recognize sustained exceptional performance
-8. Milestone celebrations acknowledge significant achievement point thresholds
-
-### Story 23.4: Special Recognition & Legacy
-As a **legacy achievement curator**,
-I want **to implement special recognition for extraordinary accomplishments**,
-so that **legendary achievements are permanently commemorated with appropriate honors**.
-
-#### Acceptance Criteria
-1. Hall of Fame induction recognizes the most exceptional player achievements
-2. Legacy achievement preservation maintains historical records of great accomplishments
-3. Unique titles unlock based on extraordinary achievement combinations
-4. Special cosmetic rewards commemorate legendary achievement unlocks
-5. Achievement artifact collection preserves mementos of significant accomplishments
-6. Community recognition highlights exceptional achievers to the broader player base
-7. Achievement storytelling documents the circumstances of legendary accomplishments
-8. Inspiration galleries showcase achievement stories to motivate other players
-
----
-
-## Epic 24: Statistics & Analytics System
-
-### Epic Goal
-Implement comprehensive gameplay statistics tracking including battles, captures, time played, records, and performance metrics, providing detailed player analytics.
-
-### Story 24.1: Battle Statistics & Performance Tracking
-As a **battle analytics specialist**,
-I want **to track comprehensive battle statistics and performance metrics**,
-so that **players can analyze their combat effectiveness and identify improvement areas**.
-
-#### Acceptance Criteria
-1. Win/loss ratio tracking maintains accurate battle outcome records
-2. Average battle duration analysis identifies pacing patterns and efficiency
-3. Type effectiveness usage statistics show strategic preferences and tendencies
-4. Move usage frequency tracks favorite moves and tactical patterns
-5. Damage dealt/received tracking measures offensive and defensive performance
-6. Critical hit rate analysis evaluates luck factors and critical hit optimization
-7. Status effect application tracking shows mastery of status-based strategies
-8. Pokémon usage statistics identify most and least used team members
-
-### Story 24.2: Collection & Progression Analytics
-As a **progression tracking architect**,
-I want **to monitor collection progress and advancement statistics**,
-so that **players understand their progression patterns and set informed goals**.
-
-#### Acceptance Criteria
-1. Species encounter rate tracking shows discovery efficiency over time
-2. Capture success rate analysis evaluates catching skill and ball usage
-3. Shiny encounter frequency tracks luck and shiny hunting effectiveness
-4. Evolution completion tracking monitors evolutionary advancement
-5. Collection milestone achievement records significant completion events
-6. Time investment analysis shows effort distribution across different activities
-7. Progression velocity tracking measures advancement speed and consistency
-8. Comparative progress analysis benchmarks individual performance against averages
-
-### Story 24.3: Economic & Resource Management Statistics
-As a **resource analytics coordinator**,
-I want **to track economic decisions and resource management patterns**,
-so that **players can optimize their resource allocation and spending strategies**.
-
-#### Acceptance Criteria
-1. Money earned/spent tracking maintains comprehensive financial records
-2. Item usage efficiency analysis evaluates resource management effectiveness
-3. Shop purchase pattern analysis identifies spending preferences and priorities
-4. Inventory turnover tracking shows item usage frequency and hoarding patterns
-5. Resource waste identification highlights inefficient usage patterns
-6. Economic optimization suggestions provide data-driven improvement recommendations
-7. Cost-benefit analysis evaluates return on investment for different strategies
-8. Budget planning features help players allocate resources effectively
-
-### Story 24.4: Advanced Analytics & Insights
-As a **data insights specialist**,
-I want **to provide advanced analytical insights and predictive recommendations**,
-so that **players receive actionable intelligence to improve their gameplay experience**.
-
-#### Acceptance Criteria
-1. Performance trend analysis identifies improvement or decline patterns over time
-2. Predictive modeling suggests optimal strategies based on individual play patterns
-3. Comparative benchmarking shows performance relative to similar players
-4. Anomaly detection identifies unusual patterns that may indicate issues or opportunities
-5. Success factor correlation analysis reveals which behaviors lead to better outcomes
-6. Personalized recommendation system suggests improvements based on individual data
-7. Goal achievement probability estimation helps players set realistic objectives
-8. Performance coaching provides specific, actionable advice for skill development
-
----
-
-## Epic 25: Run Tracking & Session Management
-
-### Epic Goal
-Implement run completion tracking, run naming/metadata, historical run records, and player session identification leveraging AO's automatic state persistence.
-
-### Story 25.1: Run Lifecycle Management
-As a **run tracking coordinator**,
-I want **to manage complete run lifecycles from start to completion**,
-so that **each gameplay session is properly tracked with meaningful metadata**.
-
-#### Acceptance Criteria
-1. Run initialization creates new run records with timestamp and configuration data
-2. Run progress tracking maintains current status, milestones, and advancement
-3. Run completion detection identifies successful victory or failure conditions
-4. Run metadata capture records difficulty settings, challenge modes, and special conditions
-5. Run duration tracking measures total play time and session length
-6. Run interruption handling manages paused, resumed, and abandoned runs appropriately
-7. Run validation ensures data integrity and prevents manipulation or corruption
-8. Run archival system preserves completed run data for historical analysis
-
-### Story 25.2: Run Naming & Customization
-As a **run personalization specialist**,
-I want **to enable player customization and naming of runs for organization**,
-so that **players can organize and identify their gameplay sessions meaningfully**.
-
-#### Acceptance Criteria
-1. Run naming system allows custom titles for easy identification and organization
-2. Run description fields enable detailed notes about strategy, goals, or memorable events
-3. Run tagging system supports custom labels for categorization and filtering
-4. Run favorite marking highlights especially memorable or successful runs
-5. Run sharing options allow displaying notable runs to community or friends
-6. Run template creation saves configurations for repeated challenge attempts
-7. Run comparison features enable side-by-side analysis of similar attempts
-8. Run organization tools provide sorting, filtering, and search capabilities
-
-### Story 25.3: Historical Run Records
-As a **historical data curator**,
-I want **to maintain comprehensive historical records of all completed runs**,
-so that **players can analyze their progression and revisit past achievements**.
-
-#### Acceptance Criteria
-1. Complete run history maintains records of all attempted and completed runs
-2. Run outcome tracking records victory conditions, final scores, and completion status
-3. Run performance metrics capture key statistics and achievement data
-4. Run timeline visualization shows progression patterns over time
-5. Run comparison analytics identify improvement trends and performance changes
-6. Run milestone tracking celebrates significant achievements and records
-7. Run data export enables sharing detailed run information with external tools
-8. Run legacy preservation maintains historical data indefinitely for analysis
-
-### Story 25.4: Session Identity & Continuity
-As a **session management architect**,
-I want **to manage player session identity and ensure continuity across devices**,
-so that **run tracking remains consistent regardless of access method or location**.
-
-#### Acceptance Criteria
-1. Player session identification links runs to specific players through AO cryptographic identity
-2. Cross-device continuity maintains run data consistency across different access points
-3. Session handoff enables seamless transition between devices during active runs
-4. Concurrent session prevention avoids conflicts when same player accesses from multiple locations
-5. Session recovery restores interrupted runs with minimal data loss
-6. Session analytics track usage patterns and device preferences for optimization
-7. Session security prevents unauthorized access to personal run data
-8. Session synchronization ensures real-time updates across all active connections
-
----
-
-# Phase 5: Integration & Agent Systems (Epics 26-31)
-
-## Epic 26: AOConnect UI Bridge Integration
-
-### Epic Goal
-Integrate existing Phaser interface with AO backend through AOConnect, enabling current players to access AO benefits through familiar UI while maintaining identical gameplay experience.
-
-### Story 26.1: AOConnect Integration Layer
-As a **UI integration architect**,
-I want **to implement the AOConnect bridge that connects Phaser UI to AO handlers**,
-so that **existing players can use familiar interface while gaining AO benefits**.
-
-#### Acceptance Criteria
-1. AOConnect library integration establishes reliable connection between browser and AO process
-2. Message translation layer converts UI actions to appropriate AO handler messages
-3. Response handling translates AO handler responses back to UI-compatible formats
-4. Connection state management handles network interruptions and reconnection gracefully
-5. Authentication flow integrates wallet connection with game session establishment
-6. Error handling provides meaningful feedback for connection and message failures
-7. Performance optimization ensures minimal latency between UI actions and AO responses
-8. Backward compatibility maintains support for existing save data during transition
-
-### Story 26.2: Real-time UI Synchronization
-As a **UI synchronization specialist**,
-I want **to maintain real-time synchronization between UI state and AO process state**,
-so that **players see immediate updates without UI lag or inconsistencies**.
-
-#### Acceptance Criteria
-1. State synchronization keeps UI display current with AO process data changes
-2. Battle state updates reflect move results, damage, and status changes immediately
-3. Inventory synchronization shows item usage and acquisition in real-time
-4. Party management updates display Pokémon changes and modifications instantly
-5. Progress tracking synchronization maintains current advancement status
-6. Collection updates show new captures and discoveries without delay
-7. Conflict resolution handles simultaneous updates from multiple sources
-8. Offline handling gracefully manages disconnection and reconnection scenarios
-
-### Story 26.3: Cross-Device Experience Continuity
-As a **cross-platform experience designer**,
-I want **to enable seamless gameplay continuation across different devices**,
-so that **players can switch devices without losing progress or experiencing friction**.
-
-#### Acceptance Criteria
-1. Device handoff allows switching between desktop and mobile seamlessly
-2. Session persistence maintains game state when switching access methods
-3. UI adaptation adjusts interface appropriately for different screen sizes and input methods
-4. Save state synchronization ensures consistent game state across all devices
-5. Settings synchronization maintains player preferences across different platforms
-6. Performance adaptation optimizes experience for different device capabilities
-7. Input method flexibility supports keyboard, mouse, and touch interactions appropriately
-8. Accessibility consistency maintains same accessibility features across all platforms
-
-### Story 26.4: Legacy Player Migration
-As a **player migration coordinator**,
-I want **to facilitate smooth transition for existing players to AO-based system**,
-so that **current players retain their progress while gaining AO advantages**.
-
-#### Acceptance Criteria
-1. Save data migration transfers existing progress to AO process storage
-2. Collection preservation maintains all captured Pokémon and completion status
-3. Achievement migration preserves earned accomplishments and progression
-4. Settings migration maintains player preferences and customizations
-5. Migration validation ensures no data loss during transition process
-6. Rollback capability provides safety net in case migration issues occur
-7. Migration progress tracking shows status and completion of transfer process
-8. Post-migration verification confirms successful data transfer and system functionality
-
----
-
-## Epic 27: Autonomous Agent Framework
-
-### Epic Goal
-Implement agent discovery protocols, battle message APIs, mixed human-agent gameplay, and spectating systems for AI participation, enabling autonomous agents as first-class players.
-
-### Story 27.1: Agent Discovery & Registration
-As a **agent infrastructure architect**,
-I want **to implement agent discovery and registration systems**,
-so that **autonomous agents can find and connect to game processes for participation**.
-
-#### Acceptance Criteria
-1. Agent discovery protocol enables agents to find available game processes automatically
-2. Agent registration system validates agent credentials and capabilities before allowing access
-3. Agent capability advertisement allows agents to specify their supported game modes and features
-4. Agent matchmaking connects compatible agents with appropriate game sessions
-5. Agent authentication validates agent identity through cryptographic verification
-6. Agent reputation system tracks agent behavior and performance for trust scoring
-7. Agent rate limiting prevents spam and abuse while allowing legitimate participation
-8. Agent documentation provides clear specifications for agent developers
-
-### Story 27.2: Agent Battle Message API
-As a **agent API developer**,
-I want **to create comprehensive message APIs for agent battle participation**,
-so that **agents can participate in battles using the same mechanics as human players**.
-
-#### Acceptance Criteria
-1. Battle action API allows agents to select moves, targets, and battle decisions
-2. Game state query API provides agents with current battle information and options
-3. Party management API enables agents to manage their Pokémon teams and items
-4. Real-time battle updates notify agents of battle events and state changes
-5. Turn timing API manages agent response timeouts and turn completion
-6. Error handling API provides clear feedback for invalid actions or requests
-7. Battle result API delivers outcome information and post-battle rewards
-8. API versioning maintains compatibility while allowing system evolution
-
-### Story 27.3: Mixed Human-Agent Gameplay
-As a **mixed gameplay coordinator**,
-I want **to enable seamless interaction between human players and autonomous agents**,
-so that **humans and agents can play together in the same game sessions**.
-
-#### Acceptance Criteria
-1. Human-agent battle matching creates fair matchups between human and agent players
-2. Agent behavior transparency shows human players when they're facing agents
-3. Mixed team gameplay allows humans and agents to cooperate in team-based modes
-4. Agent difficulty scaling ensures challenging but fair competition for human players
-5. Agent learning prevention stops agents from gaining unfair advantages through data mining
-6. Fair play enforcement ensures agents follow the same rules as human players
-7. Agent identification allows humans to know when interacting with agents
-8. Mixed leaderboards track performance across both human and agent participants
-
-### Story 27.4: Agent Spectating & Analysis Systems
-As a **agent observation specialist**,
-I want **to implement spectating systems that allow observation of agent gameplay**,
-so that **humans can watch agent strategies and agents can learn from observation**.
-
-#### Acceptance Criteria
-1. Agent spectating interface allows humans to watch agent battles in real-time
-2. Agent strategy analysis displays decision-making patterns and tactical approaches
-3. Agent performance metrics show statistical analysis of agent effectiveness
-4. Agent replay system enables reviewing agent games for analysis and learning
-5. Agent comparison tools allow evaluating different agents' strategies and performance
-6. Educational features help humans understand and learn from agent strategies
-7. Research data collection gathers information about agent behavior for analysis
-8. Privacy controls ensure appropriate access to agent spectating and data
-
----
-
-## Epic 28: Testing & Quality Assurance Systems
-
-### Epic Goal
-Implement comprehensive testing framework ensuring zero functionality loss during TypeScript-to-Lua migration, with automated parity testing, integration testing, and quality validation.
-
-### Story 28.1: Parity Testing Framework
-As a **parity testing architect**,
-I want **to implement automated testing that verifies identical behavior between TypeScript and Lua implementations**,
-so that **migration maintains perfect functional parity with zero gameplay regressions**.
-
-#### Acceptance Criteria
-1. Battle outcome parity testing compares TypeScript vs Lua battle results for identical scenarios
-2. Damage calculation verification ensures exact matching of all damage formulas
-3. RNG parity testing validates identical random number generation across implementations
-4. Status effect verification confirms matching behavior for all status conditions
-5. Move effect parity ensures identical outcomes for all move mechanics
-6. Evolution trigger testing validates identical evolution conditions and timing
-7. Item effect verification confirms matching behavior for all item interactions
-8. Statistical parity analysis validates large-scale behavior matching across many test cases
-
-### Story 28.2: Integration Testing Suite
-As a **integration testing specialist**,
-I want **to implement comprehensive integration testing for all system interactions**,
-so that **complex multi-system interactions work correctly across the entire migration**.
-
-#### Acceptance Criteria
-1. End-to-end gameplay testing validates complete game runs from start to finish
-2. Cross-system interaction testing verifies proper communication between different epics
-3. AOConnect integration testing ensures reliable UI-to-AO communication
-4. Agent integration testing validates autonomous agent participation flows
-5. Data persistence testing confirms reliable state management across sessions
-6. Performance integration testing verifies acceptable response times under load
-7. Error handling integration testing validates graceful failure modes
-8. Security integration testing ensures proper authorization across all systems
-
-### Story 28.3: Automated Test Infrastructure
-As a **test infrastructure engineer**,
-I want **to create automated testing infrastructure that runs continuously**,
-so that **any regressions are detected immediately during development**.
-
-#### Acceptance Criteria
-1. Continuous integration pipeline runs all tests automatically on code changes
-2. Test result reporting provides clear feedback on test failures and regressions
-3. Performance regression detection alerts when systems become slower than benchmarks
-4. Test data management maintains consistent test scenarios across test runs
-5. Test environment provisioning creates isolated environments for reliable testing
-6. Parallel test execution enables fast feedback cycles during development
-7. Test coverage analysis ensures comprehensive testing of all critical systems
-8. Historical test result tracking identifies trends and recurring issues
-
-### Story 28.4: Quality Validation & Release Gates
-As a **quality assurance coordinator**,
-I want **to implement quality gates that prevent releases with insufficient testing**,
-so that **only fully validated systems reach production deployment**.
-
-#### Acceptance Criteria
-1. Release criteria validation ensures all quality standards are met before deployment
-2. Critical path testing validates essential gameplay functions work correctly
-3. Performance benchmarking confirms acceptable system performance under load
-4. Security validation ensures proper protection of player data and system integrity
-5. Compatibility testing validates functionality across different browsers and devices
-6. Stress testing confirms system stability under high concurrent usage
-7. Rollback testing ensures ability to revert changes if issues are discovered
-8. Sign-off procedures require explicit approval from quality assurance before release
-
----
-
-## Epic 29: Deployment & DevOps Infrastructure
-
-### Epic Goal
-Implement automated deployment pipelines, environment management, monitoring systems, and operational procedures for reliable AO process deployment and maintenance.
-
-### Story 29.1: Automated Deployment Pipeline
-As a **DevOps engineer**,
-I want **to implement automated deployment pipelines for AO processes and UI components**,
-so that **releases are deployed reliably with minimal manual intervention and risk**.
-
-#### Acceptance Criteria
-1. Automated build pipeline compiles and packages Lua handlers with proper validation
-2. Deployment automation deploys AO processes to production with zero-downtime updates
-3. Rollback automation enables quick reversion to previous versions when issues occur
-4. Environment promotion pipeline moves releases through development, staging, and production
-5. Deployment validation confirms successful deployment before marking releases complete
-6. Configuration management maintains proper settings across different environments
-7. Dependency management ensures all required components are deployed together
-8. Deployment monitoring tracks deployment success rates and identifies common failure points
-
-### Story 29.2: Environment Management & Orchestration
-As a **infrastructure architect**,
-I want **to manage multiple deployment environments with proper isolation and resource allocation**,
-so that **development, testing, and production environments remain stable and predictable**.
-
-#### Acceptance Criteria
-1. Environment provisioning creates isolated environments for different deployment stages
-2. Resource allocation ensures appropriate compute and storage resources for each environment
-3. Environment synchronization maintains consistency between development and production
-4. Infrastructure as code manages environment configuration through version control
-5. Environment monitoring tracks resource usage and performance across all environments
-6. Backup and recovery procedures protect against environment failure or data loss
-7. Security hardening ensures proper access controls and network isolation
-8. Cost optimization balances resource availability with operational efficiency
-
-### Story 29.3: Operational Monitoring & Alerting
-As a **operations specialist**,
-I want **to implement comprehensive monitoring and alerting for all system components**,
-so that **operational issues are detected and resolved quickly to maintain system reliability**.
-
-#### Acceptance Criteria
-1. System health monitoring tracks AO process availability and response times
-2. Performance monitoring identifies bottlenecks and resource constraints
-3. Error rate monitoring detects increased failure rates and system issues
-4. User experience monitoring tracks gameplay quality and player satisfaction
-5. Security monitoring identifies potential threats and unauthorized access attempts
-6. Alert management routes notifications to appropriate personnel based on severity and type
-7. Dashboard visualization provides real-time operational status and historical trends
-8. Incident response procedures ensure rapid response to critical system issues
-
-### Story 29.4: Maintenance & Operations Procedures
-As a **operations manager**,
-I want **to establish standard procedures for system maintenance and operational tasks**,
-so that **routine operations are performed consistently and system reliability is maintained**.
-
-#### Acceptance Criteria
-1. Maintenance scheduling coordinates updates and maintenance with minimal player disruption
-2. Backup procedures ensure regular, reliable backups of critical game data and system state
-3. Disaster recovery procedures enable rapid recovery from major system failures
-4. Security procedures maintain proper access controls and vulnerability management
-5. Performance optimization procedures identify and resolve system bottlenecks
-6. Capacity planning procedures ensure adequate resources for growing player base
-7. Documentation maintenance keeps operational procedures current and accessible
-8. Training procedures ensure operations team has necessary skills and knowledge
-
----
-
-## Epic 30: Performance Monitoring & Optimization
-
-### Epic Goal
-Implement comprehensive performance monitoring, optimization systems, and scalability measures to ensure optimal gameplay experience under varying load conditions.
-
-### Story 30.1: Real-time Performance Monitoring
-As a **performance engineer**,
-I want **to implement real-time monitoring of system performance across all components**,
-so that **performance issues are identified and addressed before they impact players**.
-
-#### Acceptance Criteria
-1. Handler execution time monitoring tracks AO process response times for all operations
-2. Battle simulation performance monitoring identifies bottlenecks in combat calculations
-3. Database query performance tracking optimizes data access patterns and query efficiency
-4. Network latency monitoring tracks communication delays between UI and AO processes
-5. Resource utilization monitoring tracks CPU, memory, and storage usage patterns
-6. User experience metrics track gameplay smoothness and responsiveness
-7. Performance baseline establishment creates benchmarks for regression detection
-8. Performance trend analysis identifies gradual degradation before it becomes critical
-
-### Story 30.2: Optimization & Tuning Systems
-As a **performance optimization specialist**,
-I want **to implement automated optimization and tuning systems**,
-so that **system performance automatically adapts to changing conditions and usage patterns**.
-
-#### Acceptance Criteria
-1. Query optimization automatically improves database access patterns based on usage
-2. Caching strategies reduce redundant calculations and data retrieval operations
-3. Load balancing distributes processing across available resources efficiently
-4. Memory management optimization prevents memory leaks and reduces garbage collection impact
-5. Algorithm optimization identifies and improves computational bottlenecks
-6. Resource allocation optimization adjusts resource usage based on demand patterns
-7. Performance regression prevention automatically detects performance degradation
-8. Optimization impact measurement validates effectiveness of performance improvements
-
-### Story 30.3: Scalability & Load Management
-As a **scalability architect**,
-I want **to implement systems that handle varying load conditions gracefully**,
-so that **system performance remains stable as player count and usage patterns change**.
-
-#### Acceptance Criteria
-1. Horizontal scaling automatically provisions additional resources during high demand
-2. Load shedding mechanisms maintain core functionality during extreme load conditions
-3. Queue management handles burst traffic without overwhelming system resources
-4. Resource pooling efficiently shares computational resources across multiple processes
-5. Predictive scaling anticipates demand changes and provisions resources proactively
-6. Graceful degradation maintains essential functions when some components are overloaded
-7. Load testing validation ensures system meets capacity requirements under stress
-8. Capacity planning provides roadmap for infrastructure growth as player base expands
-
-### Story 30.4: Performance Analytics & Reporting
-As a **performance analyst**,
-I want **to provide comprehensive performance analytics and reporting**,
-so that **performance trends are understood and optimization efforts are data-driven**.
-
-#### Acceptance Criteria
-1. Performance dashboard provides real-time visibility into system performance metrics
-2. Historical performance analysis identifies long-term trends and patterns
-3. Performance reporting generates regular summaries of system health and optimization opportunities
-4. Comparative analysis benchmarks performance against industry standards and best practices
-5. Performance impact analysis measures the effect of changes on system performance
-6. User experience correlation connects technical performance metrics to player satisfaction
-7. Performance prediction modeling forecasts future performance based on growth trends
-8. Optimization ROI analysis demonstrates the business value of performance improvements
-
----
-
-## Epic 31: Documentation & Developer Experience
-
-### Epic Goal
-Create comprehensive documentation, developer tools, and knowledge management systems to support ongoing development, maintenance, and community contribution.
-
-### Story 31.1: Technical Documentation System
-As a **documentation architect**,
-I want **to create comprehensive technical documentation for all system components**,
-so that **developers can understand, maintain, and extend the system effectively**.
-
-#### Acceptance Criteria
-1. API documentation provides complete reference for all AO handlers and message formats
-2. Architecture documentation explains system design decisions and component interactions
-3. Deployment documentation covers setup, configuration, and operational procedures
-4. Troubleshooting guides help developers resolve common issues quickly
-5. Code documentation maintains clear explanations of complex algorithms and business logic
-6. Integration guides explain how to connect with external systems and agents
-7. Documentation versioning keeps documentation synchronized with code changes
-8. Documentation quality assurance ensures accuracy and completeness of all documentation
-
-### Story 31.2: Developer Tools & Environment Setup
-As a **developer experience engineer**,
-I want **to provide excellent developer tools and streamlined environment setup**,
-so that **new developers can contribute quickly and existing developers remain productive**.
-
-#### Acceptance Criteria
-1. Development environment automation creates consistent local development setups
-2. Code analysis tools identify potential issues and enforce coding standards
-3. Debugging tools enable efficient troubleshooting of AO handler logic and message flows
-4. Testing tools facilitate easy creation and execution of parity and integration tests
-5. Build tools automate compilation, packaging, and deployment preparation
-6. IDE integration provides syntax highlighting, code completion, and error detection
-7. Development workflow documentation guides developers through common development tasks
-8. Developer onboarding process enables new contributors to become productive quickly
-
-### Story 31.3: Community Contribution Framework
-As a **open source coordinator**,
-I want **to establish frameworks that enable community contributions to the project**,
-so that **the broader development community can participate in project evolution**.
-
-#### Acceptance Criteria
-1. Contribution guidelines explain how community members can contribute effectively
-2. Code review processes ensure quality and consistency of community contributions
-3. Issue tracking system manages bug reports, feature requests, and development tasks
-4. Communication channels facilitate discussion between core team and community
-5. Recognition system acknowledges valuable community contributions appropriately
-6. Legal framework ensures proper licensing and intellectual property management
-7. Community documentation helps external developers understand project structure and goals
-8. Mentorship programs connect experienced developers with newcomers to the project
-
-### Story 31.4: Knowledge Management & Training
-As a **knowledge management specialist**,
-I want **to implement systems that preserve and share project knowledge effectively**,
-so that **project knowledge is retained and accessible as the team and project evolve**.
-
-#### Acceptance Criteria
-1. Knowledge base captures important design decisions, lessons learned, and best practices
-2. Video documentation provides visual explanations of complex concepts and procedures
-3. Training materials enable new team members to understand project context and requirements
-4. Best practices documentation codifies effective approaches to common development challenges
-5. Historical documentation preserves the reasoning behind important architectural decisions
-6. Search functionality enables quick access to relevant information across all documentation
-7. Knowledge sharing processes ensure important information is captured and disseminated
-8. Documentation maintenance procedures keep knowledge base current and valuable
+### Architect Prompt
+Please review this migration PRD and create the detailed technical architecture for migrating PokéRogue to stateless AO processes, ensuring 100% functional parity with the existing TypeScript implementation while achieving <500KB bundle size through external data storage.
+
+### Development Team Prompt  
+Begin Epic 1 implementation by establishing the AO process foundation, ECS world state management, and automated parity testing framework against the preserved TypeScript reference implementation.

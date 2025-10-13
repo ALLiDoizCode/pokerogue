@@ -1,54 +1,45 @@
 # Technical Assumptions
 
 ## Repository Structure: Monorepo
-Single repository approach with organized directories maintaining clean separation:
-- `/typescript/` - Existing PokéRogue TypeScript/Phaser codebase
-- `/lua/` - AO process Lua handler implementations
-- `/bridge/` - AOConnect integration layer for Phase 2
-- `/tests/` - Parity testing between TypeScript and Lua implementations
-- No shared code folders - each implementation remains completely independent
-- Unified repository enables coordinated development while maintaining codebase isolation
+Single repository approach for coordinated stateless process development:
+- `/processes/` - 26 stateless Lua processes (battle-engine.lua, pokemon-species-db.lua, etc.)
+- `/testing/` - Comprehensive TDD framework (aolite unit tests, aos-local integration, parity validation)
+- `/tools/` - AO sandbox validation, process size monitoring, performance testing
+- `/fixtures/` - Test data and golden master outputs for parity validation
+- `/typescript-reference/` - Current implementation for parity testing
 
 ## Service Architecture
-**Phase 1: Single Comprehensive AO Process**
-- All game logic consolidated into one AO process for MVP simplicity
-- Handler specialization within single process (battle, state, queries)
-- Internal message routing for different game operations
-- Architecture designed for potential multi-process expansion in later phases
+**26-Process Stateless Architecture with Async Coordination**
+- Data processes provide pure reference data (pokemon-species-db, moves-database, items-database, abilities-database)
+- Logic processes perform pure computation (battle-engine, evolution-engine, capture-engine, status-effects-engine)
+- Coordinator process orchestrates complex multi-step async workflows
+- Client-side GameState persistence eliminates persistent state within processes
+- Fixed process topology with predefined process addresses
 
-**Rationale:** Single process reduces deployment complexity and ensures atomic game state management while proving AO feasibility for complex games.
+**Rationale:** Stateless process architecture enables infinite horizontal scalability while maintaining deterministic behavior and eliminating single points of failure through pure functional design.
 
-## Testing Requirements: Full Testing Pyramid
-**Critical Requirement:** Comprehensive testing to ensure zero functionality loss during migration
-- **Parity Testing:** Automated comparison of TypeScript vs Lua battle outcomes
-- **Integration Testing:** AOConnect bridge functionality and message handling
-- **Load Testing:** AO process performance under concurrent game load
-- **End-to-End Testing:** Complete game runs from start to champion victory
-- **Agent Integration Testing:** Autonomous agent message protocol validation
+## Testing Requirements: Migration Parity Validation
+**Critical Requirement:** 100% functional parity with existing TypeScript implementation
+- **Parity Testing:** Automated comparison of TypeScript vs AO Lua process outcomes for identical inputs
+- **Process Testing:** Unit testing of individual AO Lua processes with TypeScript reference validation
+- **Integration Testing:** AO process coordination with inter-process communication and external data fetching
+- **End-to-End Testing:** Complete game scenarios comparing TypeScript vs AO process implementations
 
 ## Additional Technical Assumptions and Requests
 
-**Core Language and Framework:**
-- **Backend:** Lua 5.3 for AO process handler implementation using AO's native `Handlers.add()` pattern
-- **Frontend Bridge:** Continue using existing Phaser.js with TypeScript, integrated via `@permaweb/aoconnect`
-- **Message Protocol:** AO's native message-passing system for all game interactions
+**Core Architecture:**
+- **AO Process Architecture:** 26 stateless processes with ECS world state and coordinator-based orchestration
+- **AO Lua Processes:** Stateless, monolithic computational units for game logic (pokemon-stats-process.lua, battle-engine-process.lua, etc.)
+- **External Data Storage:** Arweave transactions for Pokemon species, moves, and items databases (2MB+ data moved external)
+- **Process Communication:** AO message routing between processes based on action type
 
-**Development Environment:**
-- **Local AO Emulation:** Required for development and testing workflow
-- **Handler Debugging:** AO process logging and message trace analysis capabilities
-- **Cross-Platform Development:** Support for contributors on different operating systems
-
-**Data Management:**
-- **State Persistence:** Automatic through AO process storage on Arweave (no additional database required)
-- **Message Serialization:** JSON format for complex game objects and state transfers
-- **Deterministic RNG:** Reproducible random number generation for consistent gameplay across process instances
+**Migration Approach:**
+- **TypeScript Reference:** Preserve existing implementation for parity validation
+- **AO Lua Process Logic:** Migrate battle calculations, stat computations, evolution logic to stateless AO Lua processes
+- **External Data Migration:** Move static game data to Arweave for bundle size optimization
+- **State Synchronization:** ECS entity state managed through stateless AO process coordination
 
 **Performance Requirements:**
-- **Handler Optimization:** Lua code optimized for AO runtime constraints
-- **Message Efficiency:** Minimize message size and frequency for optimal network performance
-- **State Query Optimization:** Efficient game state retrieval for UI synchronization
-
-**AO Protocol Compliance:**
-- **Documentation Protocol:** Mandatory `Info` handler and discoverable handler specifications
-- **Handler Discoverability:** All game operations must be queryable through AO documentation protocol
-- **Process Metadata:** Version tracking and capability information for agent integration
+- **Bundle Size:** <500KB per AO process through external data references  
+- **Parity Validation:** Zero functional differences between TypeScript and AO Lua implementations
+- **Response Time:** Battle turns complete within existing game performance expectations

@@ -1,0 +1,58 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Parity Test Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .summary { background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .pass { color: green; font-weight: bold; }
+        .fail { color: red; font-weight: bold; }
+        .error { color: orange; font-weight: bold; }
+        .test-result { border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .differences { background: #fff3cd; padding: 10px; margin: 10px 0; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>TypeScript ↔ AO Lua Parity Test Report</h1>
+    
+    <div class="summary">
+        <h2>Summary</h2>
+        <p><strong>Generated:</strong> 2025-09-25T12:11:10.730Z</p>
+        <p><strong>Total Tests:</strong> 2</p>
+        <p><strong>Passed:</strong> <span class="pass">0</span></p>
+        <p><strong>Failed:</strong> <span class="fail">2</span></p>
+        <p><strong>Errors:</strong> <span class="error">0</span></p>
+        <p><strong>Success Rate:</strong> 0.0%</p>
+    </div>
+    
+    <h2>Test Results</h2>
+    
+        <div class="test-result">
+            <h3>Basic Damage Calculation <span class="fail">FAIL</span></h3>
+            <p><strong>Execution Times:</strong> TypeScript: 0ms, AO: 0ms</p>
+            
+                <div class="differences">
+                    <h4>Differences (1):</h4>
+                    <ul>
+                        <li>Value difference for 'damage': TS=85, AO=88</li>
+                    </ul>
+                </div>
+            
+        </div>
+    
+        <div class="test-result">
+            <h3>Stat Calculation with Nature <span class="fail">FAIL</span></h3>
+            <p><strong>Execution Times:</strong> TypeScript: 0ms, AO: 0ms</p>
+            
+                <div class="differences">
+                    <h4>Differences (6):</h4>
+                    <ul>
+                        <li>Key 'hp' present in TypeScript but missing in AO</li><li>Key 'attack' present in TypeScript but missing in AO</li><li>Key 'defense' present in TypeScript but missing in AO</li><li>Key 'damage' present in AO but missing in TypeScript</li><li>Key 'effectiveness' present in AO but missing in TypeScript</li><li>Key 'critical' present in AO but missing in TypeScript</li>
+                    </ul>
+                </div>
+            
+        </div>
+    
+</body>
+</html>

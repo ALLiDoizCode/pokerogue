@@ -1,0 +1,17 @@
+{
+  "id": "capture-rate-pokeball",
+  "name": "Capture Rate - Pokeball",
+  "type": "capture_probability",
+  "category": "probability",
+  "description": "Validate Pokeball capture probability",
+  "iterations": 10000,
+  "parameters": {
+    "catchRate": 45,
+    "ballModifier": 1,
+    "statusModifier": 1,
+    "hpRatio": 0.5
+  },
+  "expectedDistribution": {
+    "rate": 0.088
+  }
+}

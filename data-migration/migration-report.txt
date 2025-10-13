@@ -1,0 +1,28 @@
+Pokemon Species Data Migration Report
+=====================================
+Generated: 2025-09-23T15:49:51.914Z
+
+Source Files:
+- Species definitions: /Users/jonathangreen/Documents/pokerogue/typescript-reference/src/data/balance/pokemon-species.ts
+- Species IDs: /Users/jonathangreen/Documents/pokerogue/typescript-reference/src/enums/species-id.ts
+
+Migration Statistics:
+- Species IDs parsed: 1082
+- Species data parsed: 1000
+- Species migrated: 50 (limited for initial version)
+
+Data Validation:
+- Valid species with IDs: 1000
+- Invalid species (no ID): 0
+
+Sample Species:
+- BULBASAUR (1): Seed Pokémon [GRASS/POISON]
+- IVYSAUR (2): Seed Pokémon [GRASS/POISON]
+- VENUSAUR (3): Seed Pokémon [GRASS/POISON]
+- CHARMANDER (4): Lizard Pokémon [FIRE]
+- CHARMELEON (5): Flame Pokémon [FIRE]
+- CHARIZARD (6): Flame Pokémon [FIRE/FLYING]
+- SQUIRTLE (7): Tiny Turtle Pokémon [WATER]
+- WARTORTLE (8): Turtle Pokémon [WATER]
+- BLASTOISE (9): Shellfish Pokémon [WATER]
+- CATERPIE (10): Worm Pokémon [BUG]

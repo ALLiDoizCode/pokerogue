@@ -1,0 +1,7 @@
++K true
++A30
++P 1048576
+-name hyperbeam_local@127.0.0.1
+-setcookie hyperbeam_local_cookie
+-kernel inet_dist_listen_min 9100
+-kernel inet_dist_listen_max 9155

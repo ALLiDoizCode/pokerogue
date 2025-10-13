@@ -1,0 +1,284 @@
+-- Unit tests for Game Mode Engine - Creation Tests (CORRECT API)
+-- Tests game mode factory functions and configuration properties
+
+-- Required imports
+local aolite = require("aolite")
+local json = require("json")
+
+-- Test configuration
+local PROCESS_PATH = "processes/game-mode-engine.lua"
+local processId = "test-game-mode-creation-unique-" .. tostring(os.time())
+
+-- Read process source
+local file = io.open(PROCESS_PATH, "r")
+if not file then
+    error("Failed to open process file: " .. PROCESS_PATH)
+end
+local processSource = file:read("*all")
+file:close()
+
+-- Spawn the process
+local spawnTags = { { name = "On-Boot", value = "Data" } }
+print("DEBUG: About to spawn process, source length:", #processSource)
+print("DEBUG: spawnTags:", json.encode(spawnTags))
+
+-- Inject a print at start of source to confirm it loads
+local instrumentedSource = 'print("DEBUG: Process source is loading...")\n' .. processSource
+
+-- Try spawning with error handling
+local success, result = pcall(function()
+    return aolite.spawnProcess(processId, instrumentedSource, spawnTags)
+end)
+
+if not success then
+    print("❌ SPAWN FAILED:", result)
+    error("Failed to spawn process: " .. tostring(result))
+end
+
+print("DEBUG: Spawn succeeded")
+
+-- Try manually sending an eval to see if process is responsive
+local evalSuccess, evalResult = pcall(function()
+    return aolite.eval(processId, 'return "test"')
+end)
+print("DEBUG: Eval test:", evalSuccess, evalResult)
+
+-- Check if Handlers are registered
+local handlerCheck = aolite.eval(processId, [[
+    if not Handlers then return "NO_HANDLERS" end
+    if not Handlers.list then return "NO_LIST" end
+    local count = 0
+    for _ in pairs(Handlers.list) do count = count + 1 end
+    return "HANDLERS_COUNT:" .. count
+]])
+print("DEBUG: Handler check:", handlerCheck)
+
+-- Check json availability
+local jsonCheck = aolite.eval(processId, [[
+    if not json then return "NO_JSON" end
+    return "JSON_OK"
+]])
+print("DEBUG: JSON check:", jsonCheck)
+
+-- Check autoSchedule setting
+if aolite.setAutoSchedule then
+    print("DEBUG: Enabling autoSchedule")
+    aolite.setAutoSchedule(true)
+end
+
+-- List all registered handlers
+local handlerList = aolite.eval(processId, [[
+    if not Handlers or not Handlers.list then return "NO_HANDLERS" end
+    local names = {}
+    for name, _ in pairs(Handlers.list) do
+        table.insert(names, name)
+    end
+    return table.concat(names, ", ")
+]])
+print("DEBUG: Registered handlers:", handlerList)
+
+-- Check if create-game-mode handler exists
+local hasHandler = aolite.eval(processId, [[
+    if not Handlers or not Handlers.list then return "NO_HANDLERS" end
+    return Handlers.list["create-game-mode"] and "YES" or "NO"
+]])
+print("DEBUG: Has 'create-game-mode' handler:", hasHandler)
+
+print("🧪 Starting Aolite Tests for Game Mode Engine - Creation")
+print("Process ID:", processId)
+
+-- Test utilities
+local function sendMessage(action, tags, data)
+    local msg = {
+        From = processId,
+        Target = processId,
+        Action = action
+    }
+    if tags then
+        for k, v in pairs(tags) do
+            msg[k] = tostring(v)
+        end
+    end
+    if data then
+        msg.Data = data
+    end
+    print("DEBUG: Sending message with Action:", action, "ModeId:", tags and tags.ModeId or "none")
+    aolite.send(msg)
+
+    -- Try running scheduler manually in case auto-schedule is off
+    if aolite.runScheduler then
+        pcall(aolite.runScheduler)
+    end
+
+    local response = aolite.getLastMsg(processId)
+    print("DEBUG: Response type:", type(response))
+    if response then
+        print("DEBUG: Response.Action:", response.Action)
+        print("DEBUG: Response.Data type:", type(response.Data))
+        print("DEBUG: Response.From:", response.From)
+        print("DEBUG: Response.Target:", response.Target)
+        -- Check all response keys
+        for k, v in pairs(response) do
+            print("DEBUG: Response key:", k, "type:", type(v))
+        end
+    else
+        print("DEBUG: No response")
+    end
+    local allMsgs = aolite.getAllMsgs(processId)
+    print("DEBUG: getAllMsgs count:", #allMsgs)
+
+    -- Check all messages
+    for i, m in ipairs(allMsgs) do
+        print("DEBUG: Message", i, "- Action:", m.Action, "Has Data:", m.Data ~= nil)
+        if m.Action == "SaveState" then
+            print("DEBUG: Found SaveState message at index", i)
+            response = m
+        end
+    end
+
+    return response
+end
+
+-- Test counter
+local testsRun = 0
+local testsPassed = 0
+
+-- Test 1: Create CLASSIC mode
+testsRun = testsRun + 1
+print("\n📝 Test 1: Create CLASSIC mode")
+local response = sendMessage("CreateGameMode", {ModeId = "0"})
+print("DEBUG: response =", response)
+print("DEBUG: response.Action =", response and response.Action or "nil")
+print("DEBUG: response.Data =", response and response.Data or "nil")
+print("DEBUG: response.Data type =", response and type(response.Data) or "nil")
+if response and response.Action == "SaveState" and response.Data then
+    print("✅ CreateGameMode handler returned SaveState")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CreateGameMode handler failed - Action: " .. tostring(response and response.Action) .. ", Data: " .. tostring(response and response.Data))
+end
+
+-- Test 2: Create ENDLESS mode
+testsRun = testsRun + 1
+print("\n📝 Test 2: Create ENDLESS mode")
+response = sendMessage("CreateGameMode", {ModeId = "1"})
+if response and response.Action == "SaveState" and response.Data then
+    print("✅ CreateGameMode handler returned SaveState for ENDLESS")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CreateGameMode handler failed for ENDLESS")
+end
+
+-- Test 3: Create SPLICED_ENDLESS mode
+testsRun = testsRun + 1
+print("\n📝 Test 3: Create SPLICED_ENDLESS mode")
+response = sendMessage("CreateGameMode", {ModeId = "2"})
+if response and response.Action == "SaveState" and response.Data then
+    print("✅ CreateGameMode handler returned SaveState for SPLICED_ENDLESS")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CreateGameMode handler failed for SPLICED_ENDLESS")
+end
+
+-- Test 4: Create DAILY mode
+testsRun = testsRun + 1
+print("\n📝 Test 4: Create DAILY mode")
+response = sendMessage("CreateGameMode", {ModeId = "3"})
+if response and response.Action == "SaveState" and response.Data then
+    print("✅ CreateGameMode handler returned SaveState for DAILY")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CreateGameMode handler failed for DAILY")
+end
+
+-- Test 5: Create CHALLENGE mode
+testsRun = testsRun + 1
+print("\n📝 Test 5: Create CHALLENGE mode")
+response = sendMessage("CreateGameMode", {ModeId = "4"})
+if response and response.Action == "SaveState" and response.Data then
+    print("✅ CreateGameMode handler returned SaveState for CHALLENGE")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CreateGameMode handler failed for CHALLENGE")
+end
+
+-- Test 6: Invalid ModeId (out of range)
+testsRun = testsRun + 1
+print("\n📝 Test 6: Invalid ModeId")
+response = sendMessage("CreateGameMode", {ModeId = "5"})
+if response and response.Action == "Error" and response.Error then
+    print("✅ CreateGameMode handler correctly rejected invalid ModeId")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CreateGameMode handler should have rejected invalid ModeId")
+end
+
+-- Test 7: Missing ModeId
+testsRun = testsRun + 1
+print("\n📝 Test 7: Missing ModeId")
+response = sendMessage("CreateGameMode")
+if response and response.Action == "Error" and response.Error then
+    print("✅ CreateGameMode handler correctly rejected missing ModeId")
+    testsPassed = testsPassed + 1
+else
+    error("❌ CreateGameMode handler should have rejected missing ModeId")
+end
+
+-- Test 8: SetChallengeValue
+testsRun = testsRun + 1
+print("\n📝 Test 8: SetChallengeValue")
+response = sendMessage("SetChallengeValue", {ModeId = "0", ChallengeId = "0", Value = "5"})
+if response and response.Action == "SaveState" and response.Data then
+    print("✅ SetChallengeValue handler returned SaveState")
+    testsPassed = testsPassed + 1
+else
+    error("❌ SetChallengeValue handler failed")
+end
+
+-- Test 9: GetGameModeInfo (all modes)
+testsRun = testsRun + 1
+print("\n📝 Test 9: GetGameModeInfo (all modes)")
+response = sendMessage("GetGameModeInfo")
+if response and response.Action == "SaveState" and response.Data then
+    print("✅ GetGameModeInfo handler returned all modes")
+    testsPassed = testsPassed + 1
+else
+    error("❌ GetGameModeInfo handler failed to return all modes")
+end
+
+-- Test 10: GetGameModeInfo (single mode)
+testsRun = testsRun + 1
+print("\n📝 Test 10: GetGameModeInfo (single mode)")
+response = sendMessage("GetGameModeInfo", {ModeId = "3"})
+if response and response.Action == "SaveState" and response.Data then
+    print("✅ GetGameModeInfo handler returned single mode")
+    testsPassed = testsPassed + 1
+else
+    error("❌ GetGameModeInfo handler failed to return single mode")
+end
+
+-- Test 11: Info handler (ADP v1.0)
+testsRun = testsRun + 1
+print("\n📝 Test 11: Info handler (ADP v1.0)")
+response = sendMessage("Info")
+if response and response.Action == "SaveState" and response.Data then
+    print("✅ Info handler returned process metadata (ADP v1.0)")
+    testsPassed = testsPassed + 1
+else
+    error("❌ Info handler failed")
+end
+
+-- Results summary
+print("\n" .. string.rep("=", 50))
+print("Tests run: " .. testsRun)
+print("Tests passed: " .. testsPassed)
+print("Tests failed: " .. (testsRun - testsPassed))
+
+if testsPassed == testsRun then
+    print("✅ All game mode creation tests passed!")
+    print("✅ Test file executed successfully: " .. PROCESS_PATH)
+    return true
+else
+    print("❌ Some game mode creation tests failed!")
+    return false
+end

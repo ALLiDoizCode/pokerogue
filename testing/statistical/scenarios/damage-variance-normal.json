@@ -1,0 +1,15 @@
+{
+  "id": "damage-variance-normal",
+  "name": "Damage Variance - Normal Attack",
+  "type": "damage_variance",
+  "category": "damage",
+  "description": "Validate damage variance range (85-100%)",
+  "iterations": 5000,
+  "parameters": {
+    "baseDamage": 100
+  },
+  "expectedDistribution": {
+    "mean": 92.5,
+    "variance": 18.75
+  }
+}

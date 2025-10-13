@@ -1,0 +1,262 @@
+{
+  "testScenario": {
+    "id": "single-turn-battle-001",
+    "name": "Single Turn Battle Message Flow",
+    "type": "integration",
+    "description": "Tests coordinator -> battle-engine -> data processes flow for a single battle turn",
+    "processes": ["coordinator-process", "battle-engine", "pokemon-species-db", "moves-database", "damage-calculator"]
+  },
+  "gameState": {
+    "version": "1.0.0",
+    "playerId": "test-player-001",
+    "battleId": "battle-001",
+    "party": [
+      {
+        "id": "pokemon-001",
+        "speciesId": 25,
+        "level": 50,
+        "stats": {
+          "hp": 150,
+          "attack": 100,
+          "defense": 80,
+          "specialAttack": 120,
+          "specialDefense": 90,
+          "speed": 110
+        },
+        "currentHp": 150,
+        "moves": [10, 85, 113, 129],
+        "nature": "Modest"
+      }
+    ],
+    "currentBattle": {
+      "battleType": "wild",
+      "turn": 1,
+      "phase": "command",
+      "playerPokemon": {
+        "id": "pokemon-001",
+        "currentHp": 150
+      },
+      "enemyPokemon": {
+        "speciesId": 16,
+        "level": 45,
+        "currentHp": 120,
+        "stats": {
+          "hp": 120,
+          "attack": 70,
+          "defense": 60,
+          "specialAttack": 50,
+          "specialDefense": 60,
+          "speed": 80
+        }
+      },
+      "battleSeed": "test-seed-12345"
+    }
+  },
+  "messageFlow": [
+    {
+      "step": 1,
+      "source": "test-client",
+      "target": "coordinator-process",
+      "action": "ProcessBattleTurn",
+      "data": {
+        "battleId": "battle-001",
+        "playerId": "test-player-001",
+        "command": {
+          "type": "attack",
+          "moveId": 85,
+          "targetId": "enemy-pokemon"
+        },
+        "battleSeed": "test-seed-12345"
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true
+      },
+      "timeout": 5000
+    },
+    {
+      "step": 2,
+      "source": "coordinator-process",
+      "target": "moves-database",
+      "action": "QueryMove",
+      "data": {
+        "moveId": 85
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "moveId": 85,
+          "name": "Thunderbolt",
+          "type": "Electric",
+          "category": "Special",
+          "power": 90,
+          "accuracy": 100,
+          "pp": 15
+        }
+      },
+      "timeout": 2000
+    },
+    {
+      "step": 3,
+      "source": "coordinator-process",
+      "target": "pokemon-species-db",
+      "action": "QuerySpecies",
+      "data": {
+        "speciesId": 25
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "speciesId": 25,
+          "name": "Pikachu",
+          "type1": "Electric",
+          "type2": null,
+          "baseStats": {
+            "hp": 35,
+            "attack": 55,
+            "defense": 40,
+            "specialAttack": 50,
+            "specialDefense": 50,
+            "speed": 90
+          }
+        }
+      },
+      "timeout": 2000
+    },
+    {
+      "step": 4,
+      "source": "coordinator-process",
+      "target": "pokemon-species-db",
+      "action": "QuerySpecies",
+      "data": {
+        "speciesId": 16
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "speciesId": 16,
+          "name": "Pidgey",
+          "type1": "Normal",
+          "type2": "Flying",
+          "baseStats": {
+            "hp": 40,
+            "attack": 45,
+            "defense": 40,
+            "specialAttack": 35,
+            "specialDefense": 35,
+            "speed": 56
+          }
+        }
+      },
+      "timeout": 2000
+    },
+    {
+      "step": 5,
+      "source": "coordinator-process",
+      "target": "battle-engine",
+      "action": "ProcessBattle",
+      "data": {
+        "battleData": {
+          "attacker": {
+            "speciesId": 25,
+            "level": 50,
+            "stats": {
+              "hp": 150,
+              "attack": 100,
+              "defense": 80,
+              "specialAttack": 120,
+              "specialDefense": 90,
+              "speed": 110
+            },
+            "currentHp": 150,
+            "nature": "Modest"
+          },
+          "defender": {
+            "speciesId": 16,
+            "level": 45,
+            "currentHp": 120,
+            "stats": {
+              "hp": 120,
+              "attack": 70,
+              "defense": 60,
+              "specialAttack": 50,
+              "specialDefense": 60,
+              "speed": 80
+            }
+          },
+          "move": {
+            "moveId": 85,
+            "name": "Thunderbolt",
+            "type": "Electric",
+            "category": "Special",
+            "power": 90,
+            "accuracy": 100
+          },
+          "battleSeed": "test-seed-12345",
+          "turn": 1
+        }
+      },
+      "expectedResponse": {
+        "Action": "Success",
+        "Success": true,
+        "Data": {
+          "battleResult": {
+            "damage": {
+              "min": 95,
+              "max": 115
+            },
+            "critical": false,
+            "effectiveness": 2.0,
+            "statusEffects": [],
+            "enemyFainted": false
+          }
+        }
+      },
+      "timeout": 3000
+    }
+  ],
+  "assertions": [
+    {
+      "type": "state_consistency",
+      "condition": "gameState.currentBattle.turn == 1",
+      "expected": true,
+      "description": "Battle turn should remain 1 during processing"
+    },
+    {
+      "type": "message_integrity",
+      "condition": "all_messages_have_required_fields",
+      "expected": true,
+      "description": "All messages must contain required AO protocol fields"
+    },
+    {
+      "type": "performance",
+      "condition": "total_execution_time",
+      "expected": "<5000ms",
+      "tolerance": "10%",
+      "description": "Complete battle turn should process within 5 seconds"
+    },
+    {
+      "type": "data_integrity",
+      "condition": "pokemon_stats_unchanged",
+      "expected": true,
+      "description": "Pokemon base stats should not be modified during battle calculation"
+    },
+    {
+      "type": "coordination",
+      "condition": "coordinator_orchestrates_all_calls",
+      "expected": true,
+      "description": "All inter-process communication should be coordinated through coordinator-process"
+    }
+  ],
+  "metadata": {
+    "author": "Integration Test Framework",
+    "created": "2025-09-22",
+    "tags": ["battle", "single-turn", "coordination", "integration"],
+    "priority": "high",
+    "expectedDuration": 5000,
+    "retryCount": 3
+  }
+}

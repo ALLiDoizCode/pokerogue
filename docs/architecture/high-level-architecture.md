@@ -2,36 +2,44 @@
 
 ## Technical Summary
 
-The PokéRogue AO migration employs a **monolithic single-process architecture** running entirely on AO handlers, transforming the existing object-oriented TypeScript codebase into a functional message-driven Lua system. The architecture prioritizes **100% behavioral parity** with the current implementation while enabling autonomous agent participation through AO's message-passing protocol. Core architectural patterns include handler-based game state management, deterministic battle resolution through seeded RNG systems, and comprehensive state persistence via AO process memory, directly supporting the PRD's goal of creating the world's first fully UI-agnostic roguelike where AI agents battle as first-class citizens.
+The PokéRogue AO migration employs a **26-process stateless architecture with async coordination**, transforming the existing object-oriented TypeScript codebase into specialized, stateless Lua processes that communicate through message passing. The architecture prioritizes **100% behavioral parity** with the current implementation while leveraging process specialization for data and logic separation. Core architectural patterns include async message coordination, stateless process design, specialized data/logic process separation, and comprehensive TDD with parity validation, directly supporting the PRD's goal of creating the world's first fully UI-agnostic roguelike where AI agents battle as first-class citizens.
 
 ## High Level Overview
 
-**Architectural Style:** **AO-Native Monolithic Handler System**
-- Single comprehensive AO process containing all game logic as specialized Lua handlers
-- Message-driven architecture replacing object-oriented event systems
-- Functional programming patterns replacing class inheritance hierarchies
+**Architectural Style:** **26-Process Stateless Architecture with Async Coordination**
+- 26 specialized stateless Lua processes (data processes, logic processes, coordinator)
+- Async message passing coordination via coordinator-process for complex workflows
+- Each process under 500KB size constraint with complete self-contained functionality
+- No persistent state within processes - GameState flows through processes
 
 **Repository Structure:** **Monorepo** (from PRD Technical Assumptions)
-- `/ao-processes/` - Lua handlers and AO process logic  
+- `/processes/` - 26 stateless Lua processes (battle-processor.lua, pokemon-species-db.lua, etc.)
+- `/testing/` - Comprehensive TDD framework (aolite unit tests, aos-local integration, parity validation)
+- `/tools/` - AO sandbox validation, process size monitoring, performance testing
+- `/fixtures/` - Test data and golden master outputs for parity validation
 - `/typescript-reference/` - Current implementation for parity testing
-- `/shared-schemas/` - JSON message formats and type definitions
 
-**Service Architecture:** **Single Process with Handler Specialization**
-- All game mechanics consolidated in one AO process for reference integrity
-- Specialized handlers for: battles, state queries, progression, inventory management
-- Future multi-process expansion supported through message protocol design
+**Service Architecture:** **Distributed Process Topology with Coordinator-Led Orchestration**
+- Data processes (pokemon-species-db, moves-database, items-database, abilities-database)
+- Logic processes (battle-engine, evolution-engine, capture-engine, status-effects-engine)  
+- Coordinator process orchestrates multi-step async workflows
+- Client-side or coordinator-side GameState persistence
+- Fixed process topology - all processes known at deployment
 
-**Primary Data Flow:** **Player → AO Messages → Handler → State Update → Response**
-1. Players/agents send battle commands via AO messages
-2. Specialized handlers process game logic (battle resolution, state changes)
-3. Process state updates atomically
-4. Responses sent back with battle results and updated state
+**Primary Data Flow:** **Client → Coordinator → Data Processes → Logic Processes → Final Result → Client**
+1. Client sends coordinated request to coordinator-process with GameState
+2. Coordinator orchestrates async data collection from specialized data processes
+3. Coordinator sends collected data + GameState to appropriate logic process
+4. Logic process performs calculations and returns updated GameState
+5. Coordinator returns final result to client with updated GameState
 
 **Key Architectural Decisions:**
-- **Functional Over OOP:** Lua tables with behavior functions replace TypeScript classes
-- **Message-Driven:** AO messages replace Phaser.js event system
-- **Atomic State:** AO process memory ensures consistent game state
-- **Deterministic Logic:** Battle seed system preserved for exact behavior matching
+- **Process Specialization:** Data processes (pure reference data) vs Logic processes (pure computation)
+- **Stateless Design:** No persistent state in processes - GameState flows through system
+- **Async Coordination:** Coordinator orchestrates complex multi-step workflows via message passing
+- **Size Optimization:** Each process <500KB through aggressive inlining and data compression
+- **Agent-First:** Rich query interfaces and standardized message protocols for agents
+- **Generic Response Pattern:** All processes return via "SaveState" action for uniform client handling
 
 ## High Level Project Diagram
 
@@ -39,50 +47,72 @@ The PokéRogue AO migration employs a **monolithic single-process architecture**
 graph TB
     subgraph "Player Interfaces"
         P1[Human Players<br/>Phase 2: AOConnect UI]
-        P2[AI Agents<br/>Phase 3: Direct AO Messages]
+        P2[AI Agents<br/>Phase 3: AO Messages]
+        P3[Client Applications<br/>GameState Management]
     end
     
-    subgraph "AO Process: PokéRogue Game Engine"
-        H1[Battle Handler<br/>Turn resolution, damage calc]
-        H2[State Handler<br/>Save/load, progression]
-        H3[Query Handler<br/>Game state requests]
-        H4[Admin Handler<br/>Process info, discovery]
-        
-        STATE[(Game State<br/>Players, Pokemon, Progress)]
+    subgraph "Coordinator Process"
+        COORD[coordinator-process.lua<br/>Async workflow orchestration<br/>Operation state management<br/>Error handling & timeouts]
     end
     
-    subgraph "External Systems"
-        AR[Arweave<br/>Permanent Storage]
-        TEST[Test Suite<br/>Parity Validation]
+    subgraph "Data Processes (~500KB each)"
+        DP1[pokemon-species-db.lua<br/>Species + evolution data]
+        DP2[moves-database.lua<br/>Moves + type effectiveness]  
+        DP3[items-database.lua<br/>Items + berries + effects]
+        DP4[abilities-database.lua<br/>Abilities + mechanics]
     end
     
-    P1 --> H1
-    P1 --> H2
-    P1 --> H3
-    P2 --> H1
-    P2 --> H2
-    P2 --> H3
+    subgraph "Logic Processes (~400KB each)"
+        LP1[battle-engine.lua<br/>Damage + turn resolution]
+        LP2[evolution-engine.lua<br/>Evolution logic only]
+        LP3[capture-engine.lua<br/>Capture mechanics]
+        LP4[status-effects-engine.lua<br/>Status + weather + terrain]
+    end
     
-    H1 --> STATE
-    H2 --> STATE
-    H3 --> STATE
-    H4 --> STATE
+    subgraph "Specialized Processes"
+        SP1[state-validator.lua<br/>Data integrity + validation]
+        SP2[query-processor.lua<br/>Agent queries + aggregation]
+    end
     
-    STATE --> AR
-    TEST --> H1
-    TEST --> H2
+    P1 --> COORD
+    P2 --> COORD
+    P3 --> COORD
+    
+    COORD --> DP1
+    COORD --> DP2
+    COORD --> DP3
+    COORD --> DP4
+    
+    COORD --> LP1
+    COORD --> LP2
+    COORD --> LP3
+    COORD --> LP4
+    
+    COORD --> SP1
+    COORD --> SP2
+    
+    DP1 -.-> LP1
+    DP2 -.-> LP1
+    DP3 -.-> LP3
+    DP4 -.-> LP1
 ```
 
 ## Architectural and Design Patterns
 
-- **AO Message-Handler Pattern:** All game interactions through `Handlers.add()` with specialized message types - _Rationale:_ Replaces OOP method calls with functional message processing, enabling agent participation
+- **Stateless Process Pattern:** Each process receives complete state, performs computation, returns updated state - _Rationale:_ Pure functional design enables horizontal scaling, fault tolerance, and deterministic behavior
 
-- **Functional State Management:** Game state as Lua tables with pure transformation functions - _Rationale:_ Eliminates class inheritance complexity while maintaining state consistency  
+- **Async Message Coordination:** Coordinator orchestrates multi-step workflows via message passing without blocking - _Rationale:_ Leverages AO's async-only design while maintaining complex workflow capabilities
 
-- **Deterministic Battle Resolution:** Seeded RNG system using battle-specific seeds for reproducible outcomes - _Rationale:_ Ensures exact parity with TypeScript implementation and enables battle replay/verification
+- **Process Specialization:** Data processes (pure reference data) vs Logic processes (pure computation) - _Rationale:_ Optimal resource utilization and clear separation of concerns within 500KB constraints
 
-- **Handler Specialization Pattern:** Single process with domain-specific handlers (Battle, State, Query) - _Rationale:_ Maintains reference integrity while organizing complex game logic
+- **Generic Response Protocol:** All processes return via uniform "SaveState" action regardless of input specificity - _Rationale:_ Simplifies client handling while preserving type safety on input side
 
-- **Atomic State Transactions:** All game state changes processed as complete units - _Rationale:_ Prevents partial state corruption and ensures consistent game progression
+- **Self-Contained Process Design:** Each process embeds all required data and functionality in single deployable file - _Rationale:_ Eliminates dependencies, ensures deployment consistency, enables independent scaling
 
-- **Message Protocol Abstraction:** JSON message schemas defining player/agent communication - _Rationale:_ Enables both human (Phase 2) and agent (Phase 3) interaction without architecture changes
+- **Operation State Machine:** Coordinator maintains operation lifecycle (pending → active → completed) - _Rationale:_ Enables complex multi-step workflows with proper error handling and recovery
+
+- **Client-Side State Persistence:** GameState persisted by client or external systems, not within processes - _Rationale:_ Maintains stateless design while enabling complex game state management
+
+- **Deterministic Computation:** All random operations use seeded RNG passed as message data - _Rationale:_ Enables replay, debugging, and cross-platform consistency without process-local state
+
+- **Size-Constrained Optimization:** Aggressive inlining and data compression within 500KB limits - _Rationale:_ Maximizes functionality while respecting AO platform constraints

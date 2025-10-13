@@ -1,11 +1,10 @@
-# PokéRogue AO Migration - Complete Architecture Document
+# PokéRogue Stateless AO Process Architecture
 
 ## Table of Contents
 
-- [PokéRogue AO Migration - Complete Architecture Document](#table-of-contents)
-  - [Introduction](./introduction.md)
-    - [Starter Template or Existing Project](./introduction.md#starter-template-or-existing-project)
-    - [Change Log](./introduction.md#change-log)
+- [PokéRogue Stateless AO Process Architecture](#table-of-contents)
+  - [Overview](./overview.md)
+    - [Change Log](./overview.md#change-log)
   - [High Level Architecture](./high-level-architecture.md)
     - [Technical Summary](./high-level-architecture.md#technical-summary)
     - [High Level Overview](./high-level-architecture.md#high-level-overview)

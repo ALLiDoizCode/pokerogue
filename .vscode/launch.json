@@ -1,0 +1,114 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "🧪 Debug Lua Test File",
+            "type": "lua",
+            "request": "launch",
+            "program": "${file}",
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false,
+            "args": [],
+            "console": "integratedTerminal",
+            "preLaunchTask": "🧹 Clean Test Reports"
+        },
+        {
+            "name": "🧪 Debug Test with aolite",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/node_modules/.bin/aolite",
+            "args": [
+                "--test",
+                "${file}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            "name": "🔧 Debug Test Generator",
+            "type": "lua",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/generators/test-skeleton-generator.lua",
+            "args": [
+                "generate",
+                "${file}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "📊 Debug Coverage Collector",
+            "type": "lua",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/coverage/lua-coverage-collector.lua",
+            "args": [
+                "instrument",
+                "${file}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "🐛 Debug TDD Validation",
+            "type": "shell",
+            "request": "launch",
+            "command": "bash",
+            "args": [
+                "${workspaceFolder}/scripts/hooks/tdd-pre-commit.sh",
+                "${file}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "⚙️ Debug GitHub Integration",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/issue-linker/github-integration.js",
+            "args": [
+                "create",
+                "${workspaceFolder}/testing/reports/test-failures.json"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "DRY_RUN": "true",
+                "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
+            },
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            "name": "📈 Debug Coverage Reporter",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/coverage/coverage-reporter.js",
+            "args": [
+                "${workspaceFolder}/testing/coverage/coverage-report.json"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            "name": "🗺️ Debug Test Issue Mapper",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/issue-linker/test-issue-mapper.js",
+            "args": [
+                "report"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        }
+    ]
+}

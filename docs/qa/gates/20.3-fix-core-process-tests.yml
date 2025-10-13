@@ -1,0 +1,112 @@
+schema: 1
+story: "20.3"
+story_title: "Fix Core Process Tests (Unlockables, Environmental, AI)"
+gate: CONCERNS
+status_reason: "Critical AI switch dampening bug fixed during review. Test isolation issues identified but marked out of scope."
+reviewer: "Quinn (Test Architect)"
+updated: "2025-10-09T00:00:00Z"
+
+top_issues:
+  - id: "BUG-001"
+    severity: high
+    finding: "AI switch dampening formula incorrectly implemented - Dev used counter-1 offset causing first switch to have multiplier 1.0 instead of correct 0.9"
+    suggested_action: "Fixed during review - TypeScript uses enemySwitchCounter starting at 0, formula should be: counter==0 ? 1.0 : (1 - Math.pow(0.1, 1/counter))"
+    suggested_owner: qa
+    status: FIXED
+  - id: "TEST-001"
+    severity: medium
+    finding: "Test suite shows isolation issues when run in batch - processes with same IDs cause conflicts (unlockable, environmental tests fail in suite but pass individually)"
+    suggested_action: "Test framework improvements needed (Story 20.4) - unique process IDs per test run or proper cleanup"
+    suggested_owner: dev
+    status: ACKNOWLEDGED
+
+waiver:
+  active: false
+
+quality_score: 70
+expires: "2025-10-23T00:00:00Z"
+
+evidence:
+  tests_reviewed: 4
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 3, 4]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: "No security concerns - test fixes only affect test behavior and AI battle logic parity"
+  performance:
+    status: PASS
+    notes: "No performance impact - formula fix maintains O(1) calculation complexity"
+  reliability:
+    status: CONCERNS
+    notes: "Test isolation issues indicate fragility in test framework - may cause false failures in CI/CD"
+  maintainability:
+    status: PASS
+    notes: "Code quality improved with correct formula implementation and clear comments"
+
+recommendations:
+  immediate:
+    - action: "Verify AI switch dampening formula fix didn't break gameplay balance"
+      refs: ["processes/ai-move-selection-engine.lua:1647-1654", "processes/ai-move-selection-engine.lua:1988-1990"]
+    - action: "Update Story 20.3 completion notes to reflect QA-discovered formula bug and fix"
+      refs: ["docs/stories/story-20.3-fix-core-process-tests.md:194-199"]
+  future:
+    - action: "Implement test isolation improvements in Story 20.4 (unique process IDs or cleanup)"
+      refs: ["testing/unit/unlockable-content-engine.test.lua", "testing/unit/environmental-cycle.test.lua"]
+    - action: "Add parity tests to verify AI switch dampening matches TypeScript exactly"
+      refs: ["testing/parity/ai-switch-decision-parity.test.lua"]
+
+detailed_findings:
+  code_quality:
+    status: GOOD
+    notes: |
+      - environmental-cycle.test.lua: Test expectation bug fixed (cycle 20 is NIGHT not DUSK)
+      - ai-switch-matchup-scoring.test.lua: Test data bug fixed (STAB bonus removed from dying Pokemon test)
+      - ai-move-selection-engine.lua: CRITICAL formula bug fixed (counter offset corrected)
+      - unlockable-content-engine.lua: Handler logic inlined to avoid helper function errors
+
+  formula_correctness:
+    status: FIXED
+    notes: |
+      TypeScript: switchMultiplier = 1 - (battle.enemySwitchCounter ? Math.pow(0.1, 1 / battle.enemySwitchCounter) : 0)
+      - Counter starts at 0 for first switch opportunity
+      - Counter 0: multiplier = 1.0 (no dampening)
+      - Counter 1: multiplier = 0.9 (first switch)
+      - Counter 2: multiplier = 0.68 (second switch)
+
+      Dev's WRONG Implementation:
+      - Used (counter == 1) ? 1.0 : (1 - Math.pow(0.1, 1/(counter-1)))
+      - This gave counter=1 a multiplier of 1.0 (should be 0.9)
+      - Off by one error due to misunderstanding counter semantics
+
+      QA's CORRECT Fix:
+      - Changed to (counter == 0) ? 1.0 : (1 - Math.pow(0.1, 1/counter))
+      - Updated test expectations to match TypeScript behavior
+      - Added comments explaining counter starts at 0
+
+  test_isolation:
+    status: CONCERNS
+    notes: |
+      Full test suite failures for unlockable-content-engine and environmental-cycle:
+      - unlockable: "GetPlayerUnlocks handler returns request action instead of response"
+      - environmental: "json.lua:175: unexpected character '' at line 1 col 1"
+      - Both pass when run individually
+      - Indicates process ID collisions or state pollution
+      - Out of scope for Story 20.3 per Dev's completion notes
+
+  requirements_traceability:
+    task_1_unlockables:
+      status: PASS
+      notes: "Test passes individually - handler logic inlined to avoid function call issues"
+    task_2_environmental:
+      status: PASS
+      notes: "Test expectation corrected - cycle 20 is NIGHT (3) not DUSK (2)"
+    task_3_ai_scoring:
+      status: PASS
+      notes: "Test data corrected - removed STAB bonus causing false sacrifice logic"
+    task_4_ai_decision:
+      status: PASS
+      notes: "Process formula corrected - switch dampening now matches TypeScript exactly"

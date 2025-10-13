@@ -1,22 +1,22 @@
 # Goals and Background Context
 
 ## Goals
-Based on your Project Brief, here are the key desired outcomes this PRD will deliver:
-
-• **Complete AO-Native Game Engine Migration** - Achieve 100% functional parity with current PokéRogue on AO processes with zero game mechanics lost
-• **Establish Permanent Save System** - Eliminate save corruption and enable cross-device gameplay through AO process persistence  
-• **Enable Autonomous Agent Integration** - Create first UI-agnostic roguelike where AI agents can participate as first-class players
-• **Demonstrate AO Gaming Feasibility** - Prove complex game logic can operate effectively on AO protocol at scale
-• **Build Decentralized Gaming Foundation** - Remove centralized server dependencies while maintaining player experience
-• **Create Open Source Reference** - Establish reproducible workflow for AO game development that other projects can adopt
+- Transform PokéRogue into a highly scalable, modular game architecture using 26 specialized stateless AO processes
+- Achieve optimal resource utilization through process specialization and async coordination patterns
+- Create the world's first decentralized roguelike optimized for autonomous agent participation using stateless process topology
+- Establish a modern foundation that eliminates monolithic architecture limitations through distributed processing
+- Enable infinite scalability through stateless process design and horizontal scaling capabilities
+- Demonstrate cutting-edge distributed process patterns that can serve as reference architecture for decentralized games
 
 ## Background Context
 
-This PRD addresses the fundamental limitation that PokéRogue, as a browser-dependent centralized game, excludes the growing ecosystem of autonomous AI agents from participation. The current architecture creates fragile save systems (15-20% of players lose progress), requires centralized servers, and prevents the emerging market of 500+ AO agent developers from building gaming integrations.
+PokéRogue represents a revolutionary leap from monolithic game architecture to a distributed 26-process stateless system optimized for the Arweave AO protocol. This stateless approach eliminates the constraints of state management within processes, enabling unprecedented scalability and fault tolerance through pure functional process design and async message coordination.
 
-The migration strategy leverages AO's turn-based message-passing architecture to solve these problems through a three-phase approach: first migrating game mechanics to AO handlers for permanent storage and reliability, then integrating the existing UI through AOConnect, and finally enabling AI agents to participate alongside human players in a truly decentralized PVPVE environment.
+The Stateless AO Process architecture addresses fundamental scalability bottlenecks in traditional game engines by treating processes as pure computation functions that receive complete state, perform specialized logic, and return updated state. This approach enables the game to scale horizontally across the AO network while maintaining deterministic behavior, positioning PokéRogue as the first truly scalable decentralized game.
 
 ## Change Log
+
 | Date | Version | Description | Author |
-|------|---------|-------------|--------|
-| 2025-08-26 | 1.0 | Initial PRD creation based on Project Brief | John (PM Agent) |
+|------|---------|-------------|---------|
+| 2025-09-08 | 1.0.0 | Initial ECS PRD for greenfield architecture | Product Manager |
+| 2025-09-10 | 2.0.0 | **MAJOR REVISION**: 26-Process Stateless AO Architecture | Product Manager |

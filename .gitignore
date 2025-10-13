@@ -16,6 +16,8 @@ dist-ssr
 *.code-workspace
 .vscode/*
 !.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea
 .DS_Store
 *.suo
@@ -38,6 +40,20 @@ src/overrides.ts
 coverage
 /.vs
 
+# TDD System - Coverage and Reports
+testing/coverage/*
+!testing/coverage/.gitkeep
+testing/reports/tdd-metrics/*
+!testing/reports/tdd-metrics/.gitkeep
+.coverage-cache/
+*.coverage
+.git/tdd-bypass.log
+
+# Test Documentation (generated)
+docs/testing/
+testing/reports/test-*.json
+testing/reports/profile-*.json
+
 # Local Documentation
 /typedoc
 
@@ -46,4 +62,25 @@ coverage
 
 
 # Script outputs
-./*.csv
+./*.csvtarget/
+_build/
+*.beam
+*.so
+*.dylib
+
+# Package manager caches
+.pnpm-store/
+.yarn/cache/
+.npm/
+
+# Test reports (generated)
+testing/reports/aos-local-integration-*.html
+testing/reports/aos-local-integration-*.json
+testing/reports/parity-report-*.html
+testing/reports/parity-report-*.json
+testing/reports/statistical-validation-*.html
+testing/reports/statistical-validation-*.json
+
+# Temporary backup files
+*.bak
+*.backup

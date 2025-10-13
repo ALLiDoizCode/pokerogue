@@ -30,4 +30,12 @@ ignore:
    - .bmad-2d-phaser-game-dev
    - .bmad-core
    - .claude
-   - development-tools/aolite
+   - .ai
+   - development-tools
+   - .stories
+   - ao-processes
+   - data-migration
+   - parity-testing
+   - architecture
+   - comparison-battle-engines.md
+   - config

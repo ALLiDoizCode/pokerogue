@@ -4,10 +4,19 @@ pre-commit:
     - rebase
   commands:
     biome-lint:
-      run: pnpm exec biome check --write --reporter=summary --staged --no-errors-on-unmatched
+      run: npm exec biome check --write --reporter=summary --staged --no-errors-on-unmatched
       stage_fixed: true
     ls-lint:
-      run: pnpm exec ls-lint
+      run: npm exec ls-lint
+    ao-compliance:
+      run: lua tools/ao-sandbox-validator.lua
+      skip:
+        - ref: main
+      glob: "processes/*.lua"
+    tdd-validation:
+      run: scripts/hooks/tdd-pre-commit.sh
+      skip:
+        - ref: main
 
 post-merge:
   commands:
