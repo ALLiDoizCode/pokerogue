@@ -281,7 +281,7 @@ print("📝 Test 16: Response Format Compliance")
 local formatResponse = sendMessage("GetItem", {
     ItemId = tostring(ITEM.POKE_BALL)
 })
-if formatResponse and formatResponse.Action == "SaveState" and formatResponse.Data then
+if formatResponse and formatResponse.Action == "SaveState" and formatResponse.ItemId then
     print("✅ Response format compliance passed")
 else
     error("❌ Response format compliance failed")
@@ -290,8 +290,9 @@ end
 -- Test 17: Health Check
 print("📝 Test 17: Health Check")
 local healthResponse = sendMessage("HealthCheck")
-if healthResponse and healthResponse.Action == "HealthStatus" then
-    if healthResponse.Status == "healthy" then
+if healthResponse and healthResponse.Action == "SaveState" then
+    local healthData = type(healthResponse.Data) == "table" and healthResponse.Data or (healthResponse.Data and json.decode(healthResponse.Data))
+    if healthData and healthData.status == "healthy" then
         print("✅ Health check passed")
     else
         error("❌ Invalid health status")

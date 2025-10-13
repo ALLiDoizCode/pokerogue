@@ -137,7 +137,7 @@ print("📝 Test 11: Error Handling - Invalid Pokemon ID")
 local response11 = sendMessage("GetPokemonInstance", {
     PokemonId = "999"
 })
-if response11 and response11.Action ~= "Error" then
+if not response11 or not response11.Error or not response11.Error:match("not found") then
     error("❌ Test failed: Expected error for invalid Pokemon ID")
 end
 print("✅ Test 11 passed: Invalid Pokemon ID error handling")

@@ -48,8 +48,7 @@ local MOVE = {
 
 -- Test 1: GetMove by ID
 print("📝 Test 1: GetMove by ID (Thunderbolt)")
-local moveData = json.encode({ id = MOVE.THUNDERBOLT })
-local moveResponse = sendMessage("GetMove", nil, moveData)
+local moveResponse = sendMessage("GetMove", { MoveId = tostring(MOVE.THUNDERBOLT) })
 if moveResponse and (moveResponse.Action == "SaveState" or moveResponse.Action == "Response" or moveResponse.Action == "Data") then
     print("✅ GetMove by ID test passed")
 else
@@ -58,8 +57,7 @@ end
 
 -- Test 2: GetMove by Name
 print("📝 Test 2: GetMove by Name (Flamethrower)")
-local moveNameData = json.encode({ name = "Flamethrower" })
-local moveNameResponse = sendMessage("GetMove", nil, moveNameData)
+local moveNameResponse = sendMessage("GetMove", { MoveName = "Flamethrower" })
 if moveNameResponse and (moveNameResponse.Action == "SaveState" or moveNameResponse.Action == "Response" or moveNameResponse.Action == "Data") then
     print("✅ GetMove by name test passed")
 else
